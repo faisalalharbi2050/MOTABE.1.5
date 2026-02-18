@@ -1,0 +1,272 @@
+
+import React, { useState, useEffect } from 'react';
+import { Phase, Teacher, Specialization, Subject, ClassInfo, Assignment, SchoolInfo, Message, CalendarEvent, DailyScheduleItem, SubscriptionInfo, Student, Admin, ScheduleSettingsData, EntityType } from './types';
+import { INITIAL_SPECIALIZATIONS, INITIAL_SUBJECTS } from './constants';
+
+import Dashboard from './components/Dashboard';
+
+import GeneralSettingsWizard from './components/wizard/GeneralSettingsWizard';
+import BasicDataWizard from './components/wizard/BasicDataWizard'; // Import the new wizard
+import Step1General from './components/wizard/steps/Step1General';
+import Step3Subjects from './components/wizard/steps/Step3Subjects';
+import Step4Classes from './components/wizard/steps/Step4Classes';
+import Step5Students from './components/wizard/steps/Step5Students';
+import Step6Teachers from './components/wizard/steps/Step6Teachers';
+import Step7Admins from './components/wizard/steps/Step7Admins';
+import ScheduleSettings from './components/ScheduleSettings';
+
+import ManualAssignment from './components/ManualAssignment';
+
+import Sidebar from './components/Sidebar';
+import Header from './components/Header';
+import ClassesAndWaiting from './components/ClassesAndWaiting';
+import DailySupervision from './components/DailySupervision';
+import DailyDuty from './components/DailyDuty';
+import DailyWaiting from './components/DailyWaiting';
+import Messages from './components/Messages';
+import Permissions from './components/Permissions';
+import Subscription from './components/Subscription';
+import Support from './components/Support';
+
+const App: React.FC = () => {
+  const [schoolInfo, setSchoolInfo] = useState<SchoolInfo>({
+    entityType: EntityType.SCHOOL,
+    schoolName: '',
+    region: '',
+    departments: [],
+    phases: [Phase.ELEMENTARY],
+    gender: 'بنين',
+    educationalAgent: '',
+    principal: '',
+    // hasSecondSchool: false, // Removed from type, but checking if it causes issues. Type definition removed it? No, I kept it in type? Let me check type history.
+    // sharedSchools: [] // kept
+    sharedSchools: []
+  });
+  
+  const [teachers, setTeachers] = useState<Teacher[]>([]);
+  const [specializations, setSpecializations] = useState<Specialization[]>(INITIAL_SPECIALIZATIONS);
+  const [subjects, setSubjects] = useState<Subject[]>([]);
+  const [classes, setClasses] = useState<ClassInfo[]>([]);
+  const [students, setStudents] = useState<Student[]>([]);
+  const [admins, setAdmins] = useState<Admin[]>([]);
+  const [assignments, setAssignments] = useState<Assignment[]>([]);
+  const [gradeSubjectMap, setGradeSubjectMap] = useState<Record<string, string[]>>({});
+  const [scheduleSettings, setScheduleSettings] = useState<ScheduleSettingsData>({
+    subjectConstraints: [],
+    teacherConstraints: [],
+    meetings: [],
+    substitution: { method: 'auto', maxTotalQuota: 24, maxDailyTotal: 5 }
+  });
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'settings' | 'settings_basic' | 'settings_classes' | 'settings_subjects' | 'settings_students' | 'settings_teachers' | 'settings_admins' | 'database' | 'classes' | 'manual' | 'report'>('dashboard');
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+
+  // Mock Data for Dashboard
+  const [messages] = useState<Message[]>([
+    { id: '1', sender: 'مدير المدرسة', recipient: 'المعلمون', content: 'يرجى تسليم الدرجات', timestamp: new Date().toISOString(), type: 'whatsapp', status: 'sent' },
+    { id: '2', sender: 'الوكيل للشؤون التعليمية', recipient: 'الإداريون', content: 'اجتماع طارئ', timestamp: new Date(Date.now() - 3600000).toISOString(), type: 'sms', status: 'sent' },
+    { id: '3', sender: 'المرشد الطلابي', recipient: 'أولياء الأمور', content: 'موعد مجلس الأمهات', timestamp: new Date(Date.now() - 7200000).toISOString(), type: 'email', status: 'sent' },
+  ]);
+  const [events] = useState<CalendarEvent[]>([
+    { id: '1', title: 'اجتماع المعلمين', date: new Date().toISOString().split('T')[0], type: 'meeting' },
+  ]);
+  const [todaySchedule] = useState<DailyScheduleItem[]>([
+    { id: '1', type: 'absence', name: 'محمد حسن', time: 'طوال اليوم', role: 'معلم رياضيات' },
+    { id: '2', type: 'supervision', name: 'سعد القحطاني', time: '06:45 صباحاً', location: 'الساحة الأمامية' },
+    { id: '3', type: 'duty', name: 'عبدالله الشهري', time: 'الفسحة الأولى', location: 'المقصف' },
+  ]);
+  const [tomorrowSchedule] = useState<DailyScheduleItem[]>([
+     { id: '1', type: 'supervision', name: 'علي الشهراني', time: '06:45 صباحاً', location: 'الساحة الخلفية' },
+     { id: '2', type: 'supervision', name: 'فهد العتيبي', time: 'الفسحة الأولى', location: 'الممرات' },
+     { id: '3', type: 'duty', name: 'سلطان العمري', time: 'نهاية الدوام', location: 'البوابة الرئيسية' },
+  ]);
+  const [subscription] = useState<SubscriptionInfo>({
+    totalMessages: 500,
+    remainingMessages: 350,
+    startDate: '2024-01-01',
+    endDate: '2024-12-31',
+    planName: 'Basic'
+  });
+
+  useEffect(() => {
+    const saved = localStorage.getItem('school_assignment_v4');
+    if (saved) {
+      try {
+        const data = JSON.parse(saved);
+        if (data.schoolInfo) setSchoolInfo(data.schoolInfo);
+        setTeachers(data.teachers || []);
+        setClasses(data.classes || []);
+        setStudents(data.students || []);
+        setAdmins(data.admins || []);
+        setAssignments(data.assignments || []);
+        setGradeSubjectMap(data.gradeSubjectMap || {});
+        if (data.specializations) setSpecializations(data.specializations);
+        if (data.subjects) setSubjects(data.subjects);
+        if (data.scheduleSettings) setScheduleSettings(data.scheduleSettings);
+      } catch (e) { console.error(e); }
+    }
+  }, []);
+
+  // Migration for Legacy Shared School Data and Sync
+  useEffect(() => {
+    if (schoolInfo.hasSecondSchool) {
+       const legacySchool = {
+          id: 'second',
+          name: schoolInfo.secondSchoolName || 'المدرسة الثانية',
+          phases: schoolInfo.secondSchoolPhases || [Phase.ELEMENTARY], 
+          gender: schoolInfo.secondSchoolGender || 'بنين',
+          phone: schoolInfo.secondSchoolPhone,
+          email: schoolInfo.secondSchoolEmail,
+          educationAdministration: schoolInfo.educationAdministration,
+          region: schoolInfo.region,
+          managerName: '',
+          managerMobile: ''
+       };
+
+       // Check if we need to sync/migrate
+       const existingIndex = schoolInfo.sharedSchools?.findIndex(s => s.id === 'second');
+       
+       if (existingIndex === -1 || !schoolInfo.sharedSchools) {
+          // Add if missing
+           setSchoolInfo(prev => ({
+             ...prev,
+             sharedSchools: [...(prev.sharedSchools || []), legacySchool]
+           }));
+       } else {
+          // Logic for syncing legacy fields can be added here if needed in the future.
+       }
+    }
+  }, [schoolInfo.hasSecondSchool, schoolInfo.secondSchoolName, schoolInfo.secondSchoolPhases]);
+
+  useEffect(() => {
+    const data = { schoolInfo, teachers, specializations, subjects, classes, students, admins, assignments, gradeSubjectMap, scheduleSettings, timestamp: Date.now() };
+    localStorage.setItem('school_assignment_v4', JSON.stringify(data));
+  }, [schoolInfo, teachers, specializations, subjects, classes, students, admins, assignments, gradeSubjectMap, scheduleSettings]);
+
+  const handleLogout = () => {
+    if(confirm('هل أنت متأكد من تسجيل الخروج؟')) {
+        setActiveTab('settings');
+        setIsSidebarOpen(false);
+    }
+  };
+
+  const resetAllData = () => {
+    if (confirm('تحذير: سيتم حذف كافة البيانات والبدء من جديد. هل أنت متأكد؟')) {
+      setSchoolInfo({ schoolName: '', region: '', department: 'عام', phases: [Phase.ELEMENTARY], gender: 'بنين', educationalAgent: '', principal: '', hasSecondSchool: false, sharedSchools: [] });
+      setTeachers([]); setClasses([]); setAssignments([]); setGradeSubjectMap({}); setSpecializations(INITIAL_SPECIALIZATIONS); setSubjects([]);
+      localStorage.removeItem('school_assignment_v4'); setActiveTab('settings');
+    }
+  };
+
+  const renderContent = () => {
+    switch (activeTab) {
+      case 'dashboard': return <Dashboard schoolInfo={schoolInfo} teachers={teachers} classes={classes} messages={messages} events={events} todaySchedule={todaySchedule} tomorrowSchedule={tomorrowSchedule} subscription={subscription} onNavigate={(tab) => setActiveTab(tab as any)} />;
+      case 'settings': return (
+        <GeneralSettingsWizard 
+            schoolInfo={schoolInfo} 
+            setSchoolInfo={setSchoolInfo} 
+            subjects={subjects}
+            setSubjects={setSubjects}
+            classes={classes}
+            setClasses={setClasses}
+            teachers={teachers}
+            setTeachers={setTeachers}
+            specializations={specializations}
+            students={students}
+            setStudents={setStudents}
+            admins={admins}
+            setAdmins={setAdmins}
+            gradeSubjectMap={gradeSubjectMap}
+            setGradeSubjectMap={setGradeSubjectMap}
+            onComplete={() => setActiveTab('dashboard')} 
+        />
+      );
+
+
+      // New General Settings Sub-tabs
+      case 'settings_basic': return (
+        <BasicDataWizard 
+            schoolInfo={schoolInfo} 
+            setSchoolInfo={setSchoolInfo} 
+            subjects={subjects}
+            classes={classes}
+            setClasses={setClasses}
+            gradeSubjectMap={gradeSubjectMap}
+            setGradeSubjectMap={setGradeSubjectMap}
+            onComplete={() => setActiveTab('dashboard')}
+        />
+      );
+      case 'settings_classes': return <Step4Classes classes={classes} setClasses={setClasses} subjects={subjects} gradeSubjectMap={gradeSubjectMap} setGradeSubjectMap={setGradeSubjectMap} schoolInfo={schoolInfo} setSchoolInfo={setSchoolInfo} />;
+      case 'settings_subjects': return <Step3Subjects subjects={subjects} setSubjects={setSubjects} schoolInfo={schoolInfo} gradeSubjectMap={gradeSubjectMap} setGradeSubjectMap={setGradeSubjectMap} />;
+      case 'settings_students': return <Step5Students classes={classes} students={students} setStudents={setStudents} schoolInfo={schoolInfo} />;
+      case 'settings_teachers': return <Step6Teachers teachers={teachers} setTeachers={setTeachers} specializations={specializations} schoolInfo={schoolInfo} setSchoolInfo={setSchoolInfo} />;
+      case 'settings_admins': return <Step7Admins admins={admins} setAdmins={setAdmins} />;
+
+      case 'schedule_settings': return <ScheduleSettings subjects={subjects} teachers={teachers} specializations={specializations} schoolInfo={schoolInfo} classes={classes} gradeSubjectMap={gradeSubjectMap} scheduleSettings={scheduleSettings} setScheduleSettings={setScheduleSettings} />;
+
+      case 'manual': return <ManualAssignment teachers={teachers} subjects={subjects} classes={classes} assignments={assignments} setAssignments={setAssignments} specializations={specializations} schoolInfo={schoolInfo} gradeSubjectMap={gradeSubjectMap} />;
+      case 'classes_waiting': return <ClassesAndWaiting />;
+      case 'supervision': return <DailySupervision />;
+      case 'duty': return <DailyDuty />;
+      case 'daily_waiting': return <DailyWaiting />;
+      case 'messages': return <Messages />;
+      case 'permissions': return <Permissions />;
+      case 'subscription': return <Subscription />;
+      case 'support': return <Support />;
+
+      default: return (
+        <GeneralSettingsWizard 
+            schoolInfo={schoolInfo} 
+            setSchoolInfo={setSchoolInfo} 
+            subjects={subjects}
+            setSubjects={setSubjects}
+            classes={classes}
+            setClasses={setClasses}
+            teachers={teachers}
+            setTeachers={setTeachers}
+            specializations={specializations}
+            students={students}
+            setStudents={setStudents}
+            admins={admins}
+            setAdmins={setAdmins}
+            gradeSubjectMap={gradeSubjectMap}
+            setGradeSubjectMap={setGradeSubjectMap}
+            onComplete={() => setActiveTab('dashboard')} 
+        />
+      );
+    }
+  };
+
+  return (
+    <div className="flex h-screen bg-[#fcfbff] overflow-hidden dir-rtl">
+       {/* Sidebar - Fixed/Full Height */}
+       <Sidebar 
+          activeTab={activeTab} 
+          setActiveTab={setActiveTab} 
+          isSidebarOpen={isSidebarOpen} 
+          setIsSidebarOpen={setIsSidebarOpen} 
+        />
+      
+      {/* Main Content Area */}
+      <div className="flex-1 flex flex-col min-w-0 overflow-hidden relative">
+        <Header 
+          schoolInfo={schoolInfo}
+          isSidebarOpen={isSidebarOpen}
+          setIsSidebarOpen={setIsSidebarOpen}
+          onNavigate={(tab) => setActiveTab(tab as any)}
+          onLogout={handleLogout}
+        />
+
+        <main className="flex-1 overflow-y-auto custom-scrollbar p-4 md:p-8">
+          <div className="max-w-7xl mx-auto min-h-full">
+            {renderContent()}
+          </div>
+        </main>
+      </div>
+    </div>
+  );
+};
+
+
+
+export default App;
+
