@@ -469,7 +469,7 @@ const Step4Classes: React.FC<Props> = ({ classes, setClasses, subjects, gradeSub
                     }`}
                   >
                     <Shuffle size={20} className={viewMode === 'merge' ? 'text-white' : 'text-[#8779fb]'} />
-                    دمج الفصول
+                    دمج الفصول (للمشتركة)
                   </button>
 
 
@@ -481,9 +481,14 @@ const Step4Classes: React.FC<Props> = ({ classes, setClasses, subjects, gradeSub
                   <div className="p-2 bg-[#e5e1fe] text-[#655ac1] rounded-lg mt-0.5">
                       <Info size={16} />
                   </div>
-                  <p className="text-sm font-bold text-slate-600 leading-relaxed">
-                      يمكنك من إضافة معامل ومرافق حيث يمكن حجزها لحصة واحدة فقط بعد ربطها بالمواد بنفس الوقت كمثال.. الملعب – الصالة الرياضية - المختبر
-                  </p>
+                  <div className="text-sm font-bold text-slate-600 leading-relaxed space-y-2">
+                      <p className="text-[#655ac1] mb-1">توضيح :</p>
+                      <ul className="space-y-1 pr-4 list-disc marker:text-[#655ac1]">
+                          <li>إضافة مرفق يعادل إضافة فصل.</li>
+                          <li>يمكن حجز المرفق لمادة أومعلم.</li>
+                          <li><span className="text-[#655ac1]">الهدف :</span> عدم حدوث تعارض في تواجد عدة فصول بنفس الوقت في مكان واحد مثل مادة (التربية البدنية)</li>
+                      </ul>
+                  </div>
               </div>
           )}
 
@@ -1147,10 +1152,10 @@ const Step4Classes: React.FC<Props> = ({ classes, setClasses, subjects, gradeSub
                               onChange={e => setFacilityType(e.target.value as any)}
                               className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm font-bold focus:border-[#655ac1] outline-none transition-all"
                           >
-                              <option value="lab">معامل (عام)</option>
-                              <option value="computer_lab">معمل حاسب</option>
+                              <option value="lab">معمل</option>
+                              <option value="computer_lab">مختبر</option>
                               <option value="gym">صالة رياضية</option>
-                              <option value="playground">ملعب خارجي</option>
+                              <option value="playground">ملعب</option>
                               <option value="other">أخرى</option>
                           </select>
                       </div>
@@ -1170,23 +1175,25 @@ const Step4Classes: React.FC<Props> = ({ classes, setClasses, subjects, gradeSub
 
                       {/* Linked Subject */}
                       <div>
-                          <label className="block text-xs font-bold text-slate-500 mb-2">ربط بمادة (اختياري)</label>
+                          <label className="block text-xs font-bold text-slate-500 mb-2">ربط بمادة (إلزامي)</label>
                           <select
                               value={facilityLinkedSubject}
                               onChange={e => setFacilityLinkedSubject(e.target.value)}
                               className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm font-bold focus:border-[#655ac1] outline-none transition-all"
                           >
-                              <option value="">-- بدون ربط --</option>
+                              <option value="">-- اختر مادة --</option>
                               {subjects.filter(s => s.phases.includes(activePhase)).map(s => (
                                   <option key={s.id} value={s.id}>{s.name}</option>
                               ))}
                           </select>
-                          <p className="text-[10px] text-slate-400 mt-1">يضمن عدم جدولة حصتين لنفس المادة في نفس الوقت إذا كان العدد محدوداً.</p>
+                          <p className="text-[10px] text-slate-400 mt-1">عدم جدولة مادة لفصلين بمكان واحد في حصة واحدة.</p>
                       </div>
 
                       <button
                           onClick={() => {
                               if (!facilityName.trim()) return;
+                              if (!facilityLinkedSubject) return; // Enforce subject selection
+                              
                               setClasses(prev => [...prev, {
                                   id: crypto.randomUUID(),
                                   phase: activePhase,
@@ -1197,14 +1204,14 @@ const Step4Classes: React.FC<Props> = ({ classes, setClasses, subjects, gradeSub
                                   type: facilityType,
                                   customType: facilityType === 'other' ? facilityOtherType : undefined,
                                   schoolId: activeSchoolId,
-                                  linkedSubjectId: facilityLinkedSubject || undefined,
+                                  linkedSubjectId: facilityLinkedSubject, // Guaranteed string now
                                   createdAt: new Date().toISOString()
                               }]);
                               setFacilityName('');
                               setFacilityLinkedSubject('');
                               setFacilityOtherType('');
                           }}
-                          disabled={!facilityName.trim()}
+                          disabled={!facilityName.trim() || !facilityLinkedSubject}
                           className="w-full py-3 bg-[#655ac1] text-white rounded-xl font-bold hover:bg-[#8779fb] transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                       >
                           <Plus size={18} /> إضافة المرفق
