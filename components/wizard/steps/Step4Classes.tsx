@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useCallback } from 'react';
-import { Phase, ClassInfo, Subject, SchoolInfo } from '../../../types';
+import { Phase, ClassInfo, Subject, SchoolInfo, EntityType } from '../../../types';
 import { PHASE_CONFIG } from '../../../constants';
 import {
   GraduationCap, Trash2, CheckCircle2, BookPlus, X, School, PlusCircle,
@@ -46,6 +46,10 @@ const Step4Classes: React.FC<Props> = ({ classes, setClasses, subjects, gradeSub
   const [manualGrade, setManualGrade] = useState<number>(1);
   const [manualCustomName, setManualCustomName] = useState<string>('');
 
+  // ─── Institute/Other Mode State ───
+  const [instituteLevelsCount, setInstituteLevelsCount] = useState<string>('');
+  const isSchool = !schoolInfo.entityType || schoolInfo.entityType === EntityType.SCHOOL;
+
   // ─── UI State ───
   const [editingClassId, setEditingClassId] = useState<string | null>(null);
   const [editName, setEditName] = useState<string>('');
@@ -66,7 +70,7 @@ const Step4Classes: React.FC<Props> = ({ classes, setClasses, subjects, gradeSub
   const [showGlobalPeriodsModal, setShowGlobalPeriodsModal] = useState(false);
 
   // ─── View Mode State (Refactored) ───
-  type ViewMode = 'classes' | 'custom' | 'facilities' | 'merge';
+  type ViewMode = 'classes' | 'facilities' | 'merge';
   const [viewMode, setViewMode] = useState<ViewMode>('classes');
   
   // Custom/Other Classes
@@ -230,8 +234,24 @@ const Step4Classes: React.FC<Props> = ({ classes, setClasses, subjects, gradeSub
 
     setShowDistribution(false);
     setTotalClassrooms('');
+    setInstituteLevelsCount(''); // Reset institute input
     setManualDistribution([]);
   }, [manualDistribution, activePhase, gradeSubjectMap, activeSchoolId, setClasses]);
+
+  // ─── Institute Logic ───
+  const handleInstituteLevelsChange = useCallback((value: string) => {
+    setInstituteLevelsCount(value);
+    const count = parseInt(value);
+    if (!isNaN(count) && count > 0) {
+       // Reset distribution to zeros for the new number of levels
+       setManualDistribution(new Array(count).fill(0));
+       setShowDistribution(true);
+       setIsDistributionManual(true);
+    } else {
+       setShowDistribution(false);
+       setManualDistribution([]);
+    }
+  }, []);
 
   // ─── Manual Entry Handlers ───
   const handleManualAdd = useCallback((gradeOverride?: number) => {
@@ -399,7 +419,7 @@ const Step4Classes: React.FC<Props> = ({ classes, setClasses, subjects, gradeSub
             <div className="p-2 bg-[#e5e1fe] text-[#655ac1] rounded-xl"><GraduationCap size={24} /></div>
              الفصول الدراسية
           </h3>
-          <p className="text-slate-500 font-medium mt-2 mr-12 relative z-10">إدارة الفصول الدراسية وتوزيع الطلاب وتغيير المسميات</p>
+          <p className="text-slate-500 font-medium mt-2 mr-12 relative z-10">إنشاء وإدارة الفصول الدراسية</p>
       </div>
 
       {/* ══════ Action Button Bar ══════ */}
@@ -452,17 +472,7 @@ const Step4Classes: React.FC<Props> = ({ classes, setClasses, subjects, gradeSub
                     دمج الفصول
                   </button>
 
-                  <button
-                    onClick={() => setViewMode('custom')}
-                    className={`flex items-center gap-2 px-6 py-3 rounded-xl font-bold transition-all hover:scale-105 active:scale-95 ${
-                        viewMode === 'custom'
-                        ? 'bg-[#655ac1] text-white shadow-lg shadow-[#655ac1]/20'
-                        : 'bg-white text-slate-700 border border-slate-200 hover:border-[#8779fb]'
-                    }`}
-                  >
-                    <Warehouse size={20} className={viewMode === 'custom' ? 'text-white' : 'text-[#8779fb]'} />
-                    إضافة مخصصة (معاهد/جامعات)
-                  </button>
+
               </div>
           </div>
 
@@ -524,28 +534,49 @@ const Step4Classes: React.FC<Props> = ({ classes, setClasses, subjects, gradeSub
         {/* ── Auto Mode Content ── */}
         {creationMode === 'auto' && (
           <div className="p-8 space-y-6">
-            <div className="flex flex-col sm:flex-row gap-4 items-end">
-              <div className="flex-1 space-y-2">
-                <label className="text-xs font-black text-slate-500 mr-1 flex items-center gap-1.5">
-                   <Hash size={14} /> إجمالي عدد الفصول المطلوبة
-                </label>
-                <input
-                  type="number"
-                  value={totalClassrooms}
-                  onChange={e => setTotalClassrooms(e.target.value)}
-                  placeholder="مثال: 18"
-                  className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl text-lg font-black focus:bg-white focus:border-[#655ac1] focus:ring-4 focus:ring-indigo-500/5 outline-none transition-all"
-                />
-              </div>
-              <button
-                onClick={handleCalculateDistribution}
-                disabled={!totalClassrooms || parseInt(totalClassrooms) <= 0}
-                className="group px-10 py-4 bg-[#655ac1] text-white font-black rounded-2xl hover:bg-[#5046a0] disabled:opacity-50 disabled:cursor-not-allowed shadow-xl shadow-indigo-200 hover:shadow-indigo-300 hover:-translate-y-1 transition-all flex items-center gap-3"
-              >
-                <Sparkles size={20} className="group-hover:animate-pulse" />
-                توزيع
-              </button>
-            </div>
+            {/* Conditional Input based on Entity Type */}
+            {isSchool ? (
+                /* School Mode: Total Classes -> Auto Distribute */
+                <div className="flex flex-col sm:flex-row gap-4 items-end">
+                  <div className="flex-1 space-y-2">
+                    <label className="text-xs font-black text-slate-500 mr-1 flex items-center gap-1.5">
+                       <Hash size={14} /> إجمالي عدد الفصول المطلوبة
+                    </label>
+                    <input
+                      type="number"
+                      value={totalClassrooms}
+                      onChange={e => setTotalClassrooms(e.target.value)}
+                      placeholder="مثال: 18"
+                      className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl text-lg font-black focus:bg-white focus:border-[#655ac1] focus:ring-4 focus:ring-indigo-500/5 outline-none transition-all"
+                    />
+                  </div>
+                  <button
+                    onClick={handleCalculateDistribution}
+                    disabled={!totalClassrooms || parseInt(totalClassrooms) <= 0}
+                    className="group px-10 py-4 bg-[#655ac1] text-white font-black rounded-2xl hover:bg-[#5046a0] disabled:opacity-50 disabled:cursor-not-allowed shadow-xl shadow-indigo-200 hover:shadow-indigo-300 hover:-translate-y-1 transition-all flex items-center gap-3"
+                  >
+                    <Sparkles size={20} className="group-hover:animate-pulse" />
+                    توزيع
+                  </button>
+                </div>
+            ) : (
+                /* Institute/Other Mode: Number of Levels -> Manual Input */
+                <div className="flex flex-col sm:flex-row gap-4 items-end">
+                  <div className="flex-1 space-y-2">
+                    <label className="text-xs font-black text-slate-500 mr-1 flex items-center gap-1.5">
+                       <Layers size={14} /> عدد المستويات / الصفوف
+                    </label>
+                    <input
+                      type="number"
+                      value={instituteLevelsCount}
+                      onChange={e => handleInstituteLevelsChange(e.target.value)}
+                      placeholder="مثال: 4"
+                      className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl text-lg font-black focus:bg-white focus:border-[#655ac1] focus:ring-4 focus:ring-indigo-500/5 outline-none transition-all"
+                    />
+                  </div>
+                  {/* No button needed here, it updates instantly */}
+                </div>
+            )}
 
             {/* Distribution Table UI */}
             {showDistribution && (
@@ -559,12 +590,12 @@ const Step4Classes: React.FC<Props> = ({ classes, setClasses, subjects, gradeSub
                   <table className="w-full text-right">
                     <thead>
                       <tr className="text-[10px] font-black text-slate-400 uppercase tracking-wider">
-                        <th className="px-4 py-3">الصف</th>
+                        <th className="px-4 py-3">{isSchool ? 'الصف' : 'المستوى'}</th>
                         <th className="px-4 py-3 text-center">عدد الفصول</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
-                      {Array.from({ length: totalGrades }, (_, i) => i + 1).map((grade, idx) => (
+                      {Array.from({ length: isSchool ? totalGrades : (parseInt(instituteLevelsCount) || 0) }, (_, i) => i + 1).map((grade, idx) => (
                         <tr key={grade} className="group hover:bg-white transition-colors">
                           <td className="px-4 py-3">
                             <div className="flex items-center gap-3">
@@ -601,10 +632,10 @@ const Step4Classes: React.FC<Props> = ({ classes, setClasses, subjects, gradeSub
                         <td className="px-4 py-4 text-sm">الإجمالي الموزع</td>
                         <td className="px-4 py-4">
                           <div className="flex items-center justify-center gap-2">
-                            <span className={`text-xl font-black ${distributionTotal === parseInt(totalClassrooms) ? 'text-emerald-600' : 'text-rose-500'}`}>
+                            <span className={`text-xl font-black ${(isSchool ? distributionTotal === parseInt(totalClassrooms) : true) ? 'text-emerald-600' : 'text-rose-500'}`}>
                               {distributionTotal}
                             </span>
-                            {distributionTotal !== parseInt(totalClassrooms) && (
+                            {isSchool && distributionTotal !== parseInt(totalClassrooms) && (
                               <span className="text-xs text-rose-400">(المطلوب: {totalClassrooms})</span>
                             )}
                           </div>
@@ -1075,269 +1106,7 @@ const Step4Classes: React.FC<Props> = ({ classes, setClasses, subjects, gradeSub
     </>)}
 
 
-    {/* ══════ Custom / Other Classes View ══════ */}
-    {viewMode === 'custom' && (
-        <div className="bg-white rounded-[2rem] border border-slate-100 shadow-xl p-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-             <div className="flex items-center gap-3 mb-8 pb-6 border-b border-slate-50">
-                <div className="p-3 bg-indigo-50 text-indigo-600 rounded-xl">
-                    <Warehouse size={28} />
-                </div>
-                <div>
-                    <h3 className="text-xl font-black text-slate-800">إدارة فصول المعاهد والجامعات</h3>
-                    <p className="text-sm text-slate-400 font-bold mt-1">تخصيص الهيكلة وإنشاء الوحدات الدراسية (قاعات، معامل، مجموعات) بمرونة كاملة.</p>
-                </div>
-            </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-                
-                {/* ─── Right Column: Structure & Generation ─── */}
-                <div className="lg:col-span-5 space-y-8">
-                    
-                    {/* 1. Structure Configuration */}
-                    <div className="bg-slate-50 rounded-2xl border border-slate-100 p-6">
-                        <div className="flex items-center justify-between mb-4">
-                            <h4 className="font-black text-slate-700 flex items-center gap-2">
-                                <Layers size={18} className="text-slate-400"/> 
-                                1. الهيكلة (الأقسام / المستويات)
-                            </h4>
-                        </div>
-
-                        {/* Add New Category */}
-                        <div className="flex gap-2 mb-4">
-                            <input
-                                type="text"
-                                value={newCategoryName}
-                                onChange={e => setNewCategoryName(e.target.value)}
-                                placeholder="أضف قسم أو مستوى جديد..."
-                                className="flex-1 px-4 py-2 bg-white border border-slate-200 rounded-xl text-sm font-bold focus:border-[#655ac1] outline-none"
-                            />
-                            <button
-                                onClick={() => {
-                                    if (!newCategoryName.trim()) return;
-                                    setCustomCategories(prev => [...prev, { id: Date.now(), name: newCategoryName.trim() }]);
-                                    setNewCategoryName('');
-                                }}
-                                disabled={!newCategoryName.trim()}
-                                className="px-4 py-2 bg-[#655ac1] text-white rounded-xl font-bold hover:bg-[#5046a0] disabled:opacity-50 transition-all"
-                            >
-                                <Plus size={18} />
-                            </button>
-                        </div>
-
-                        {/* Categories List */}
-                        <div className="space-y-2 max-h-[200px] overflow-y-auto custom-scrollbar pr-1">
-                            {customCategories.map(cat => (
-                                <div key={cat.id} className="group flex items-center justify-between bg-white p-3 rounded-xl border border-slate-200 hover:border-[#e5e1fe] transition-all">
-                                    {editingCategoryId === cat.id ? (
-                                        <div className="flex items-center gap-2 flex-1">
-                                            <input 
-                                                autoFocus
-                                                value={tempCategoryName}
-                                                onChange={e => setTempCategoryName(e.target.value)}
-                                                className="flex-1 bg-slate-50 px-2 py-1 rounded-lg text-sm font-bold border border-[#655ac1] outline-none"
-                                            />
-                                            <button 
-                                                onClick={() => {
-                                                    setCustomCategories(prev => prev.map(c => c.id === cat.id ? { ...c, name: tempCategoryName } : c));
-                                                    setEditingCategoryId(null);
-                                                }}
-                                                className="p-1.5 bg-emerald-50 text-emerald-600 rounded-lg hover:bg-emerald-100"
-                                            >
-                                                <Check size={14} />
-                                            </button>
-                                        </div>
-                                    ) : (
-                                        <>
-                                            <span className="font-bold text-slate-700 text-sm">{cat.name}</span>
-                                            <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                <button 
-                                                    onClick={() => { setEditingCategoryId(cat.id); setTempCategoryName(cat.name); }}
-                                                    className="p-1.5 text-slate-400 hover:text-[#655ac1] hover:bg-slate-50 rounded-lg"
-                                                >
-                                                    <Pencil size={14} />
-                                                </button>
-                                                <button 
-                                                    onClick={() => setCustomCategories(prev => prev.filter(c => c.id !== cat.id))}
-                                                    className="p-1.5 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-lg"
-                                                >
-                                                    <Trash size={14} />
-                                                </button>
-                                            </div>
-                                        </>
-                                    )}
-                                </div>
-                            ))}
-                            {customCategories.length === 0 && (
-                                <div className="text-center py-4 text-slate-400 text-xs">لا توجد أقسام مضافة بعد</div>
-                            )}
-                        </div>
-                    </div>
-
-                    {/* 2. Auto Generation */}
-                    <div className="p-6 bg-indigo-50/50 rounded-2xl border border-indigo-100">
-                         <h4 className="font-black text-slate-700 mb-4 flex items-center gap-2">
-                            <Zap size={18} className="text-[#655ac1]" />
-                            2. إنشاء الفصول (توزيع الوحدات)
-                        </h4>
-                        
-                        <div className="space-y-4">
-                            <div>
-                                <label className="block text-xs font-bold text-slate-500 mb-2">إجمالي عدد القاعات / المجموعات المطلوبة</label>
-                                <input
-                                    type="number"
-                                    value={customTotalUnits}
-                                    onChange={e => setCustomTotalUnits(e.target.value)}
-                                    placeholder="مثال: 12"
-                                    className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-lg font-black focus:border-[#655ac1] outline-none transition-all"
-                                />
-                            </div>
-
-                            <button
-                                onClick={() => {
-                                    if (!customTotalUnits || parseInt(customTotalUnits) <= 0 || customCategories.length === 0) return;
-                                    const total = parseInt(customTotalUnits);
-                                    const perCat = Math.floor(total / customCategories.length);
-                                    const remainder = total % customCategories.length;
-                                    const dist: Record<number, number> = {};
-                                    customCategories.forEach((cat, idx) => {
-                                        dist[cat.id] = perCat + (idx < remainder ? 1 : 0);
-                                    });
-                                    setCustomDistribution(dist);
-                                    setShowCustomDistribution(true);
-                                }}
-                                disabled={!customTotalUnits || customCategories.length === 0}
-                                className="w-full py-3 bg-[#655ac1] text-white rounded-xl font-bold hover:bg-[#5046a0] transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-                            >
-                                <Sparkles size={18} /> توزيع المقترح
-                            </button>
-
-                            {showCustomDistribution && (
-                                <div className="animate-in slide-in-from-top-2 pt-4 border-t border-indigo-100 mt-4">
-                                    <div className="bg-white rounded-xl border border-slate-200 overflow-hidden mb-4">
-                                        <table className="w-full text-right text-sm">
-                                            <thead className="bg-slate-50 text-slate-400 font-bold text-xs">
-                                                <tr>
-                                                    <th className="px-3 py-2">القسم / المستوى</th>
-                                                    <th className="px-3 py-2 text-center">العدد</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody className="divide-y divide-slate-100">
-                                                {customCategories.map(cat => (
-                                                    <tr key={cat.id}>
-                                                        <td className="px-3 py-2 font-bold text-slate-700">{cat.name}</td>
-                                                        <td className="px-3 py-2 text-center">
-                                                            <div className="flex items-center justify-center gap-2">
-                                                                <button onClick={()=>setCustomDistribution(prev => ({...prev, [cat.id]: Math.max(0, (prev[cat.id]||0)-1)}))} className="w-6 h-6 rounded bg-slate-100 text-slate-500 hover:bg-rose-50 hover:text-rose-500 flex items-center justify-center"><Minus size={12}/></button>
-                                                                <span className="w-6 text-center font-bold">{customDistribution[cat.id] || 0}</span>
-                                                                <button onClick={()=>setCustomDistribution(prev => ({...prev, [cat.id]: (prev[cat.id]||0)+1}))} className="w-6 h-6 rounded bg-slate-100 text-slate-500 hover:bg-emerald-50 hover:text-emerald-500 flex items-center justify-center"><Plus size={12}/></button>
-                                                            </div>
-                                                        </td>
-                                                    </tr>
-                                                ))}
-                                            </tbody>
-                                        </table>
-                                    </div>
-                                    <button
-                                        onClick={() => {
-                                            const newClasses: ClassInfo[] = [];
-                                            customCategories.forEach(cat => {
-                                                const count = customDistribution[cat.id] || 0;
-                                                for(let i=0; i<count; i++) {
-                                                    newClasses.push({
-                                                        id: crypto.randomUUID(),
-                                                        phase: Phase.OTHER,
-                                                        grade: cat.id,
-                                                        section: i + 1,
-                                                        name: count > 1 ? `${cat.name} - ${i + 1}` : cat.name,
-                                                        isManuallyCreated: true,
-                                                        type: 'other',
-                                                        customType: 'custom_system',
-                                                        schoolId: activeSchoolId,
-                                                        createdAt: new Date().toISOString()
-                                                    });
-                                                }
-                                            });
-                                            setClasses(prev => [...prev, ...newClasses]);
-                                            setCustomTotalUnits('');
-                                            setShowCustomDistribution(false);
-                                            setCustomDistribution({});
-                                        }}
-                                        className="w-full py-3 bg-emerald-500 text-white rounded-xl font-bold hover:bg-emerald-600 transition-all flex items-center justify-center gap-2 shadow-lg shadow-emerald-200"
-                                    >
-                                        <CheckCircle2 size={18} /> اعتماد وإنشاء الوحدات
-                                    </button>
-                                </div>
-                            )}
-                        </div>
-                    </div>
-                </div>
-
-                {/* ─── Left Column: Management ─── */}
-                <div className="lg:col-span-7">
-                    <div className="bg-slate-50 rounded-2xl border border-slate-100 p-6 h-full min-h-[500px]">
-                        <div className="flex items-center justify-between mb-6">
-                            <h4 className="font-black text-slate-700 flex items-center gap-2">
-                                <LayoutGrid size={18} className="text-slate-400"/> 
-                                3. الوحدات الحالية
-                            </h4>
-                            <span className="text-xs font-bold bg-white px-3 py-1 rounded-full border border-slate-200 text-slate-500">
-                                {classes.filter(c => c.phase === Phase.OTHER && (c.schoolId || 'main') === activeSchoolId).length} وحدة
-                            </span>
-                        </div>
-
-                        <div className="space-y-6 max-h-[600px] overflow-y-auto custom-scrollbar pr-2">
-                            {customCategories.map(cat => {
-                                const catClasses = classes.filter(c => c.phase === Phase.OTHER && c.grade === cat.id && (c.schoolId || 'main') === activeSchoolId);
-                                if (catClasses.length === 0) return null;
-
-                                return (
-                                    <div key={cat.id} className="bg-white rounded-2xl border border-slate-200 p-4">
-                                        <h5 className="font-bold text-slate-800 mb-3 flex items-center gap-2 pb-3 border-b border-slate-50">
-                                            <span className="w-2 h-2 rounded-full bg-[#655ac1]"></span>
-                                            {cat.name}
-                                            <span className="text-xs text-slate-400 bg-slate-50 px-2 py-0.5 rounded-lg border border-slate-100">{catClasses.length}</span>
-                                        </h5>
-                                        
-                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                            {catClasses.map(cls => (
-                                                <div key={cls.id} className="flex items-center justify-between p-3 bg-slate-50 rounded-xl border border-slate-100 group hover:border-[#e5e1fe] hover:bg-white transition-all">
-                                                    <span className="text-sm font-bold text-slate-700">{cls.name}</span>
-                                                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                        <button 
-                                                            onClick={() => handleStartEdit(cls)}
-                                                            className="p-1.5 text-slate-400 hover:text-[#655ac1] hover:bg-[#f8f7ff] rounded-lg"
-                                                        >
-                                                            <Pencil size={14} />
-                                                        </button>
-                                                         <button 
-                                                            onClick={() => handleDeleteOne(cls.id)}
-                                                            className="p-1.5 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-lg"
-                                                        >
-                                                            <Trash2 size={14} />
-                                                        </button>
-                                                    </div>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    </div>
-                                );
-                            })}
-                            
-                            {classes.filter(c => c.phase === Phase.OTHER && (c.schoolId || 'main') === activeSchoolId).length === 0 && (
-                                <div className="text-center py-20 text-slate-400">
-                                    <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4 text-slate-300">
-                                        <Warehouse size={32} />
-                                    </div>
-                                    <p className="font-bold text-slate-500">لا توجد وحدات دراسية</p>
-                                    <p className="text-xs mt-1">ابدأ بإضافة الأقسام وتوزيع الوحدات عليها</p>
-                                </div>
-                            )}
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    )}
     
     {/* ══════ Facilities View ══════ */}
   {viewMode === 'facilities' && (
