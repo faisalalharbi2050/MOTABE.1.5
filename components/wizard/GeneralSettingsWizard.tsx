@@ -14,7 +14,7 @@ import {
   ShieldCheck,
   RotateCcw
 } from 'lucide-react';
-import { SchoolInfo, Subject, ClassInfo, Teacher, Admin, Student, Specialization } from '../../types';
+import { SchoolInfo, Subject, ClassInfo, Teacher, Admin, Student, Specialization, ScheduleSettingsData } from '../../types';
 
 import Step1General from './steps/Step1General';
 import Step2AcademicYear from './steps/Step2AcademicYear';
@@ -42,6 +42,8 @@ interface WizardProps {
   gradeSubjectMap: Record<string, string[]>;
   setGradeSubjectMap: React.Dispatch<React.SetStateAction<Record<string, string[]>>>;
   onComplete: () => void;
+  scheduleSettings: ScheduleSettingsData;
+  setScheduleSettings: React.Dispatch<React.SetStateAction<ScheduleSettingsData>>;
 }
 
 const GeneralSettingsWizard: React.FC<WizardProps> = ({ 
@@ -52,7 +54,8 @@ const GeneralSettingsWizard: React.FC<WizardProps> = ({
     students, setStudents,
     admins, setAdmins,
     gradeSubjectMap, setGradeSubjectMap,
-    onComplete 
+    onComplete,
+    scheduleSettings, setScheduleSettings
 }) => {
   const [currentStep, setCurrentStep] = useState(1);
   const [isFinished, setIsFinished] = useState(false);
@@ -109,7 +112,7 @@ const GeneralSettingsWizard: React.FC<WizardProps> = ({
       case 1: return <Step1General schoolInfo={schoolInfo} setSchoolInfo={setSchoolInfo} />;
       case 2: return <Step2AcademicYear schoolInfo={schoolInfo} setSchoolInfo={setSchoolInfo} />;
       case 3: return <Step2Timing schoolInfo={schoolInfo} setSchoolInfo={setSchoolInfo} />;
-      case 4: return <Step3Subjects subjects={subjects} setSubjects={setSubjects} schoolInfo={schoolInfo} gradeSubjectMap={gradeSubjectMap} setGradeSubjectMap={setGradeSubjectMap} />;
+      case 4: return <Step3Subjects subjects={subjects} setSubjects={setSubjects} schoolInfo={schoolInfo} gradeSubjectMap={gradeSubjectMap} setGradeSubjectMap={setGradeSubjectMap} scheduleSettings={scheduleSettings} setScheduleSettings={setScheduleSettings} />;
       case 5: return <Step4Classes classes={classes} setClasses={setClasses} subjects={subjects} gradeSubjectMap={gradeSubjectMap} setGradeSubjectMap={setGradeSubjectMap} schoolInfo={schoolInfo} setSchoolInfo={setSchoolInfo} />;
       case 6: return <Step5Students classes={classes} students={students} setStudents={setStudents} schoolInfo={schoolInfo} />;
       case 7: return <Step6Teachers teachers={teachers} setTeachers={setTeachers} specializations={specializations} schoolInfo={schoolInfo} setSchoolInfo={setSchoolInfo} />;

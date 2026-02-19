@@ -406,12 +406,21 @@ export interface StudentFilters {
   classId?: string;
 }
 
+const normalizeArabic = (text: string): string => {
+  if (!text) return "";
+  return text
+    .replace(/[أإآ]/g, 'ا')
+    .replace(/[ة]/g, 'ه')
+    .replace(/[ى]/g, 'ي')
+    .replace(/[ًٌٍَُِّْ]/g, ''); // Remove Tashkeel
+};
+
 export function filterStudents(students: Student[], filters: StudentFilters): Student[] {
   let result = students;
 
   if (filters.searchText) {
-    const search = filters.searchText.toLowerCase().trim();
-    result = result.filter(s => s.name.toLowerCase().includes(search));
+    const search = normalizeArabic(filters.searchText.toLowerCase().trim());
+    result = result.filter(s => normalizeArabic(s.name).toLowerCase().includes(search));
   }
   if (filters.grade) {
     result = result.filter(s => s.grade === filters.grade);

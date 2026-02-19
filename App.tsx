@@ -177,6 +177,8 @@ const App: React.FC = () => {
             setAdmins={setAdmins}
             gradeSubjectMap={gradeSubjectMap}
             setGradeSubjectMap={setGradeSubjectMap}
+            scheduleSettings={scheduleSettings}
+            setScheduleSettings={setScheduleSettings}
             onComplete={() => setActiveTab('dashboard')} 
         />
       );
@@ -196,7 +198,7 @@ const App: React.FC = () => {
         />
       );
       case 'settings_classes': return <Step4Classes classes={classes} setClasses={setClasses} subjects={subjects} gradeSubjectMap={gradeSubjectMap} setGradeSubjectMap={setGradeSubjectMap} schoolInfo={schoolInfo} setSchoolInfo={setSchoolInfo} />;
-      case 'settings_subjects': return <Step3Subjects subjects={subjects} setSubjects={setSubjects} schoolInfo={schoolInfo} gradeSubjectMap={gradeSubjectMap} setGradeSubjectMap={setGradeSubjectMap} />;
+      case 'settings_subjects': return <Step3Subjects subjects={subjects} setSubjects={setSubjects} schoolInfo={schoolInfo} gradeSubjectMap={gradeSubjectMap} setGradeSubjectMap={setGradeSubjectMap} scheduleSettings={scheduleSettings} setScheduleSettings={setScheduleSettings} />;
       case 'settings_students': return <Step5Students classes={classes} students={students} setStudents={setStudents} schoolInfo={schoolInfo} />;
       case 'settings_teachers': return <Step6Teachers teachers={teachers} setTeachers={setTeachers} specializations={specializations} schoolInfo={schoolInfo} setSchoolInfo={setSchoolInfo} />;
       case 'settings_admins': return <Step7Admins admins={admins} setAdmins={setAdmins} />;
@@ -230,6 +232,8 @@ const App: React.FC = () => {
             setAdmins={setAdmins}
             gradeSubjectMap={gradeSubjectMap}
             setGradeSubjectMap={setGradeSubjectMap}
+            scheduleSettings={scheduleSettings}
+            setScheduleSettings={setScheduleSettings}
             onComplete={() => setActiveTab('dashboard')} 
         />
       );

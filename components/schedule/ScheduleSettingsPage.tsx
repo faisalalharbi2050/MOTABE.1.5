@@ -2,7 +2,6 @@ import React, { useState, useMemo } from 'react';
 import { Settings, BookOpen, Users, Clock, AlertTriangle, Info } from 'lucide-react';
 import { Subject, Teacher, Specialization, SchoolInfo, ClassInfo, ScheduleSettingsData } from '../../types';
 import { validateAllConstraints } from '../../utils/scheduleConstraints';
-import SubjectSettingsTab from './SubjectSettingsTab';
 import TeacherSettingsTab from './TeacherSettingsTab';
 import SubstitutionTab from './SubstitutionTab';
 
@@ -21,7 +20,7 @@ export default function ScheduleSettingsPage({
   subjects, teachers, specializations, schoolInfo,
   classes, gradeSubjectMap, scheduleSettings, setScheduleSettings
 }: Props) {
-  const [activeTab, setActiveTab] = useState<'subjects' | 'teachers' | 'substitution'>('subjects');
+  const [activeTab, setActiveTab] = useState<'teachers' | 'substitution'>('teachers');
 
   const weekDays = schoolInfo.timing?.activeDays?.length || 5;
   const periodsPerDay = Math.max(...Object.values(schoolInfo.timing?.periodCounts || { 'default': 7 }));
@@ -36,7 +35,6 @@ export default function ScheduleSettingsPage({
   const warningCount = warnings.filter(w => w.level === 'warning').length;
 
   const tabs = [
-    { id: 'subjects' as const, label: 'إعدادات المواد', icon: BookOpen, gradient: 'from-emerald-500 to-teal-600' },
     { id: 'teachers' as const, label: 'إعدادات المعلمين', icon: Users, gradient: 'from-blue-500 to-cyan-600' },
     { id: 'substitution' as const, label: 'إعدادات الانتظار', icon: Clock, gradient: 'from-amber-500 to-orange-600' },
   ];
@@ -110,17 +108,7 @@ export default function ScheduleSettingsPage({
       ))}
 
       {/* ─── Tab Content ─── */}
-      {activeTab === 'subjects' && (
-        <SubjectSettingsTab
-          subjects={subjects}
-          constraints={scheduleSettings.subjectConstraints}
-          gradeSubjectMap={gradeSubjectMap}
-          weekDays={weekDays}
-          periodsPerDay={periodsPerDay}
-          warnings={warnings}
-          onChange={c => setScheduleSettings(prev => ({ ...prev, subjectConstraints: c }))}
-        />
-      )}
+      {/* ─── Tab Content ─── */}
       {activeTab === 'teachers' && (
         <TeacherSettingsTab
           teachers={teachers}
