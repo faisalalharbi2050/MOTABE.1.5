@@ -334,7 +334,7 @@ const Step6Teachers: React.FC<Step6Props> = ({ teachers = [], setTeachers, speci
             <div className="p-2 bg-[#e5e1fe] text-[#655ac1] rounded-xl"><Briefcase size={24} /></div>
              إدارة المعلمين
           </h3>
-          <p className="text-slate-500 font-medium mt-2 mr-12 relative z-10">إضافة وتعديل بيانات المعلمين وتعيين الأنصبة</p>
+          <p className="text-slate-500 font-medium mt-2 mr-12 relative z-10">إضافة وتعديل بيانات المعلمين وتعيين الأنصبة والقيود</p>
       </div>
 
       {/* ══════ Print Header (Visible only in Print) ══════ */}
