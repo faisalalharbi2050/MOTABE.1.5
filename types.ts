@@ -165,6 +165,7 @@ export interface Admin {
   role: string;
   phone: string;
   waitingQuota?: number;
+  agentType?: string[];
   sortIndex?: number;
 }
 
