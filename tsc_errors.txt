@@ -1,0 +1,6 @@
+﻿generated_templates.ts(128,55): error TS1005: ',' expected.
+generated_templates.ts(128,57): error TS1005: ';' expected.
+generated_templates.ts(128,67): error TS1011: An element access expression should take an argument.
+generated_templates.ts(352,53): error TS1005: ',' expected.
+generated_templates.ts(352,55): error TS1005: ';' expected.
+generated_templates.ts(352,65): error TS1011: An element access expression should take an argument.
