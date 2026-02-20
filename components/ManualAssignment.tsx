@@ -460,7 +460,7 @@ const ManualAssignment: React.FC<Props> = ({
       <div className="flex flex-col lg:flex-row items-start gap-6">
         
         {/* RIGHT SIDEBAR (Teachers) */}
-        <aside className="w-full lg:w-96 shrink-0 sticky top-4 max-h-[calc(100vh-2rem)] flex flex-col bg-white rounded-[2rem] border-2 border-[#e5e1fe] shadow-xl shadow-[#655ac1]/5 overflow-hidden z-20">
+        <aside className="w-full lg:w-96 shrink-0 relative lg:sticky lg:top-4 max-h-[calc(100vh-2rem)] flex flex-col bg-white rounded-[2rem] border-2 border-[#e5e1fe] shadow-xl shadow-[#655ac1]/5 overflow-hidden z-20">
             
             {/* Sidebar Header */}
             <div className="p-5 bg-white relative">
