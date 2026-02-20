@@ -297,13 +297,6 @@ const Sidebar: React.FC<SidebarProps> = ({
                <div className="flex flex-col pt-2 gap-2">
 
                   <SubNavItem
-                     active={activeTab === "schedule_settings"}
-                     onClick={() => handleTabClick("schedule_settings")}
-                     label="إعدادات الجدول"
-                     icon={<Settings size={18} />}
-                     inverted={true}
-                  />
-                  <SubNavItem
                      active={activeTab === "manual"}
                      onClick={() => handleTabClick("manual")}
                      label="إسناد المواد"
@@ -313,15 +306,29 @@ const Sidebar: React.FC<SidebarProps> = ({
                   <SubNavItem
                      active={activeTab === "classes_waiting"}
                      onClick={() => handleTabClick("classes_waiting")}
-                     label="الحصص والانتظار"
+                     label="إنشاء الحصص والانتظار"
                      icon={<Clock size={18} />}
                      inverted={true}
                   />
                   <SubNavItem
                      active={activeTab === "supervision"}
                      onClick={() => handleTabClick("supervision")}
-                     label="الإشراف والمناوبة"
+                     label="الإشراف اليومي"
                      icon={<Eye size={18} />}
+                     inverted={true}
+                  />
+                  <SubNavItem
+                     active={activeTab === "duty"}
+                     onClick={() => handleTabClick("duty")}
+                     label="المناوبة اليومية"
+                     icon={<Shield size={18} />}
+                     inverted={true}
+                  />
+                  <SubNavItem
+                     active={activeTab === "schedule_settings"}
+                     onClick={() => handleTabClick("schedule_settings")}
+                     label="إعدادات الجدول"
+                     icon={<Settings size={18} />}
                      inverted={true}
                   />
                </div>

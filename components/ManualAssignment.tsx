@@ -1,14 +1,16 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { Teacher, Subject, ClassInfo, Assignment, Phase, SchoolInfo, Specialization } from '../types';
 import { 
-  Search, LayoutGrid, X, Trash2, UserCheck, 
-  ChevronDown, Filter, Check, Layers
+  Search, X, Trash2, ChevronDown, Filter, Check, Layers, Briefcase, 
+  Printer, Users, CheckCircle2, User, HelpCircle, AlertTriangle, LayoutTemplate,
+  Eye, ArrowUp, ClipboardList, BookOpen, ChevronRight, Calculator, GraduationCap,
+  ListFilter, School
 } from 'lucide-react';
-
 import AssignmentReport from './AssignmentReport';
 
 interface Props {
   teachers: Teacher[];
+  setTeachers: React.Dispatch<React.SetStateAction<Teacher[]>>;
   subjects: Subject[];
   classes: ClassInfo[];
   assignments: Assignment[];
@@ -19,23 +21,48 @@ interface Props {
 }
 
 const ManualAssignment: React.FC<Props> = ({ 
-  teachers, subjects, classes, assignments, 
+  teachers, setTeachers, subjects, classes, assignments, 
   setAssignments, schoolInfo, gradeSubjectMap, specializations
 }) => {
-  const [activePhase] = useState<Phase>(schoolInfo.phase);
   const [showReport, setShowReport] = useState(false);
   
   // -- Filter States --
   const [teacherSearch, setTeacherSearch] = useState('');
   const [selectedSpecs, setSelectedSpecs] = useState<string[]>([]);
+  const [selectedTeacherFilterIds, setSelectedTeacherFilterIds] = useState<string[]>([]);
+  
+  // -- Class Filter States (Multi-Select) --
+  const [selectedGrades, setSelectedGrades] = useState<number[]>([]);
+  const [selectedClassIds, setSelectedClassIds] = useState<string[]>([]);
   
   // -- Selection States --
   const [selectedTeacherId, setSelectedTeacherId] = useState<string | null>(null);
 
+  // -- Details Modal State --
+  const [viewingTeacher, setViewingTeacher] = useState<Teacher | null>(null);
+
   // -- Dropdown Toggles --
   const [showSpecDropdown, setShowSpecDropdown] = useState(false);
-  const [showGradeFilter, setShowGradeFilter] = useState(false);
-  const [visibleGrades, setVisibleGrades] = useState<number[]>([]); // Empty = All
+  const [showTeacherFilterDropdown, setShowTeacherFilterDropdown] = useState(false);
+  
+  // Custom Dropdown Toggles
+  const [showGradeDropdown, setShowGradeDropdown] = useState(false);
+  const [showClassDropdown, setShowClassDropdown] = useState(false);
+
+  // -- Interactive Quota Edit --
+  const [editingQuotaTeacherId, setEditingQuotaTeacherId] = useState<string | null>(null);
+  const [tempQuota, setTempQuota] = useState<number>(0);
+
+  // -- Refs & Scroll --
+  const specDropdownRef = useRef<HTMLDivElement>(null);
+  const teacherFilterDropdownRef = useRef<HTMLDivElement>(null);
+  const gradeDropdownRef = useRef<HTMLDivElement>(null);
+  const classDropdownRef = useRef<HTMLDivElement>(null);
+  const mainScrollRef = useRef<HTMLDivElement>(null); 
+
+  // -- Constants --
+  const THEME_COLOR = '#655ac1';
+  const THEME_BG = '#e5e1fe';
 
   // -- Helpers --
   const getTeacherLoad = (tId: string) => {
@@ -45,23 +72,187 @@ const ManualAssignment: React.FC<Props> = ({
     }, 0);
   };
 
+  const getTeacherWaitingLoad = (t: Teacher) => t.waitingQuota || 0;
+
+  const getTotalStats = () => {
+    let totalPeriods = 0;
+    let totalSubjects = 0;
+    
+    classes.filter(c => schoolInfo.phases.includes(c.phase)).forEach(cls => {
+        const relevantSubjects = subjects.filter(s => 
+            !s.isArchived && 
+            (gradeSubjectMap[`${cls.phase}-${cls.grade}`]?.includes(s.id) || cls.subjectIds?.includes(s.id))
+        );
+        // unique subjects for THIS class instance
+        const uniqueSubjects = Array.from(new Set(relevantSubjects.map(s => s.id))).map(id => relevantSubjects.find(s => s.id === id)!);
+        
+        uniqueSubjects.forEach(s => {
+            totalPeriods += s.periodsPerClass;
+        });
+        totalSubjects += uniqueSubjects.length;
+    });
+    return { totalPeriods, totalSubjects };
+  };
+
+  const getAssignedStats = () => {
+      const assignedPeriods = assignments.reduce((total, a) => {
+           const sub = subjects.find(s => s.id === a.subjectId);
+           return total + (sub?.periodsPerClass || 0);
+      }, 0);
+      const assignedSubjectsCount = assignments.length;
+      return { assignedPeriods, assignedSubjectsCount };
+  };
+
+  const getUnassignedClassesCount = () => {
+      let count = 0;
+      classes.filter(c => schoolInfo.phases.includes(c.phase)).forEach(cls => {
+            const relevantSubjects = subjects.filter(s => 
+                !s.isArchived && 
+                (gradeSubjectMap[`${cls.phase}-${cls.grade}`]?.includes(s.id) || cls.subjectIds?.includes(s.id))
+            );
+            const uniqueSubjects = Array.from(new Set(relevantSubjects.map(s => s.id))).map(id => relevantSubjects.find(s => s.id === id)!);
+            if (uniqueSubjects.length > 0) {
+                 const assignedCount = uniqueSubjects.filter(s => assignments.some(a => a.classId === cls.id && a.subjectId === s.id)).length;
+                 if (assignedCount < uniqueSubjects.length) {
+                     count++;
+                 }
+            }
+      });
+      return count;
+  }
+
+  // Filter Teachers based on Search, Specs, and Specific Selection
   const filteredTeachers = useMemo(() => {
     return teachers.filter(t => {
-      const matchSearch = t.name.toLowerCase().includes(teacherSearch.toLowerCase());
+      // 1. Filter by ID Selection (if any selected)
+      const matchId = selectedTeacherFilterIds.length === 0 || selectedTeacherFilterIds.includes(t.id);
+      // 2. Filter by Search (text) - Only if not selecting specific IDs via dropdown (or combine logic?)
+      // Current requirement: "Dropdown with search text... select teacher or group...". 
+      // So search filters the list usually, but here we likely want the search to filter the DROPDOWN list, and the MAIN list shows selected.
+      // However, if no IDs selected, show ALL.
+      
       const matchSpec = selectedSpecs.length === 0 || selectedSpecs.includes(t.specializationId);
-      return matchSearch && matchSpec;
+      
+      return matchId && matchSpec;
     });
-  }, [teachers, teacherSearch, selectedSpecs]);
+  }, [teachers, selectedTeacherFilterIds, selectedSpecs]);
+
+  // Dynamic Specializations (Only used ones)
+  const availableSpecializations = useMemo(() => {
+      const usedSpecIds = new Set(teachers.map(t => t.specializationId));
+      return specializations.filter(s => usedSpecIds.has(s.id));
+  }, [teachers, specializations]);
 
   const sourceSubjects = useMemo(() => {
-    return subjects.filter(s => !s.isArchived && s.phases.includes(activePhase));
-  }, [subjects, activePhase]);
+    return subjects.filter(s => !s.isArchived); // Pass all subjects, filter by grade later
+  }, [subjects]);
+
+  // -- Derived State for Grades to render --
+  const activeGrades = useMemo(() => {
+      const grades = new Set<number>();
+      classes.forEach(c => {
+          if (schoolInfo.phases.includes(c.phase)) {
+              grades.add(c.grade);
+          }
+      });
+      return Array.from(grades).sort((a,b) => a - b);
+  }, [classes, schoolInfo.phases]);
+
+  // -- Derived State for Classes in Dropdown --
+  const availableClassesForDropdown = useMemo(() => {
+      return classes.filter(c => {
+          const phaseMatch = schoolInfo.phases.includes(c.phase);
+          const gradeMatch = selectedGrades.length === 0 || selectedGrades.includes(c.grade);
+          return phaseMatch && gradeMatch;
+      });
+  }, [classes, schoolInfo.phases, selectedGrades]);
+
+  // -- Filtered Content Logic (Workspace) --
+  const displayedGrades = useMemo(() => {
+      // If grades selected, show them.
+      if (selectedGrades.length > 0) return selectedGrades.sort((a,b) => a - b);
+      
+      // If classes selected, show their grades.
+      if (selectedClassIds.length > 0) {
+           const grades = new Set<number>();
+           selectedClassIds.forEach(id => {
+               const c = classes.find(x => x.id === id);
+               if (c) grades.add(c.grade);
+           });
+           return Array.from(grades).sort((a,b) => a - b);
+      }
+      
+      // Default: All active grades
+      return activeGrades;
+  }, [selectedGrades, selectedClassIds, activeGrades, classes]);
+
+  const displayedClasses = (grade: number) => {
+      let gradeClasses = classes.filter(c => schoolInfo.phases.includes(c.phase) && c.grade === grade);
+      
+      // If specific classes selected, filter further
+      if (selectedClassIds.length > 0) {
+          gradeClasses = gradeClasses.filter(c => selectedClassIds.includes(c.id));
+      }
+      return gradeClasses;
+  }
+
+  // -- Toggle Helpers --
+  const toggleTeacherFilter = (id: string) => {
+      setSelectedTeacherFilterIds(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]);
+  };
+  
+  const toggleGradeFilter = (g: number) => {
+      setSelectedGrades(prev => prev.includes(g) ? prev.filter(i => i !== g) : [...prev, g]);
+  };
+
+  const toggleClassFilter = (id: string) => {
+      setSelectedClassIds(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]);
+  };
+
+
+  // -- Quota Handlers --
+  const startEditingQuota = (e: React.MouseEvent, t: Teacher) => {
+      e.stopPropagation();
+      setEditingQuotaTeacherId(t.id);
+      setTempQuota(t.quotaLimit);
+  };
+
+  const saveQuota = (e: React.MouseEvent, t: Teacher) => {
+      e.stopPropagation();
+      setTeachers(prev => prev.map(teacher => teacher.id === t.id ? { ...teacher, quotaLimit: tempQuota } : teacher));
+      setEditingQuotaTeacherId(null);
+  };
 
   // -- Assignment Actions --
-  const handleAssign = (teacherId: string, classId: string, subjectId: string) => {
+  const handleAssign = (classId: string, subjectId: string) => {
+    if (!selectedTeacherId) {
+        alert("يرجى اختيار معلم أولاً من القائمة اليمنى");
+        return;
+    }
+
+    const teacher = teachers.find(t => t.id === selectedTeacherId);
+    if (!teacher) return;
+    
+    const existingAssignment = assignments.find(a => a.classId === classId && a.subjectId === subjectId);
+    if (existingAssignment) {
+        if (existingAssignment.teacherId === selectedTeacherId) return; // Already assigned to self
+    }
+
+    const subject = subjects.find(s => s.id === subjectId);
+    const subjectLoad = subject?.periodsPerClass || 0;
+    const currentLoad = getTeacherLoad(teacher.id);
+    
+    // Check Quota
+    if (currentLoad + subjectLoad > teacher.quotaLimit) {
+        if (!confirm(`هذا الإسناد سيتجاوز نصاب المعلم (${teacher.quotaLimit}). هل أنت متأكد؟`)) {
+            return;
+        }
+    }
+
     setAssignments(prev => {
+      // Remove any existing assignment for this class/subject
       const filtered = prev.filter(a => !(a.classId === classId && a.subjectId === subjectId));
-      return [...filtered, { teacherId, classId, subjectId }];
+      return [...filtered, { teacherId: selectedTeacherId, classId, subjectId }];
     });
   };
 
@@ -75,9 +266,113 @@ const ManualAssignment: React.FC<Props> = ({
     }
   };
 
+  const handleDeleteAll = () => {
+    if (assignments.length === 0) return;
+    if (confirm("هل أنت متأكد من حذف جميع الإسنادات؟ لا يمكن التراجع عن ذلك.")) {
+        setAssignments([]);
+    }
+  }
+
   const toggleSpec = (id: string) => {
     setSelectedSpecs(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]);
   };
+
+  // Scroll to top handler
+  const scrollToTop = () => {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  // -- Render Helpers --
+  const { totalPeriods, totalSubjects } = getTotalStats();
+  const { assignedPeriods, assignedSubjectsCount } = getAssignedStats();
+  const unassignedClassesCount = getUnassignedClassesCount();
+  const unassignedSubjectsCount = totalSubjects - assignedSubjectsCount;
+  
+  // Close dropdowns
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+        if (specDropdownRef.current && !specDropdownRef.current.contains(event.target as Node)) {
+            setShowSpecDropdown(false);
+        }
+        if (teacherFilterDropdownRef.current && !teacherFilterDropdownRef.current.contains(event.target as Node)) {
+            setShowTeacherFilterDropdown(false);
+        }
+        if (gradeDropdownRef.current && !gradeDropdownRef.current.contains(event.target as Node)) {
+            setShowGradeDropdown(false);
+        }
+        if (classDropdownRef.current && !classDropdownRef.current.contains(event.target as Node)) {
+            setShowClassDropdown(false);
+        }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+
+  // -- Components --
+  
+  // Teacher Details Modal
+  const TeacherDetailsModal = () => {
+      if (!viewingTeacher) return null;
+      const teacherAssignments = assignments.filter(a => a.teacherId === viewingTeacher.id);
+      
+      return (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm animate-in fade-in">
+              <div className="bg-white rounded-3xl w-full max-w-lg p-6 shadow-2xl m-4">
+                  <div className="flex justify-between items-center mb-6">
+                      <div className="flex items-center gap-3">
+                          <div className="w-12 h-12 rounded-2xl bg-[#e5e1fe] text-[#655ac1] flex items-center justify-center font-black text-lg">
+                              {viewingTeacher.name.substring(0,2)}
+                          </div>
+                          <div>
+                              <h3 className="text-lg font-black text-slate-800">{viewingTeacher.name}</h3>
+                              <p className="text-xs font-bold text-slate-500">تفاصيل الإسناد الحالي</p>
+                          </div>
+                      </div>
+                      <button onClick={() => setViewingTeacher(null)} className="p-2 hover:bg-slate-100 rounded-full text-slate-500">
+                          <X size={20}/>
+                      </button>
+                  </div>
+                  
+                  <div className="max-h-[60vh] overflow-y-auto custom-scrollbar space-y-3">
+                      {teacherAssignments.length > 0 ? (
+                            teacherAssignments.map((a, idx) => {
+                                const cls = classes.find(c => c.id === a.classId);
+                                const sub = subjects.find(s => s.id === a.subjectId);
+                                return (
+                                    <div key={idx} className="flex items-center justify-between p-3 bg-slate-50 rounded-xl border border-slate-100">
+                                        <div className="flex items-center gap-3">
+                                            <div className="p-2 bg-white rounded-lg border border-slate-100 text-[#655ac1]">
+                                                <Briefcase size={16}/>
+                                            </div>
+                                            <div>
+                                                <h4 className="text-sm font-black text-slate-700">{sub?.name}</h4>
+                                                <span className="text-[10px] font-bold text-slate-400">الفصل {cls?.grade} / {cls?.section}</span>
+                                            </div>
+                                        </div>
+                                        <div className="px-2 py-1 bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-600">
+                                            {sub?.periodsPerClass} حصص
+                                        </div>
+                                    </div>
+                                );
+                            })
+                      ) : (
+                          <div className="py-8 text-center text-slate-400 font-medium">
+                              لا توجد مواد مسندة لهذا المعلم بعد.
+                          </div>
+                      )}
+                  </div>
+                  
+                  <div className="mt-6 pt-4 border-t border-slate-100 flex justify-end">
+                      <button onClick={() => setViewingTeacher(null)} className="px-6 py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl font-bold transition-colors">
+                          إغلاق
+                      </button>
+                  </div>
+              </div>
+          </div>
+      );
+  };
+
 
   if (showReport) {
     return (
@@ -94,270 +389,559 @@ const ManualAssignment: React.FC<Props> = ({
   }
 
   return (
-    <div className="h-full flex flex-col overflow-hidden bg-slate-50/50">
+    <div className="space-y-6 animate-in fade-in duration-500 pb-24" ref={mainScrollRef}>
+        
+      {viewingTeacher && <TeacherDetailsModal />}
       
-      {/* 1. Header Bar */}
-      <div className="bg-white border-b border-slate-200 px-6 py-4 flex justify-between items-center shrink-0 shadow-sm z-20">
-         <div className="flex items-center gap-4">
-            <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2">
-               <LayoutGrid className="text-primary" size={24}/>
-               إسناد المواد والفصول
-            </h2>
-         </div>
-
-         <div className="flex items-center gap-3">
-             <button 
-                onClick={() => setShowReport(true)}
-                className="flex items-center gap-2 px-4 py-2 bg-indigo-50 text-indigo-600 hover:bg-indigo-100 rounded-xl transition-all text-xs font-bold" 
-             >
-                <Filter size={16} /> 
-                تقرير الإسناد والطباعة
-             </button>
-
-             <button 
-                onClick={() => { if(confirm("هل أنت متأكد من حذف إسناد الكل؟ هذا الإجراء لا يمكن التراجع عنه.")) setAssignments([]) }} 
-                className="flex items-center gap-2 px-3 py-2 text-rose-500 bg-rose-50 hover:bg-rose-100 rounded-xl transition-all text-xs font-bold" 
-                title="تصفير"
-            >
-                <Trash2 size={16} /> 
-                حذف إسناد الكل
-            </button>
-         </div>
+      {/* 1. ROW 1: Header */}
+      <div className="bg-white rounded-[2rem] p-6 shadow-sm border border-slate-100 relative group hover:shadow-md transition-all duration-300 overflow-hidden">
+        <div className="absolute top-0 right-0 w-32 h-32 bg-[#e5e1fe] rounded-bl-[4rem] -z-0 transition-transform group-hover:scale-110 duration-500"></div>
+        <h3 className="text-xl font-black text-slate-800 flex items-center gap-3 relative z-10">
+            <div className="p-2 bg-[#e5e1fe] text-[#655ac1] rounded-xl"><Briefcase size={24} /></div>
+            إسناد المواد
+        </h3>
+        <p className="text-slate-500 font-medium mt-2 mr-12 relative z-10">إضافة إسناد المواد للمعلمين عبر واجهة تفاعلية سهلة</p>
       </div>
 
-      <div className="flex-1 flex overflow-hidden">
-        
-        {/* 2. Professional Sidebar (Teachers) */}
-        <aside className="w-80 bg-white border-l border-slate-200 flex flex-col shrink-0 z-10 transition-all">
-            {/* Search & Filter Header */}
-            <div className="p-4 border-b border-slate-100 flex flex-col gap-3">
-                <h3 className="font-black text-slate-800 text-sm">قائمة المعلمين</h3>
-                <div className="relative">
-                    <Search className="absolute right-3 top-3 text-slate-400" size={16}/>
-                    <input 
-                        type="text" 
-                        placeholder="بحث عن معلم..." 
-                        className="w-full pr-10 pl-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/20 transition-all"
-                        value={teacherSearch}
-                        onChange={e => setTeacherSearch(e.target.value)}
-                    />
+      {/* 2. ROW 2: Action Bar */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+            
+            {/* Stat 1: Unassigned Periods (Refined) */}
+            <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm flex flex-col justify-center items-center hover:shadow-md transition-all">
+                <div className="flex items-center gap-2 mb-1">
+                    <div className="p-1.5 bg-slate-100 text-slate-600 rounded-lg"><Layers size={16} /></div>
+                    <span className="text-[10px] font-bold text-slate-500">حصص غير مسندة</span>
                 </div>
-                
-                <div className="relative">
-                    <button 
-                        onClick={() => setShowSpecDropdown(!showSpecDropdown)}
-                        className="w-full flex justify-between items-center px-4 py-2.5 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 transition-all"
-                    >
-                         <span className="text-xs font-bold text-slate-600 flex items-center gap-2">
-                            <Filter size={14}/> 
-                            {selectedSpecs.length ? `تخصص (${selectedSpecs.length})` : 'كل التخصصات'}
-                         </span>
-                         <ChevronDown size={14} className="text-slate-400"/>
-                    </button>
-                    {showSpecDropdown && (
-                        <>
-                            <div className="fixed inset-0 z-30" onClick={() => setShowSpecDropdown(false)}/>
-                            <div className="absolute top-full mt-2 w-full bg-white border border-slate-100 rounded-xl shadow-xl z-40 max-h-60 overflow-y-auto custom-scrollbar p-1">
-                                {specializations.map(s => (
+                <div className="flex items-baseline gap-1">
+                    <span className="text-2xl font-black text-indigo-600 leading-none">{totalPeriods - assignedPeriods}</span>
+                    <span className="text-2xl font-black text-slate-400 leading-none">/ {totalPeriods}</span>
+                </div>
+            </div>
+
+            {/* Stat 2: Unassigned Classes (Refined Icon + Color) */}
+            <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm flex flex-col justify-center items-center hover:shadow-md transition-all">
+                <div className="flex items-center gap-2 mb-1">
+                    <div className="p-1.5 bg-slate-100 text-slate-600 rounded-lg"><School size={16} /></div>
+                    <span className="text-[10px] font-bold text-slate-500">فصول غير مسندة</span>
+                </div>
+                <span className={`text-2xl font-black leading-none text-[#655ac1]`}>{unassignedClassesCount}</span>
+            </div>
+
+            {/* Stat 3: Unassigned Subjects (Refined Color) */}
+            <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm flex flex-col justify-center items-center hover:shadow-md transition-all">
+                <div className="flex items-center gap-2 mb-1">
+                    <div className="p-1.5 bg-slate-100 text-slate-600 rounded-lg"><BookOpen size={16} /></div>
+                    <span className="text-[10px] font-bold text-slate-500">مواد غير مسندة</span>
+                </div>
+                <span className={`text-2xl font-black leading-none text-[#655ac1]`}>{unassignedSubjectsCount}</span>
+            </div>
+
+            {/* Action 4: Report Button */}
+            <button 
+                onClick={() => setShowReport(true)}
+                className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm flex flex-col justify-center items-center gap-2 hover:border-[#655ac1] hover:text-[#655ac1] transition-all group"
+            >
+                <Printer size={24} className="text-slate-400 group-hover:text-[#655ac1] transition-colors"/>
+                <span className="text-xs font-bold text-slate-600 group-hover:text-[#655ac1]">تقرير الإسناد</span>
+            </button>
+
+            {/* Action 5: Delete All Button (Refined Label) */}
+            <button 
+                onClick={handleDeleteAll}
+                disabled={assignments.length === 0}
+                className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm flex flex-col justify-center items-center gap-2 hover:border-rose-200 hover:bg-rose-50 hover:text-rose-500 transition-all group disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-white disabled:hover:border-slate-100 disabled:hover:text-inherit"
+            >
+                <Trash2 size={24} className="text-slate-400 group-hover:text-rose-500 transition-colors"/>
+                <span className="text-xs font-bold text-slate-600 group-hover:text-rose-500">حذف إسناد الكل</span>
+            </button>
+
+      </div>
+
+      <div className="flex flex-col lg:flex-row items-start gap-6">
+        
+        {/* RIGHT SIDEBAR (Teachers) */}
+        <aside className="w-full lg:w-96 shrink-0 sticky top-4 max-h-[calc(100vh-2rem)] flex flex-col bg-white rounded-[2rem] border-2 border-[#e5e1fe] shadow-xl shadow-[#655ac1]/5 overflow-hidden z-20">
+            
+            {/* Sidebar Header */}
+            <div className="p-5 bg-white relative">
+                <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-xl bg-[#f0f0ff] flex items-center justify-center text-[#655ac1] shadow-sm border border-[#e5e1fe]">
+                             <Users size={20} />
+                        </div>
+                        <div>
+                            <h3 className="font-black text-slate-800 text-sm">المعلمون</h3>
+                            <span className="text-[10px] font-bold text-slate-400">إجمالي المعلمون: {filteredTeachers.length}</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div className="space-y-3">
+                    {/* Teacher Filter Dropdown with Search */}
+                     <div className="relative" ref={teacherFilterDropdownRef}>
+                        <button 
+                            onClick={() => setShowTeacherFilterDropdown(!showTeacherFilterDropdown)}
+                            className="w-full flex justify-between items-center px-3 py-2.5 bg-slate-50 border border-slate-100 rounded-xl hover:bg-white hover:border-[#8779fb] transition-all"
+                        >
+                             <span className="text-xs font-bold text-slate-600 flex items-center gap-2 truncate">
+                                <ListFilter size={14}/> 
+                                {selectedTeacherFilterIds.length > 0 ? `تم تحديد (${selectedTeacherFilterIds.length})` : 'كل المعلمين'}
+                             </span>
+                             <ChevronDown size={14} className={`text-slate-400 transition-transform ${showTeacherFilterDropdown ? 'rotate-180' : ''}`}/>
+                        </button>
+                        
+                        {showTeacherFilterDropdown && (
+                             <div className="absolute top-full mt-2 w-full bg-white border border-slate-100 rounded-xl shadow-xl z-50 overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+                                 {/* Internal Search */}
+                                 <div className="p-2 border-b border-slate-50">
+                                    <div className="relative">
+                                        <Search className="absolute right-2.5 top-2.5 text-slate-400" size={12}/>
+                                        <input 
+                                            type="text" 
+                                            placeholder="بحث..." 
+                                            className="w-full pr-8 pl-4 py-2 bg-slate-50 border border-slate-100 rounded-lg text-xs font-bold focus:outline-none focus:border-[#8779fb]"
+                                            value={teacherSearch}
+                                            onChange={e => setTeacherSearch(e.target.value)}
+                                            autoFocus
+                                        />
+                                    </div>
+                                 </div>
+                                 
+                                 <div className="max-h-52 overflow-y-auto custom-scrollbar p-1">
+                                    {/* Action buttons */}
+                                    <div className="flex gap-1 mb-1 px-1">
+                                        <button 
+                                            onClick={() => setSelectedTeacherFilterIds([])} 
+                                            className="text-[10px] flex-1 py-1.5 bg-slate-50 hover:bg-[#e5e1fe] hover:text-[#655ac1] rounded font-bold text-slate-500 transition-colors"
+                                        >
+                                            إلغاء التحديد
+                                        </button>
+                                        <button 
+                                            onClick={() => setSelectedTeacherFilterIds(teachers.map(t => t.id))} 
+                                            className="text-[10px] flex-1 py-1.5 bg-slate-50 hover:bg-[#e5e1fe] hover:text-[#655ac1] rounded font-bold text-slate-500 transition-colors"
+                                        >
+                                            تحديد الكل
+                                        </button>
+                                    </div>
+
+                                    {teachers
+                                        .filter(t => t.name.toLowerCase().includes(teacherSearch.toLowerCase()))
+                                        .map(t => (
+                                        <button 
+                                            key={t.id} 
+                                            onClick={() => toggleTeacherFilter(t.id)}
+                                            className={`w-full flex justify-between items-center px-3 py-2 rounded-lg text-xs font-bold transition-all mb-0.5 ${selectedTeacherFilterIds.includes(t.id) ? 'bg-[#e5e1fe] text-[#655ac1]' : 'hover:bg-slate-50 text-slate-600'}`}
+                                        >
+                                            <span className="truncate">{t.name}</span>
+                                            {selectedTeacherFilterIds.includes(t.id) && <Check size={12}/>}
+                                        </button>
+                                    ))}
+                                 </div>
+                             </div>
+                        )}
+                    </div>
+                    
+                    <div className="relative" ref={specDropdownRef}>
+                        <button 
+                            onClick={() => setShowSpecDropdown(!showSpecDropdown)}
+                            className={`w-full flex justify-between items-center px-3 py-2.5 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 hover:border-[#8779fb] transition-all ${showSpecDropdown ? 'ring-2 ring-[#8779fb]/20 border-[#8779fb]' : ''}`}
+                        >
+                             <span className="text-xs font-bold text-slate-600 flex items-center gap-2 truncate">
+                                <Filter size={12}/> 
+                                {selectedSpecs.length ? `تخصص (${selectedSpecs.length})` : 'كل التخصصات'}
+                             </span>
+                             <ChevronDown size={14} className={`text-slate-400 transition-transform ${showSpecDropdown ? 'rotate-180' : ''}`}/>
+                        </button>
+                        {showSpecDropdown && (
+                            <div className="absolute top-full mt-2 w-full bg-white border border-slate-100 rounded-xl shadow-xl z-50 max-h-60 overflow-y-auto custom-scrollbar p-1.5 animate-in fade-in zoom-in-95 duration-200">
+                                {availableSpecializations.map(s => (
                                     <button 
                                         key={s.id} 
                                         onClick={() => toggleSpec(s.id)}
-                                        className={`w-full flex justify-between items-center px-3 py-2 rounded-lg text-xs font-bold transition-all ${selectedSpecs.includes(s.id) ? 'bg-primary/10 text-primary' : 'hover:bg-slate-50 text-slate-600'}`}
+                                        className={`w-full flex justify-between items-center px-3 py-2 rounded-lg text-xs font-bold transition-all mb-0.5 ${selectedSpecs.includes(s.id) ? 'bg-[#e5e1fe] text-[#655ac1]' : 'hover:bg-slate-50 text-slate-600'}`}
                                     >
                                         {s.name}
-                                        {selectedSpecs.includes(s.id) && <Check size={14}/>}
+                                        {selectedSpecs.includes(s.id) && <Check size={12}/>}
                                     </button>
                                 ))}
                             </div>
-                        </>
-                    )}
+                        )}
+                    </div>
                 </div>
             </div>
 
+            {/* Separator */}
+            <div className="h-px bg-slate-100 w-full mb-1"></div>
+
             {/* Teacher List */}
-            <div className="flex-1 overflow-y-auto custom-scrollbar p-3 space-y-2">
-                {filteredTeachers.map(t => {
-                    const load = getTeacherLoad(t.id);
-                    const isSelected = selectedTeacherId === t.id;
-                    const isOverLoad = load > t.quotaLimit;
+            <div className="flex-1 overflow-y-auto custom-scrollbar p-3 space-y-2.5 pt-2">
+                {filteredTeachers.length > 0 ? (
+                    filteredTeachers.map(t => {
+                        const assignedLoad = getTeacherLoad(t.id);
+                        const waitingLoad = getTeacherWaitingLoad(t);
+                        const totalLoad = assignedLoad + waitingLoad;
+                        
+                        const isSelected = selectedTeacherId === t.id;
+                        
+                        const isOverLimit = totalLoad >= 24;
+                        const isHighLoad = totalLoad >= 20;
 
-                    return (
-                        <div 
-                            key={t.id} 
-                            onClick={() => setSelectedTeacherId(t.id)}
-                            className={`p-3 rounded-xl border cursor-pointer transition-all group flex items-start gap-3 relative overflow-hidden ${isSelected ? 'bg-primary/5 border-primary shadow-sm' : 'bg-white border-slate-100 hover:border-slate-300'}`}
-                        >
-                            {isSelected && <div className="absolute left-0 top-0 bottom-0 w-1 bg-primary"></div>}
-                            <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 text-sm font-bold shadow-sm ${isSelected ? 'bg-primary text-white' : 'bg-slate-100 text-slate-500'}`}>
-                                {t.name.substring(0,2)}
-                            </div>
-                            <div className="flex-1 overflow-hidden flex justify-between items-start">
-                                <div className="flex flex-col gap-0.5">
-                                    <h4 className={`text-xs font-black truncate ${isSelected ? 'text-primary' : 'text-slate-700'}`}>{t.name}</h4>
-                                    <span className="text-[10px] text-slate-400 font-bold truncate">
-                                        {specializations.find(s => s.id === t.specializationId)?.name || 'عام'}
-                                    </span>
-                                </div>
+                        let progressColor = 'bg-emerald-500';
+                        if (isOverLimit) progressColor = 'bg-rose-500';
+                        else if (isHighLoad) progressColor = 'bg-amber-500';
 
-                                <div className="flex flex-col items-end gap-1">
-                                    <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${isOverLoad ? 'bg-rose-100 text-rose-600' : 'bg-slate-100 text-slate-500'}`}>
-                                        {load}/{t.quotaLimit}
-                                    </span>
-                                    {load > 0 && (
+                        const progressValue = Math.min(100, Math.round((totalLoad / (t.quotaLimit || 24)) * 100));
+
+                        return (
+                            <div 
+                                key={t.id} 
+                                onClick={() => setSelectedTeacherId(t.id)}
+                                className={`
+                                    p-3.5 rounded-2xl border cursor-pointer transition-all group relative overflow-hidden flex flex-col gap-2.5
+                                    ${isSelected 
+                                        ? 'bg-[#e5e1fe]/30 border-[#655ac1] shadow-sm transform scale-[1.02]' 
+                                        : 'bg-white border-slate-100 hover:border-[#8779fb]/50 hover:shadow-md hover:translate-x-[-2px]'}
+                                `}
+                            >
+                                <div className="flex items-start justify-between">
+                                    <div className="flex items-center gap-3 overflow-hidden">
+                                        {/* Avatar Removed */}
+                                        <div className="flex flex-col min-w-0">
+                                            <h4 className={`text-sm font-black truncate ${isSelected ? 'text-[#655ac1]' : 'text-slate-700'}`}>{t.name}</h4>
+                                            <span className="text-[10px] text-slate-400 font-bold truncate">
+                                                {specializations.find(s => s.id === t.specializationId)?.name || 'عام'}
+                                            </span>
+                                        </div>
+                                    </div>
+                                    
+                                    <div className="flex items-center gap-1">
                                         <button
                                             onClick={(e) => {
                                                 e.stopPropagation();
-                                                handleUnassignTeacher(t.id, t.name);
+                                                setViewingTeacher(t);
                                             }}
-                                            className="flex items-center gap-1 text-[10px] text-rose-500 hover:text-rose-700 transition-all font-bold bg-rose-50 px-2 py-0.5 rounded-full mt-1"
-                                            title="حذف جميع إسنادات المعلم"
+                                            className="text-[#655ac1] bg-[#e5e1fe] hover:bg-[#d0cbfb] p-1.5 rounded-lg shadow-sm transition-all hover:scale-105"
+                                            title="عرض الإسناد"
                                         >
-                                            <Trash2 size={10} /> حذف
+                                            <ClipboardList size={14} />
                                         </button>
-                                    )}
-                                </div>
-                            </div>
-                        </div>
-                    );
-                })}
-            </div>
-        </aside>
 
-        <main className="flex-1 flex flex-col overflow-hidden relative bg-[#FAFAFA]">
-            <div className="h-full overflow-y-auto custom-scrollbar p-6 md:p-8">
-                    <div className="max-w-6xl mx-auto space-y-8 animate-in fade-in duration-300">
-                    
-                    <div className="flex items-center justify-between pb-2 border-b border-slate-200/60">
-                        <h3 className="text-lg font-black text-slate-800">قائمة الفصول والمواد</h3>
-                        
-                        {/* Grades Filter */}
-                        <div className="relative">
-                            <button 
-                                onClick={() => setShowGradeFilter(!showGradeFilter)}
-                                className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-600 hover:border-primary hover:text-primary transition-all shadow-sm"
-                            >
-                                <Filter size={14}/>
-                                {visibleGrades.length === 0 ? 'كل الصفوف' : `تم اختيار (${visibleGrades.length})`}
-                                <ChevronDown size={14}/>
-                            </button>
-
-                            {showGradeFilter && (
-                                <>
-                                    <div className="fixed inset-0 z-30" onClick={() => setShowGradeFilter(false)}/>
-                                    <div className="absolute top-full left-0 mt-2 w-48 bg-white border border-slate-100 rounded-xl shadow-xl z-40 p-2 space-y-1 animate-in zoom-in-95">
-                                        <button 
-                                            onClick={() => setVisibleGrades([])}
-                                            className={`w-full flex justify-between items-center px-3 py-2 rounded-lg text-xs font-bold transition-all ${visibleGrades.length === 0 ? 'bg-primary/10 text-primary' : 'hover:bg-slate-50 text-slate-600'}`}
-                                        >
-                                            عرض الكل ({[1,2,3,4,5,6].length})
-                                            {visibleGrades.length === 0 && <Check size={14}/>}
-                                        </button>
-                                        <div className="h-px bg-slate-100 my-1"/>
-                                        {[1,2,3,4,5,6].map(g => (
-                                            <button 
-                                                key={g} 
-                                                onClick={() => setVisibleGrades(prev => prev.includes(g) ? prev.filter(x => x !== g) : [...prev, g])}
-                                                className={`w-full flex justify-between items-center px-3 py-2 rounded-lg text-xs font-bold transition-all ${visibleGrades.includes(g) ? 'bg-indigo-50 text-indigo-600' : 'hover:bg-slate-50 text-slate-600'}`}
+                                        {assignedLoad > 0 && (
+                                            <button
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    handleUnassignTeacher(t.id, t.name);
+                                                }}
+                                                className="text-rose-400 hover:text-rose-600 bg-rose-50 hover:bg-rose-100 p-1.5 rounded-lg transition-all opacity-0 group-hover:opacity-100 transform translate-x-2 group-hover:translate-x-0"
+                                                title="حذف جميع إسنادات المعلم"
                                             >
-                                                الصف {g}
-                                                {visibleGrades.includes(g) && <Check size={14}/>}
+                                                <Trash2 size={14} />
                                             </button>
-                                        ))}
+                                        )}
                                     </div>
-                                </>
-                            )}
-                        </div>
-                    </div>
+                                </div>
 
-                    {/* Grades Loop */}
-                    {[1,2,3,4,5,6].filter(g => visibleGrades.length === 0 || visibleGrades.includes(g)).map(grade => {
-                        const gradeClasses = classes.filter(c => c.phase === activePhase && c.grade === grade);
-                        if (gradeClasses.length === 0) return null;
-
-                        return (
-                            <div key={grade} className="space-y-4">
-                                <h3 className="text-sm font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
-                                    <Layers size={14}/> الصف الدراسي {grade}
-                                </h3>
-                                
-                                <div className="space-y-4">
-                                    {gradeClasses.map(cls => {
-                                        // Filter and Deduplicate Subjects
-                                        const rawSubjects: Subject[] = sourceSubjects.filter(
-                                            (s) => gradeSubjectMap[`${activePhase}-${grade}`]?.includes(s.id) || cls.subjectIds?.includes(s.id)
-                                        );
-                                        const classSubjects: Subject[] = Array.from(new Map(rawSubjects.map(s => [s.id, s])).values());
+                                {/* Progress Bar & Quota */}
+                                <div className="space-y-1.5 p-2 bg-slate-50/50 rounded-xl border border-slate-50">
+                                    <div className="flex items-center justify-between text-[10px] font-bold text-slate-500">
+                                        <span className="flex items-center gap-1">
+                                            نصاب: 
+                                            {editingQuotaTeacherId === t.id ? (
+                                                <div className="inline-flex items-center gap-1 mr-1" onClick={e => e.stopPropagation()}>
+                                                    <input 
+                                                        type="number" 
+                                                        value={tempQuota}
+                                                        onChange={e => setTempQuota(Number(e.target.value))}
+                                                        className="w-10 text-center border border-[#655ac1] rounded px-0.5 py-0 focus:outline-none bg-white font-black text-[#655ac1]"
+                                                        autoFocus
+                                                    />
+                                                    <button onClick={(e) => saveQuota(e, t)} className="text-emerald-600 hover:bg-emerald-50 rounded p-0.5"><Check size={12}/></button>
+                                                </div>
+                                            ) : (
+                                                <span 
+                                                    className="mr-1 cursor-pointer hover:text-[#655ac1] hover:bg-white px-1.5 py-0.5 rounded transition-all border border-transparent hover:border-slate-200 hover:shadow-sm"
+                                                    onClick={(e) => startEditingQuota(e, t)}
+                                                    title="اضغط لتعديل النصاب"
+                                                >
+                                                    {t.quotaLimit}
+                                                </span>
+                                            )}
+                                        </span>
                                         
-                                        // Calculate completion
-                                        const assignedCount = classSubjects.filter(s => assignments.some(a => a.classId === cls.id && a.subjectId === s.id)).length;
-                                        const progress = Math.round((assignedCount / classSubjects.length) * 100);
-
-                                        return (
-                                            <div key={cls.id} className="bg-white rounded-2xl border border-slate-200 shadow-[0_2px_8px_rgba(0,0,0,0.02)] overflow-hidden">
-                                                {/* Header */}
-                                                <div className="px-6 py-4 border-b border-slate-50 flex justify-between items-center bg-white">
-                                                    <div className="flex items-center gap-4">
-                                                        <div className="w-10 h-10 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center font-black text-lg">
-                                                            {cls.section}
-                                                        </div>
-                                                        <div>
-                                                            <h4 className="text-sm font-black text-slate-800">الفصل {cls.grade} / {cls.section}</h4>
-                                                            <div className="flex items-center gap-2 mt-0.5">
-                                                                    <div className="h-1.5 w-24 bg-slate-100 rounded-full overflow-hidden">
-                                                                    <div className="h-full bg-emerald-400 transition-all duration-500" style={{width: `${progress}%`}}></div>
-                                                                    </div>
-                                                                    <span className="text-[10px] text-slate-400 font-bold">{progress}% مكتمل</span>
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                </div>
-
-                                                {/* Subjects Grid */}
-                                                <div className="p-4 grid grid-cols-2 lg:grid-cols-4 xl:grid-cols-6 gap-3">
-                                                    {classSubjects.map(sub => {
-                                                        const assignment = assignments.find(a => a.classId === cls.id && a.subjectId === sub.id);
-                                                        const assignedTeacher = teachers.find(t => t.id === assignment?.teacherId);
-
-                                                        return (
-                                                            <button 
-                                                                key={sub.id}
-                                                                onClick={() => selectedTeacherId && handleAssign(selectedTeacherId, cls.id, sub.id)}
-                                                                className={`relative p-3 rounded-xl border text-right transition-all group ${assignment ? 'border-emerald-200 bg-emerald-50/50 hover:bg-emerald-50' : 'border-slate-100 bg-slate-50/50 hover:border-indigo-200 hover:shadow-sm'}`}
-                                                            >
-                                                                <div className="flex flex-col gap-1">
-                                                                    <span className="text-[11px] font-bold text-slate-700 truncate">{sub.name}</span>
-                                                                    {assignment ? (
-                                                                        <span className="text-[10px] font-bold text-emerald-600 flex items-center gap-1 truncate">
-                                                                            <UserCheck size={10}/> {assignedTeacher?.name}
-                                                                        </span>
-                                                                    ) : (
-                                                                        <span className="text-[10px] text-slate-400 font-medium">--</span>
-                                                                    )}
-                                                                </div>
-                                                                
-                                                                {assignment && (
-                                                                    <div 
-                                                                        onClick={(e) => { e.stopPropagation(); handleUnassign(cls.id, sub.id); }}
-                                                                        className="absolute top-2 left-2 text-rose-300 hover:text-rose-500 opacity-0 group-hover:opacity-100 transition-all p-1"
-                                                                    >
-                                                                        <X size={14} />
-                                                                    </div>
-                                                                )}
-                                                            </button>
-                                                        );
-                                                    })}
-                                                </div>
-                                            </div>
-                                        );
-                                    })}
+                                        <span className={`px-1.5 py-0.5 rounded-md ${isOverLimit ? 'bg-rose-100 text-rose-600' : isHighLoad ? 'bg-amber-100 text-amber-600' : 'bg-emerald-100 text-emerald-600'}`}>
+                                            {totalLoad} حصة
+                                        </span>
+                                    </div>
+                                    <div className="h-2 w-full bg-slate-200/50 rounded-full overflow-hidden">
+                                        <div 
+                                            className={`h-full ${progressColor} transition-all duration-700 ease-out shadow-sm`} 
+                                            style={{width: `${progressValue}%`}}
+                                        />
+                                    </div>
                                 </div>
                             </div>
                         );
-                    })}
+                    })
+                ) : (
+                    <div className="flex flex-col items-center justify-center py-10 text-slate-300">
+                         <div className="bg-slate-50 p-4 rounded-full mb-3">
+                             <Users size={24} />
+                         </div>
+                         <p className="text-xs font-bold">لا يوجد معلمين</p>
                     </div>
+                )}
             </div>
+        </aside>
+
+        {/* WORKSPACE (Classes) */}
+        <main className="flex-1 flex flex-col gap-6 w-full min-w-0">
+             
+             {/* Integrated Filter Bar */}
+             <div className="flex flex-col md:flex-row items-center gap-4 bg-white rounded-[2rem] p-4 shadow-sm border border-slate-100">
+                 <div className="flex items-center gap-2 text-slate-500 font-bold text-sm min-w-fit">
+                     <Filter size={18} />
+                     <span>تصفية الصفوف والفصول:</span>
+                 </div>
+                 
+                 <div className="flex-1 w-full grid grid-cols-2 gap-4">
+                     {/* Grade Multi-Select Dropdown */}
+                     <div className="relative" ref={gradeDropdownRef}>
+                         <button 
+                            onClick={() => setShowGradeDropdown(!showGradeDropdown)}
+                            className="w-full flex items-center justify-between px-4 py-2.5 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl text-slate-700 font-bold transition-all text-sm"
+                         >
+                             <span className="truncate">
+                                 {selectedGrades.length > 0 ? `تم تحديد (${selectedGrades.length})` : 'كل الصفوف'}
+                             </span>
+                             <ChevronDown size={14} className={`transition-transform ${showGradeDropdown ? 'rotate-180' : ''}`} />
+                         </button>
+                         
+                         {showGradeDropdown && (
+                             <div className="absolute top-full right-0 mt-2 w-full bg-white rounded-2xl shadow-xl border border-slate-100 z-50 overflow-hidden animate-in fade-in zoom-in-95 p-1">
+                                 <button 
+                                    onClick={() => setSelectedGrades([])}
+                                    className={`w-full text-right px-3 py-2 rounded-xl font-bold text-xs hover:bg-slate-50 transition-colors ${selectedGrades.length === 0 ? 'bg-[#e5e1fe] text-[#655ac1]' : 'text-slate-600'}`}
+                                 >
+                                     عرض الكل
+                                 </button>
+                                 <div className="my-1 border-t border-slate-50"></div>
+                                 {activeGrades.map(g => (
+                                    <button 
+                                        key={g}
+                                        onClick={() => toggleGradeFilter(g)}
+                                        className={`w-full flex justify-between items-center px-3 py-2 rounded-xl font-bold text-xs hover:bg-slate-50 transition-colors ${selectedGrades.includes(g) ? 'bg-[#e5e1fe] text-[#655ac1]' : 'text-slate-600'}`}
+                                     >
+                                        <span>الصف {g}</span>
+                                        {selectedGrades.includes(g) && <Check size={12}/>}
+                                     </button>
+                                 ))}
+                             </div>
+                         )}
+                     </div>
+
+                     {/* Class Multi-Select Dropdown */}
+                     <div className="relative" ref={classDropdownRef}>
+                         <button 
+                            onClick={() => setShowClassDropdown(!showClassDropdown)}
+                            className="w-full flex items-center justify-between px-4 py-2.5 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl text-slate-700 font-bold transition-all text-sm"
+                         >
+                             <span className="truncate">
+                                 {selectedClassIds.length > 0 ? `تم تحديد (${selectedClassIds.length})` : 'كل الفصول'}
+                             </span>
+                             <ChevronDown size={14} className={`transition-transform ${showClassDropdown ? 'rotate-180' : ''}`} />
+                         </button>
+                         
+                         {showClassDropdown && (
+                             <div className="absolute top-full right-0 mt-2 w-full bg-white rounded-2xl shadow-xl border border-slate-100 z-50 overflow-hidden animate-in fade-in zoom-in-95 p-1 max-h-60 overflow-y-auto custom-scrollbar">
+                                 <button 
+                                    onClick={() => setSelectedClassIds([])}
+                                    className={`w-full text-right px-3 py-2 rounded-xl font-bold text-xs hover:bg-slate-50 transition-colors ${selectedClassIds.length === 0 ? 'bg-[#e5e1fe] text-[#655ac1]' : 'text-slate-600'}`}
+                                 >
+                                     عرض الكل
+                                 </button>
+                                 <div className="my-1 border-t border-slate-50"></div>
+                                 {availableClassesForDropdown.length > 0 ? (
+                                     availableClassesForDropdown.map(c => (
+                                        <button 
+                                            key={c.id}
+                                            onClick={() => toggleClassFilter(c.id)}
+                                            className={`w-full flex justify-between items-center px-3 py-2 rounded-xl font-bold text-xs hover:bg-slate-50 transition-colors ${selectedClassIds.includes(c.id) ? 'bg-[#e5e1fe] text-[#655ac1]' : 'text-slate-600'}`}
+                                        >
+                                            <span>فصل {c.grade} / {c.section}</span>
+                                            {selectedClassIds.includes(c.id) && <Check size={12}/>}
+                                        </button>
+                                     ))
+                                 ) : (
+                                     <div className="p-3 text-center text-[10px] text-slate-400 font-medium">لا توجد فصول للصفوف المحددة</div>
+                                 )}
+                             </div>
+                         )}
+                     </div>
+                 </div>
+             </div>
+
+             {/* Check if we have classes to show */}
+             {displayedGrades.length > 0 ? (
+                /* Grades Loop */
+                displayedGrades.map(grade => {
+                    const gradeClasses = displayedClasses(grade);
+                    if (gradeClasses.length === 0) return null;
+
+                    return (
+                        <div key={grade} className="space-y-4">
+                            {/* Grade Header */}
+                            <div className="flex items-center gap-4">
+                                <div className="h-px bg-slate-200 flex-1"></div>
+                                <h3 className="text-sm font-black text-slate-400 uppercase tracking-widest flex items-center gap-2 px-4 py-1 bg-slate-50 rounded-full border border-slate-100">
+                                    <Layers size={14}/> الصف الدراسي {grade}
+                                </h3>
+                                <div className="h-px bg-slate-200 flex-1"></div>
+                            </div>
+                            
+                            <div className="grid grid-cols-1 gap-6">
+                                {gradeClasses.map(cls => {
+                                    // Filter and Deduplicate Subjects
+                                    const rawSubjects: Subject[] = sourceSubjects.filter(
+                                        (s) => gradeSubjectMap[`${cls.phase}-${cls.grade}`]?.includes(s.id) || cls.subjectIds?.includes(s.id)
+                                    );
+                                    const classSubjects: Subject[] = Array.from(new Map(rawSubjects.map(s => [s.id, s])).values());
+                                    
+                                    // Calculate completion
+                                    const assignedCount = classSubjects.filter(s => assignments.some(a => a.classId === cls.id && a.subjectId === s.id)).length;
+                                    const progress = classSubjects.length > 0 ? Math.round((assignedCount / classSubjects.length) * 100) : 0;
+                                    const isCompleted = progress === 100;
+
+                                    return (
+                                        <div key={cls.id} className="bg-white rounded-[2rem] border-2 border-[#e5e1fe] shadow-xl shadow-[#655ac1]/5 overflow-hidden hover:shadow-md transition-all duration-300">
+                                            {/* Header */}
+                                            <div className="px-6 py-4 border-b border-slate-50 flex justify-between items-center bg-gradient-to-r from-[#fbfbfe] to-white group">
+                                                <div className="flex items-center gap-4">
+                                                    <div className={`w-12 h-12 rounded-2xl flex items-center justify-center font-black text-lg shadow-inner transition-all duration-500 ${isCompleted ? 'bg-emerald-100 text-emerald-600' : 'bg-[#e5e1fe] text-[#655ac1]'}`}>
+                                                        {isCompleted ? <Check size={20} /> : cls.section}
+                                                    </div>
+                                                    <div>
+                                                        <h4 className="text-base font-black text-slate-800">الفصل {cls.grade} / {cls.section}</h4>
+                                                        <div className="flex items-center gap-3 mt-1">
+                                                                <div className="h-1.5 w-24 bg-slate-100 rounded-full overflow-hidden">
+                                                                    <div className={`h-full transition-all duration-700 ease-out ${isCompleted ? 'bg-emerald-500' : 'bg-[#655ac1]'}`} style={{width: `${progress}%`}}></div>
+                                                                </div>
+                                                                <span className={`text-[9px] font-bold ${isCompleted ? 'text-emerald-600' : 'text-slate-400'}`}>{progress}% مكتمل</span>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                
+                                                <div className="flex items-center gap-2 text-[9px] text-amber-600 font-bold bg-amber-50 border border-amber-100 px-3 py-1.5 rounded-full shadow-sm animate-pulse">
+                                                    <AlertTriangle size={10} />
+                                                    انقر للتعيين
+                                                </div>
+                                            </div>
+
+                                            {/* Subjects Grid */}
+                                            <div className="p-4 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
+                                                {classSubjects.length > 0 ? (
+                                                    classSubjects.map(sub => {
+                                                        const assignment = assignments.find(a => a.classId === cls.id && a.subjectId === sub.id);
+                                                        const assignedTeacher = teachers.find(t => t.id === assignment?.teacherId);
+                                                        
+                                                        const isAssigned = !!assignment;
+                                                        
+                                                        return (
+                                                            <div 
+                                                                key={sub.id}
+                                                                onClick={() => {
+                                                                    if (!isAssigned) {
+                                                                        if (selectedTeacherId) handleAssign(cls.id, sub.id);
+                                                                        else alert("اختر معلماً أولاً");
+                                                                    }
+                                                                }}
+                                                                onDoubleClick={() => isAssigned && handleUnassign(cls.id, sub.id)}
+                                                                className={`
+                                                                    relative p-3 rounded-2xl border text-right transition-all group cursor-pointer select-none flex flex-col justify-between min-h-[85px]
+                                                                    ${isAssigned 
+                                                                        ? 'bg-emerald-50/50 border-emerald-100 hover:bg-emerald-100 hover:border-emerald-200 shadow-sm' 
+                                                                        : 'bg-white border-slate-100 hover:border-[#8779fb] hover:shadow-md hover:-translate-y-1'}
+                                                                `}
+                                                            >
+                                                                <div className="flex justify-between items-start mb-1.5">
+                                                                    <div className="flex flex-col gap-0.5 max-w-[85%]">
+                                                                        <span className={`text-[11px] font-black truncate ${isAssigned ? 'text-emerald-800' : 'text-slate-700'}`}>{sub.name}</span>
+                                                                        <span className="text-[9px] font-bold text-slate-400 flex items-center gap-1">
+                                                                            {sub.periodsPerClass} حصص
+                                                                        </span>
+                                                                    </div>
+                                                                    {isAssigned && <div className="p-0.5 bg-emerald-100 rounded-full"><CheckCircle2 size={10} className="text-emerald-600" /></div>}
+                                                                </div>
+                                                                
+                                                                {isAssigned ? (
+                                                                    <div className="flex items-center gap-1.5 mt-auto animate-in zoom-in duration-300">
+                                                                        <div className="w-5 h-5 rounded-full bg-emerald-200/50 flex items-center justify-center text-[9px] font-black text-emerald-800 shadow-sm border border-emerald-100">
+                                                                            {assignedTeacher?.name.substring(0,2)}
+                                                                        </div>
+                                                                        <span className="text-[9px] font-bold text-emerald-700 truncate flex-1">
+                                                                            {assignedTeacher?.name}
+                                                                        </span>
+                                                                        
+                                                                        <button 
+                                                                            onClick={(e) => { e.stopPropagation(); handleUnassign(cls.id, sub.id); }}
+                                                                            className="absolute -top-1.5 -left-1.5 bg-white text-rose-400 hover:text-rose-600 hover:bg-rose-50 border border-rose-100 shadow-sm rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-all scale-75 group-hover:scale-100"
+                                                                            title="إلغاء الإسناد"
+                                                                        >
+                                                                            <X size={10} />
+                                                                        </button>
+                                                                    </div>
+                                                                ) : (
+                                                                    <div className="mt-auto flex items-center gap-1 opacity-50 group-hover:opacity-100 transition-opacity">
+                                                                        <div className="w-4 h-4 rounded-full bg-slate-100 flex items-center justify-center">
+                                                                            <User size={8} className="text-slate-400"/>
+                                                                        </div>
+                                                                        <span className="text-[9px] text-slate-400 font-bold">--</span>
+                                                                    </div>
+                                                                )}
+
+                                                                {!isAssigned && selectedTeacherId && (
+                                                                    <div className="absolute inset-0 bg-[#655ac1]/5 opacity-0 group-hover:opacity-100 transition-all rounded-2xl border-2 border-[#655ac1] border-dashed flex items-center justify-center backdrop-blur-[1px]">
+                                                                        <span className="text-[10px] font-black text-[#655ac1] bg-white px-2 py-0.5 rounded-lg shadow-sm">إسناد</span>
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                        );
+                                                    })
+                                                ) : (
+                                                    <div className="col-span-full py-6 flex flex-col items-center justify-center text-slate-300 border-2 border-dashed border-slate-100 rounded-2xl">
+                                                        <LayoutTemplate size={24} className="mb-1 opacity-50"/>
+                                                        <p className="text-[10px] font-bold">لا توجد مواد في هذا الفصل</p>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    );
+                })
+             ) : (
+                 <div className="flex-1 flex flex-col items-center justify-center bg-white rounded-[2rem] border-2 border-dashed border-slate-100 p-12 text-center min-h-[400px]">
+                     <div className="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center text-slate-300 mb-6 animate-pulse">
+                         <Layers size={40} />
+                     </div>
+                     <h3 className="text-xl font-black text-slate-700 mb-2">لا توجد فصول دراسية</h3>
+                     <p className="text-slate-400 font-medium max-w-md mx-auto mb-8">
+                         لم يتم العثور على فصول تطابق البحث الحالي.
+                     </p>
+                 </div>
+             )}
         </main>
       </div>
+
+      <button 
+        onClick={scrollToTop}
+        className="fixed bottom-6 left-6 bg-[#655ac1] text-white p-3 rounded-full shadow-lg hover:shadow-xl hover:-translate-y-1 transition-all z-40 opacity-50 hover:opacity-100"
+        title="للأعلى"
+      >
+        <ArrowUp size={20} />
+      </button>
+
     </div>
   );
 };

@@ -205,7 +205,7 @@ const App: React.FC = () => {
 
       case 'schedule_settings': return <ScheduleSettings subjects={subjects} teachers={teachers} specializations={specializations} schoolInfo={schoolInfo} classes={classes} gradeSubjectMap={gradeSubjectMap} scheduleSettings={scheduleSettings} setScheduleSettings={setScheduleSettings} />;
 
-      case 'manual': return <ManualAssignment teachers={teachers} subjects={subjects} classes={classes} assignments={assignments} setAssignments={setAssignments} specializations={specializations} schoolInfo={schoolInfo} gradeSubjectMap={gradeSubjectMap} />;
+      case 'manual': return <ManualAssignment teachers={teachers} setTeachers={setTeachers} subjects={subjects} classes={classes} assignments={assignments} setAssignments={setAssignments} specializations={specializations} schoolInfo={schoolInfo} gradeSubjectMap={gradeSubjectMap} />;
       case 'classes_waiting': return <ClassesAndWaiting />;
       case 'supervision': return <DailySupervision />;
       case 'duty': return <DailyDuty />;
