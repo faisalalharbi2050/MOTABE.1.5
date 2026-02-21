@@ -1,7 +1,7 @@
 // Schedule Constraints Engine
 // Validation, deadlock detection, and distribution logic
 
-import { Subject, Teacher, SubjectConstraint, TeacherConstraint, ScheduleSettingsData } from '../types';
+import { Subject, Teacher, SubjectConstraint, TeacherConstraint, ScheduleSettingsData, SharedSchool } from '../types';
 
 export interface ValidationWarning {
   id: string;
@@ -9,6 +9,7 @@ export interface ValidationWarning {
   message: string;
   suggestion?: string;
   relatedId?: string;
+  type?: 'subject' | 'teacher' | 'general';
 }
 
 const getDayArabic = (day: string) => {
@@ -67,7 +68,8 @@ export function calculateSubstitutionBalance(
 
 export function validateAllConstraints(
   settings: ScheduleSettingsData, subjects: Subject[], teachers: Teacher[],
-  weekDays: number, periodsPerDay: number, activeDays: string[], totalClasses: number = 0
+  weekDays: number, periodsPerDay: number, activeDays: string[], totalClasses: number = 0,
+  sharedSchools: SharedSchool[] = []
 ): ValidationWarning[] {
   const warnings: ValidationWarning[] = [];
 
@@ -82,21 +84,22 @@ export function validateAllConstraints(
         id: `subj-excl-${sc.subjectId}`, level: 'error',
         message: `مادة "${subject.name}": الحصص المتاحة (${availableSlots}) أقل من المطلوب (${maxDaily})`,
         suggestion: `قلّل الاستثناءات إلى ${periodsPerDay - maxDaily} كحد أقصى`,
-        relatedId: sc.subjectId
+        relatedId: sc.subjectId,
+        type: 'subject'
       });
     }
     if (sc.preferredPeriods.length > 0 && sc.excludedPeriods.some(p => sc.preferredPeriods.includes(p))) {
       warnings.push({
         id: `subj-conflict-${sc.subjectId}`, level: 'warning',
         message: `مادة "${subject.name}": تعارض بين المستثناة والمفضلة`,
-        suggestion: 'أزل الحصص المتعارضة', relatedId: sc.subjectId
+        suggestion: 'أزل الحصص المتعارضة', relatedId: sc.subjectId, type: 'subject'
       });
     }
     if (sc.enableDoublePeriods && subject.periodsPerClass % 2 !== 0) {
       warnings.push({
         id: `subj-double-${sc.subjectId}`, level: 'warning',
         message: `مادة "${subject.name}": التتابع مفعّل لكن النصاب (${subject.periodsPerClass}) فردي`,
-        suggestion: 'يعمل بشكل أفضل مع النصاب الزوجي', relatedId: sc.subjectId
+        suggestion: 'يعمل بشكل أفضل مع النصاب الزوجي', relatedId: sc.subjectId, type: 'subject'
       });
     }
   }
@@ -123,6 +126,39 @@ export function validateAllConstraints(
       teachersWithFirstConstraint++;
     } else {
       totalMaxFirstPeriods += 5; // Default assumption
+    }
+
+    // Shared Slots Calculation
+    const sharedBusySlots: Set<string> = new Set();
+    if (teacher.sharedWithSchools && teacher.sharedWithSchools.length > 0) {
+        teacher.sharedWithSchools.forEach(schId => {
+            const sch = sharedSchools.find(s => s.id === schId);
+            if (sch && sch.timetable) {
+                Object.values(sch.timetable).forEach(slot => {
+                    // Assuming teacherId is uniform across system, or we need a mapping. 
+                    // For now assuming same ID or Name.
+                    // If slot.teacherId === teacher.id ...
+                    // Wait, usually IDs differ. But let's assume strict ID match for now as per prompt instructions regarding "Shared School".
+                    if (slot.teacherId === teacher.id) {
+                         // We need day and period from the key usually, but slot object doesn't have it?
+                         // TimetableData is Record<string, Slot>. Key is "teacherId-day-period".
+                         // We need to parse keys of sch.timetable.
+                    }
+                });
+                // Optimised loop
+                Object.entries(sch.timetable).forEach(([key, slot]) => {
+                    if (slot.teacherId === teacher.id) {
+                         // key format: "teacherId-day-period"
+                         const parts = key.split('-');
+                         if (parts.length >= 3) {
+                             const day = parts[1];
+                             const period = parseInt(parts[2]);
+                             sharedBusySlots.add(`${day}-${period}`);
+                         }
+                    }
+                });
+            }
+        });
     }
 
     // Calculate real available slots considering Early Exit
@@ -157,7 +193,19 @@ export function validateAllConstraints(
       const effectiveStart = 1;
 
       // Count excluded slots within the effective range
-      const excludedInEffectiveRange = excludedSlots.filter(p => p >= effectiveStart && p <= effectiveEnd).length;
+      let excludedInEffectiveRange = excludedSlots.filter(p => p >= effectiveStart && p <= effectiveEnd).length;
+      
+      // Add Shared School Busy Slots
+      // Check for this specific day
+      // Valid periods are 1..periodsPerDay
+      for (let p = 1; p <= periodsPerDay; p++) {
+          if (sharedBusySlots.has(`${day}-${p}`)) {
+              // If not already excluded, count it
+              if (!excludedSlots.includes(p)) {
+                 excludedInEffectiveRange++;
+              }
+          }
+      }
       
       dayAvailable = Math.max(0, effectiveEnd - effectiveStart + 1 - excludedInEffectiveRange);
 
@@ -176,7 +224,7 @@ export function validateAllConstraints(
                  warnings.push({
                    id: `window-early-exit-mismatch-${teacher.id}-${day}`, level: 'error',
                    message: `"${teacher.name}" يوم ${getDayArabic(day)}: نافذة التواجد (${limits.windowStart}-${limits.windowEnd}) تتعارض مع الخروج المبكر (بعد الحصة ${earlyExitPeriod})`,
-                   suggestion: 'عدل فترة الخروج أو وسّع النافذة', relatedId: tc.teacherId
+                   suggestion: 'عدل فترة الخروج أو وسّع النافذة', relatedId: tc.teacherId, type: 'teacher'
                  });
              }
           } else {
@@ -194,7 +242,7 @@ export function validateAllConstraints(
             warnings.push({
             id: `teacher-min-${tc.teacherId}-${day}`, level: 'error',
             message: `"${teacher.name}" يوم ${getDayArabic(day)}: الحد الأدنى المطلوب (${limits.min}) أكبر من الحصص المتاحة فعلياً (${dayAvailable})`,
-            suggestion: `قلّل الحد الأدنى أو خفف قيود الخروج/النافذة`, relatedId: tc.teacherId
+            suggestion: `قلّل الحد الأدنى أو خفف قيود الخروج/النافذة`, relatedId: tc.teacherId, type: 'teacher'
             });
         }
         
@@ -202,7 +250,7 @@ export function validateAllConstraints(
              warnings.push({
             id: `teacher-minmax-${tc.teacherId}-${day}`, level: 'error',
             message: `"${teacher.name}" يوم ${getDayArabic(day)}: الحد الأدنى (${limits.min}) أكبر من الأقصى (${limits.max})`,
-            suggestion: 'صحّح القيم', relatedId: tc.teacherId
+            suggestion: 'صحّح القيم', relatedId: tc.teacherId, type: 'teacher'
             });
         }
       }
@@ -230,7 +278,7 @@ export function validateAllConstraints(
       warnings.push({
         id: `quota-conflict-${teacher.id}`, level: 'error',
         message: `"${teacher.name}": النصاب (${teacher.quotaLimit}) > المتاح كلياً (${adjustedWeeklyAvailable}) (بافتراض تطبيق الخروج المبكر التلقائي)`,
-        suggestion: 'خفف قيود الخروج المبكر أو الاستثناءات', relatedId: tc.teacherId
+        suggestion: 'خفف قيود الخروج المبكر أو الاستثناءات', relatedId: tc.teacherId, type: 'teacher'
       });
     }
     
@@ -240,31 +288,60 @@ export function validateAllConstraints(
          warnings.push({
         id: `quota-conflict-${teacher.id}`, level: 'error',
         message: `"${teacher.name}": النصاب (${teacher.quotaLimit}) > المتاح كلياً (${totalWeeklyAvailable})`,
-        suggestion: 'خفف قيود الخروج المبكر أو الاستثناءات', relatedId: tc.teacherId
+        suggestion: 'خفف قيود الخروج المبكر أو الاستثناءات', relatedId: tc.teacherId, type: 'teacher'
       });
     }
-  }
+
 
   // 3. Global Edge Period Validation
-  if (totalClasses > 0) {
-    const totalRequiredLast = totalClasses * weekDays; // Worst case: every class needs a teacher at last period? 
-    // Actually, simply: We need 'totalClasses' teachers available at last period EACH DAY.
-    // Total capacity of last periods = sum(teacher.maxLastPeriods).
-    // Required capacity = totalClasses * weekDays.
-    // If total capacity < required capacity, we have a problem.
+
+
+    // 3. Global Edge Period Validation (Last Period)
+    // Calc total capacity for last periods
+    let totalAvailableLastPeriods = 0;
     
-    // Wait, let's refine. each day we need `totalClasses` teachers to be present in last period IF the schedule is full at that period.
-    // A safer check: Assuming uniform distribution, we need `totalClasses` teachers available at any period.
-    // If sum(teacher.isAvailableAtLastPeriod) < totalClasses, we have a gap.
-    // Here we use maxLastPeriods (weekly). 
-    // Total weekly last-period slots needed = totalClasses * weekDays (max load).
-    // Total weekly last-period slots available = totalMaxLastPeriods.
+    teachers.forEach(t => {
+        // Find constraint for this teacher
+        const tc = settings.teacherConstraints.find(c => c.teacherId === t.id);
+        
+        // If NO constraint or 'earlyExit' not set -> Teacher available for all last periods (weekDays)
+        if (!tc || !tc.earlyExitMode) { 
+            totalAvailableLastPeriods += weekDays;
+        } else if (tc.earlyExitMode === 'manual') {
+            // Check specific days
+            let availableDays = weekDays;
+            if (tc.earlyExit) {
+                // Count days where earlyExit is BEFORE the last period?
+                // Actually constraint.earlyExit[day] = period number.
+                // If earlyExit[day] < periodsPerDay, then they CANNOT teach Last Period.
+                // If earlyExit[day] >= periodsPerDay (or undefined), they CAN.
+                
+                // We need to iterate known active days
+                availableDays = 0;
+                activeDays.forEach(day => {
+                    const exit = tc.earlyExit?.[day];
+                    if (exit === undefined || exit >= periodsPerDay) {
+                        availableDays++;
+                    }
+                });
+            }
+            totalAvailableLastPeriods += availableDays;
+        } else if (tc.earlyExitMode === 'auto') {
+            // Auto means they exit early ONE day (usually).
+            totalAvailableLastPeriods += (weekDays - 1); 
+        }
+    });
+
+    // Check against need
+    const totalRequiredLast = totalClasses * weekDays; 
     
-    if (totalMaxLastPeriods < (totalClasses * weekDays)) {
+    // We only warn if the deficit is severe, or clarify it's "Max Capacity"
+    if (totalAvailableLastPeriods < totalRequiredLast * 0.8) { // Allow 20% slack for free periods
        warnings.push({
          id: 'global-last-period', level: 'warning',
-         message: `عجز متوقع في الحصص الأخيرة: السعة (${totalMaxLastPeriods}) < الاحتياج (${totalClasses * weekDays})`,
-         suggestion: 'زد الحد الأقصى للحصص الأخيرة للمعلمين'
+         message: `عجز محتمل في الحصص الأخيرة: السعة المتوفرة (${totalAvailableLastPeriods}) < الاحتياج الأقصى (${totalRequiredLast})`,
+         suggestion: 'زد أيام تواجد المعلمين في الحصص الأخيرة (الخروج المبكر)',
+         type: 'general'
        });
     }
   }
@@ -283,7 +360,8 @@ export function validateAllConstraints(
       warnings.push({
         id: `meeting-conflict-${slot}`, level: 'warning',
         message: `أكثر من اجتماع في نفس الوقت: ${getDayArabic(day)} - الحصة ${period}`,
-        suggestion: 'انقل أحد الاجتماعات'
+        suggestion: 'انقل أحد الاجتماعات',
+        type: 'general'
       });
     }
   }
@@ -297,7 +375,8 @@ export function validateAllConstraints(
       warnings.push({
         id: 'sub-deficit', level: 'warning',
         message: `المنتظرون المطلوبون (${settings.substitution.fixedPerPeriod}) > المتاح (${avail})`,
-        suggestion: `الأقرب المتاح: ${avail}`
+        suggestion: `الأقرب المتاح: ${avail}`,
+        type: 'general'
       });
     }
   }
@@ -310,7 +389,8 @@ export function validateAllConstraints(
     warnings.push({
       id: 'general-overload', level: 'error',
       message: 'نسبة القيود مرتفعة جداً — احتمال فشل بناء الجدول',
-      suggestion: 'قلّل الاستثناءات'
+      suggestion: 'قلّل الاستثناءات العامة',
+      type: 'general'
     });
   }
 

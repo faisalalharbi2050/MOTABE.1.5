@@ -24,6 +24,7 @@ import Step4Classes from './steps/Step4Classes';
 import Step5Students from './steps/Step5Students';
 import Step6Teachers from './steps/Step6Teachers';
 import Step7Admins from './steps/Step7Admins';
+import Step9Schedule from './steps/Step9Schedule';
 
 interface WizardProps {
   schoolInfo: SchoolInfo;
@@ -59,7 +60,7 @@ const GeneralSettingsWizard: React.FC<WizardProps> = ({
 }) => {
   const [currentStep, setCurrentStep] = useState(1);
   const [isFinished, setIsFinished] = useState(false);
-  const totalSteps = 8;
+  const totalSteps = 9;
 
   const steps = [
     { id: 1, title: 'معلومات عامة', icon: Settings },
@@ -70,6 +71,7 @@ const GeneralSettingsWizard: React.FC<WizardProps> = ({
     { id: 6, title: 'الطلاب', icon: Users },
     { id: 7, title: 'المعلمون', icon: GraduationCap },
     { id: 8, title: 'الإداريون', icon: ShieldCheck },
+    { id: 9, title: 'الجدول المدرسي', icon: Calendar },
   ];
 
   const handleNext = () => {
@@ -117,6 +119,7 @@ const GeneralSettingsWizard: React.FC<WizardProps> = ({
       case 6: return <Step5Students classes={classes} students={students} setStudents={setStudents} schoolInfo={schoolInfo} />;
       case 7: return <Step6Teachers teachers={teachers} setTeachers={setTeachers} specializations={specializations} schoolInfo={schoolInfo} setSchoolInfo={setSchoolInfo} scheduleSettings={scheduleSettings} setScheduleSettings={setScheduleSettings} classes={classes} />;
       case 8: return <Step7Admins admins={admins} setAdmins={setAdmins} />;
+      case 9: return <Step9Schedule schoolInfo={schoolInfo} scheduleSettings={scheduleSettings} setScheduleSettings={setScheduleSettings} teachers={teachers} subjects={subjects} classes={classes} admins={admins} />;
       default: return null;
     }
   };
@@ -232,7 +235,7 @@ const GeneralSettingsWizard: React.FC<WizardProps> = ({
       </div>
 
       {/* Step Content */}
-      <div className="flex-1 overflow-y-auto custom-scrollbar p-1">
+      <div className="flex-1 w-full relative">
           {renderStepContent()}
       </div>
 

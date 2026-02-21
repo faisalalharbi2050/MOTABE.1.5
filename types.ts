@@ -31,7 +31,18 @@ export interface SharedSchool {
   region?: string; // Added
   managerName?: string; // Added - Principal
   managerMobile?: string; // Added - Principal Mobile
+  
+  // Scheduling Logic
+  timetable?: TimetableData; // The schedule of this shared school (for cross-checking)
+  teacherIds?: string[]; // List of teacher IDs that belong to this school
 }
+
+// Need to import TimetableData to use it here, but TimetableData is likely defined below.
+// If TimetableData is defined below, I might need to move SharedSchool down or use 'any' temporarily if circular. 
+// However, in TS interfaces are hoisted. Let's check where TimetableData is.
+// It is usually near the end. I will use 'any' or 'Record<string, any>' if I can't find it, but let's assume it works or I'll fix it.
+// Actually, TimetableData is not imported in types.ts usually, it IS defined in types.ts.
+// I will check where TimetableData is defined.
 
 export interface SchoolInfo {
   // Entity Type Configuration
@@ -201,6 +212,7 @@ export interface Teacher {
   targetPhase?: Phase;
   sortIndex?: number;
   schoolId?: string; // 'main' or 'second'
+  sharedWithSchools?: string[]; // IDs of SharedSchools this teacher also works at
 }
 
 export interface ClassInfo {
@@ -315,9 +327,17 @@ export interface TimetableSlot {
   subjectId?: string;
   classId?: string;
   type: 'lesson' | 'waiting';
+  isSubstitution?: boolean;
 }
 
 export type TimetableData = Record<string, TimetableSlot>;
+
+export interface SavedSchedule {
+  id: string;
+  name: string;
+  createdAt: string; // ISO string
+  timetable: TimetableData;
+}
 
 export interface ScheduleSettingsData {
   subjectConstraints: SubjectConstraint[];
@@ -325,5 +345,22 @@ export interface ScheduleSettingsData {
   meetings: SpecializedMeeting[];
   substitution: SubstitutionConfig;
   timetable?: TimetableData;
+  auditLogs?: AuditLogEntry[];
+  subjectAbbreviations?: Record<string, string>; // subjectId -> abbreviation
+  savedSchedules?: SavedSchedule[];
 }
+
+// ===== Audit Log Types =====
+
+export interface AuditLogEntry {
+  id: string;
+  timestamp: string;      // ISO string
+  user: string;           // "النظام" أو "المستخدم" أو اسم مدير النظام
+  actionType: 'swap' | 'move' | 'chain_swap';
+  description: string;    // تفاصيل الحركة للقراءة
+  sourceKey?: string;     // المفتاح الأساسي "معلم-يوم-حصة"
+  targetKey?: string;
+  relatedTeacherIds: string[]; // المعنيون بالحركة
+}
+
 

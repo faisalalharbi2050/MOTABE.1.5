@@ -58,6 +58,59 @@
       .custom-scrollbar-white::-webkit-scrollbar-thumb:hover {
         background: rgba(255, 255, 255, 0.5);
       }
+      
+      /* Print Styles */
+      @media print {
+        @page {
+            size: landscape;
+            margin: 5mm;
+        }
+        body {
+            background-color: white !important;
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+        }
+        /* Hide UI Elements */
+        nav, header, aside, .sidebar, .toolbar, .no-print, button, .group\/print {
+            display: none !important;
+        }
+        
+        /* Layout overrides */
+        .flex.h-screen {
+            display: block !important;
+            height: auto !important;
+            overflow: visible !important;
+        }
+        .flex-1.overflow-hidden {
+            overflow: visible !important;
+        }
+        .overflow-y-auto, .overflow-x-auto {
+            overflow: visible !important;
+            height: auto !important;
+        }
+        
+        /* Ensure Grid is visible and readable */
+        .schedule-grid-container {
+            width: 100% !important;
+            direction: rtl !important;
+        }
+        
+        /* Font sizing for print */
+        * {
+            font-size: 10pt !important;
+        }
+        h1, h2, h3 {
+            font-size: 14pt !important;
+        }
+        
+        /* Remove shadows and borders */
+        .shadow-sm, .shadow-md, .shadow-lg {
+            box-shadow: none !important;
+        }
+        .border {
+            border-color: #ddd !important;
+        }
+      }
     </style>
     <script type="importmap">
       {

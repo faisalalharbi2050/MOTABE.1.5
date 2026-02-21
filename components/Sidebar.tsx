@@ -41,7 +41,7 @@ const Sidebar: React.FC<SidebarProps> = ({
 
   // Auto-expand if a sub-item is active
   React.useEffect(() => {
-    const scheduleTabs = ['schedule_settings', 'manual', 'classes_waiting', 'supervision', 'duty'];
+    const scheduleTabs = ['manual', 'classes_waiting', 'supervision', 'duty'];
     if (scheduleTabs.includes(activeTab)) {
       setIsScheduleExpanded(true);
       if (isCollapsed) setIsCollapsed(false); // Auto-open sidebar if a sub-item is active (e.g. on load)
@@ -306,7 +306,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                   <SubNavItem
                      active={activeTab === "classes_waiting"}
                      onClick={() => handleTabClick("classes_waiting")}
-                     label="إنشاء الحصص والانتظار"
+                   label="الحصص والانتظار"
                      icon={<Clock size={18} />}
                      inverted={true}
                   />
@@ -322,13 +322,6 @@ const Sidebar: React.FC<SidebarProps> = ({
                      onClick={() => handleTabClick("duty")}
                      label="المناوبة اليومية"
                      icon={<Shield size={18} />}
-                     inverted={true}
-                  />
-                  <SubNavItem
-                     active={activeTab === "schedule_settings"}
-                     onClick={() => handleTabClick("schedule_settings")}
-                     label="إعدادات الجدول"
-                     icon={<Settings size={18} />}
                      inverted={true}
                   />
                </div>

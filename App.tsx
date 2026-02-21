@@ -13,13 +13,14 @@ import Step4Classes from './components/wizard/steps/Step4Classes';
 import Step5Students from './components/wizard/steps/Step5Students';
 import Step6Teachers from './components/wizard/steps/Step6Teachers';
 import Step7Admins from './components/wizard/steps/Step7Admins';
-import ScheduleSettings from './components/ScheduleSettings';
+import Step9Schedule from './components/wizard/steps/Step9Schedule';
+
 
 import ManualAssignment from './components/ManualAssignment';
 
 import Sidebar from './components/Sidebar';
 import Header from './components/Header';
-import ClassesAndWaiting from './components/ClassesAndWaiting';
+// import ClassesAndWaiting from './components/ClassesAndWaiting'; // Removed
 import DailySupervision from './components/DailySupervision';
 import DailyDuty from './components/DailyDuty';
 import DailyWaiting from './components/DailyWaiting';
@@ -203,10 +204,10 @@ const App: React.FC = () => {
       case 'settings_teachers': return <Step6Teachers teachers={teachers} setTeachers={setTeachers} specializations={specializations} schoolInfo={schoolInfo} setSchoolInfo={setSchoolInfo} classes={classes} scheduleSettings={scheduleSettings} setScheduleSettings={setScheduleSettings} />;
       case 'settings_admins': return <Step7Admins admins={admins} setAdmins={setAdmins} />;
 
-      case 'schedule_settings': return <ScheduleSettings subjects={subjects} teachers={teachers} specializations={specializations} schoolInfo={schoolInfo} classes={classes} gradeSubjectMap={gradeSubjectMap} scheduleSettings={scheduleSettings} setScheduleSettings={setScheduleSettings} />;
+
 
       case 'manual': return <ManualAssignment teachers={teachers} setTeachers={setTeachers} subjects={subjects} classes={classes} assignments={assignments} setAssignments={setAssignments} specializations={specializations} schoolInfo={schoolInfo} gradeSubjectMap={gradeSubjectMap} />;
-      case 'classes_waiting': return <ClassesAndWaiting />;
+      case 'classes_waiting': return <Step9Schedule teachers={teachers} subjects={subjects} classes={classes} specializations={specializations} schoolInfo={schoolInfo} scheduleSettings={scheduleSettings} setScheduleSettings={setScheduleSettings} admins={admins} assignments={assignments} />;
       case 'supervision': return <DailySupervision />;
       case 'duty': return <DailyDuty />;
       case 'daily_waiting': return <DailyWaiting />;

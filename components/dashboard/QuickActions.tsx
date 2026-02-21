@@ -26,9 +26,9 @@ const QuickActions: React.FC<QuickActionsProps> = ({ onNavigate }) => {
       onClick: () => onNavigate('manual'),
     },
     { 
-      label: 'إعدادات الجدول', 
+      label: 'الحصص والانتظار', 
       icon: <Settings size={24} strokeWidth={2} />, 
-      onClick: () => onNavigate('schedule_settings'),
+      onClick: () => onNavigate('classes_waiting'),
     },
     { 
       label: 'الجدول العام', 

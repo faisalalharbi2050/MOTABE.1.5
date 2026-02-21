@@ -21,25 +21,25 @@ export default function SubstitutionTab({ teachers, config, weekDays, periodsPer
   );
 
   const methods = [
-    { id: 'auto' as const, label: 'التوزيع التلقائي', desc: 'ملء الفراغات تلقائياً حتى الحد الأقصى مع توزيع عادل', icon: Zap, gradient: 'from-emerald-500 to-teal-600' },
+    { id: 'auto' as const, label: 'التوزيع التلقائي', desc: 'ملء فراغات المعلمين تلقائياً بنصاب الانتظار المحدد', icon: Zap, gradient: 'from-emerald-500 to-teal-600' },
     { id: 'fixed' as const, label: 'التوزيع المحدد', desc: 'عدد ثابت من المنتظرين لكل حصة', icon: ArrowLeftRight, gradient: 'from-blue-500 to-indigo-600' },
-    { id: 'manual' as const, label: 'التوزيع اليدوي', desc: 'إدارة حصص الانتظار يدوياً في صفحة الحصص والانتظار', icon: Check, gradient: 'from-amber-500 to-orange-600' },
+    { id: 'manual' as const, label: 'التوزيع اليدوي', desc: 'إنشاء حصص الانتظار بشكل يدوي لكل معلم', icon: Check, gradient: 'from-[#655ac1] to-[#8779fb]' },
   ];
 
   return (
     <div className="space-y-8">
       {/* ─── Info Note ─── */}
       <div className="relative">
-        <div className="absolute -inset-1 bg-gradient-to-br from-amber-400/10 to-orange-400/15 rounded-[2rem] blur-xl" />
-        <div className="relative bg-gradient-to-l from-amber-50/60 to-white rounded-[1.75rem] border border-amber-200/40 p-5 flex items-start gap-3">
-          <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center shrink-0 shadow-lg shadow-amber-200/40">
+        <div className="absolute -inset-1 bg-gradient-to-br from-[#655ac1]/10 to-[#8779fb]/15 rounded-[2rem] blur-xl" />
+        <div className="relative bg-gradient-to-l from-[#e5e1fe]/60 to-white rounded-[1.75rem] border border-[#8779fb]/20 p-5 flex items-start gap-3">
+          <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-[#655ac1] to-[#8779fb] flex items-center justify-center shrink-0 shadow-lg shadow-[#655ac1]/20">
             <Info size={16} className="text-white" />
           </div>
           <div>
-            <p className="text-sm font-bold text-slate-700">هذه الإعدادات تُجهّز لعملية إنشاء الجدول</p>
+            <p className="text-sm font-bold text-slate-700">هذه الإعدادات تُجهّز لعملية إنشاء جدول الانتظار</p>
             <p className="text-xs text-slate-500 mt-1">
-              التوزيع الفعلي يتم في صفحة <span className="font-black text-amber-600">"الحصص والانتظار"</span> بعد إنشاء الجدول.
-              يُرمز للانتظار بـ <span className="font-black bg-amber-100 px-1.5 py-0.5 rounded mx-0.5">م</span> بلون مميز.
+              التوزيع الفعلي يتم بالضغط على زر <span className="font-black text-[#655ac1]">"إنشاء الانتظار"</span> بعد قفل جدول الحصص.
+              يُرمز للانتظار بـ <span className="font-black bg-[#e5e1fe] text-[#655ac1] px-1.5 py-0.5 rounded mx-0.5">م</span> بلون مميز.
             </p>
           </div>
         </div>
@@ -47,10 +47,10 @@ export default function SubstitutionTab({ teachers, config, weekDays, periodsPer
 
       {/* ─── Global Config ─── */}
       <div className="relative">
-        <div className="absolute -inset-1 bg-gradient-to-br from-amber-400/10 to-orange-400/10 rounded-[2rem] blur-xl" />
-        <div className="relative bg-white/80 backdrop-blur-sm rounded-[1.75rem] border border-amber-100/60 p-6">
+        <div className="absolute -inset-1 bg-gradient-to-br from-[#655ac1]/10 to-[#8779fb]/10 rounded-[2rem] blur-xl" />
+        <div className="relative bg-white/80 backdrop-blur-sm rounded-[1.75rem] border border-[#8779fb]/20 p-6">
           <div className="flex items-center gap-3 mb-5">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center shadow-lg shadow-amber-200/50">
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#655ac1] to-[#8779fb] flex items-center justify-center shadow-lg shadow-[#655ac1]/20">
               <Clock size={18} className="text-white" />
             </div>
             <h3 className="font-black text-slate-800">إعدادات عامة</h3>
@@ -61,7 +61,7 @@ export default function SubstitutionTab({ teachers, config, weekDays, periodsPer
               <div className="relative">
                 <input type="number" min={1} max={40} value={config.maxTotalQuota}
                   onChange={e => onChange({ ...config, maxTotalQuota: Number(e.target.value) })}
-                  className="w-full bg-white border-2 border-slate-200 rounded-xl px-4 py-3 text-sm font-bold focus:ring-2 focus:ring-amber-200 focus:border-amber-400 outline-none transition-all" />
+                  className="w-full bg-white border-2 border-slate-200 rounded-xl px-4 py-3 text-sm font-bold focus:ring-2 focus:ring-[#8779fb]/30 focus:border-[#655ac1] outline-none transition-all" />
                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[10px] font-bold text-slate-400">حصة/أسبوع</span>
               </div>
             </div>
@@ -70,7 +70,7 @@ export default function SubstitutionTab({ teachers, config, weekDays, periodsPer
               <div className="relative">
                 <input type="number" min={1} max={10} value={config.maxDailyTotal}
                   onChange={e => onChange({ ...config, maxDailyTotal: Number(e.target.value) })}
-                  className="w-full bg-white border-2 border-slate-200 rounded-xl px-4 py-3 text-sm font-bold focus:ring-2 focus:ring-amber-200 focus:border-amber-400 outline-none transition-all" />
+                  className="w-full bg-white border-2 border-slate-200 rounded-xl px-4 py-3 text-sm font-bold focus:ring-2 focus:ring-[#8779fb]/30 focus:border-[#655ac1] outline-none transition-all" />
                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[10px] font-bold text-slate-400">حصة/يوم</span>
               </div>
             </div>
@@ -84,11 +84,11 @@ export default function SubstitutionTab({ teachers, config, weekDays, periodsPer
           <button key={m.id} onClick={() => onChange({ ...config, method: m.id })}
             className={`relative p-6 rounded-2xl border-2 text-right transition-all duration-300 group overflow-hidden ${
               config.method === m.id
-                ? 'border-primary shadow-2xl shadow-primary/10 bg-white scale-[1.02]'
+                ? 'border-[#655ac1] shadow-2xl shadow-[#655ac1]/10 bg-white scale-[1.02]'
                 : 'border-slate-200 bg-white hover:border-slate-300 hover:shadow-lg'
             }`}>
             {config.method === m.id && (
-              <div className="absolute top-3 left-3 w-6 h-6 bg-primary rounded-full flex items-center justify-center shadow-md">
+              <div className="absolute top-3 left-3 w-6 h-6 bg-[#655ac1] rounded-full flex items-center justify-center shadow-md">
                 <Check size={14} className="text-white" />
               </div>
             )}
@@ -112,7 +112,7 @@ export default function SubstitutionTab({ teachers, config, weekDays, periodsPer
             </div>
             <div className="space-y-2">
               {[
-                `ملء فراغات المعلمين حتى ${config.maxTotalQuota} حصة أسبوعياً`,
+                `ملء فراغات المعلمين في جداولهم تلقائياً بنصاب الانتظار المحدد لهم`,
                 `الحد الأقصى اليومي ${config.maxDailyTotal} حصص (أساسي + انتظار)`,
                 'التوزيع العادل بين الحصص الأولى والوسطى والأخيرة',
                 'عدم التعارض مع الحصص المنشأة والاجتماعات التخصصية',
@@ -146,47 +146,50 @@ export default function SubstitutionTab({ teachers, config, weekDays, periodsPer
                 <ArrowLeftRight className="text-blue-500" size={18} />
                 <span className="font-black text-slate-800 text-sm">كيف يعمل التوزيع المحدد؟</span>
               </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              <div className="grid grid-cols-1 gap-2">
                 {[
                   `تغطية كل حصة بعدد ${config.fixedPerPeriod || 'X'} معلمين بشكل ثابت`,
                   'اختيار المعلمين الذين لديهم فراغ في الحصة المحددة',
                   'توزيع النصاب بشكل عادل بناءً على الفراغات المتاحة',
                   'إعطاء تنبيه فوري في حال وجود عجز في عدد المعلمين',
                 ].map((text, i) => (
-                  <div key={i} className="flex items-center gap-2 p-2.5 bg-blue-50/60 rounded-xl border border-blue-100/40">
-                    <div className="w-5 h-5 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-lg flex items-center justify-center shrink-0">
-                      <Check size={10} className="text-white" />
+                  <div key={i} className="flex items-center gap-3 p-3 bg-blue-50/60 rounded-xl">
+                    <div className="w-6 h-6 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-lg flex items-center justify-center shrink-0">
+                      <Check size={12} className="text-white" />
                     </div>
-                    <span className="text-[11px] text-slate-600 font-bold">{text}</span>
+                    <span className="text-sm text-slate-600 font-medium">{text}</span>
                   </div>
                 ))}
               </div>
             </div>
 
             {config.fixedPerPeriod && config.fixedPerPeriod > 0 && (
-              <div className={`rounded-2xl p-5 border-2 ${balance.deficit > 0 ? 'bg-red-50/50 border-red-200' : 'bg-emerald-50/50 border-emerald-200'}`}>
-                <div className="flex items-center gap-2 mb-4">
-                  {balance.deficit > 0 ? <AlertTriangle className="text-red-500" size={20} /> : <Check className="text-emerald-500" size={20} />}
-                  <span className="font-black text-base">{balance.deficit > 0 ? 'يوجد عجز' : 'التوزيع متوازن ✓'}</span>
+              <>
+                <div className="border-t border-slate-200 my-3" />
+                <div className={`rounded-2xl p-5 border-2 ${balance.deficit > 0 ? 'bg-red-50 border-red-200 shadow-sm' : 'bg-emerald-50 border-emerald-200 shadow-sm'}`}>
+                  <div className="flex items-center gap-2 mb-4">
+                    {balance.deficit > 0 ? <AlertTriangle className="text-red-500" size={20} /> : <Check className="text-emerald-500" size={20} />}
+                    <span className="font-black text-base">{balance.deficit > 0 ? 'يوجد عجز' : 'التوزيع متوازن ✓'}</span>
+                  </div>
+                  <div className="grid grid-cols-3 gap-4">
+                    {[
+                      { label: 'المطلوب/حصة', value: balance.required, color: 'text-blue-600', bg: 'bg-white border border-blue-300' },
+                      { label: 'المتاح/حصة', value: balance.available, color: 'text-emerald-600', bg: 'bg-white border border-emerald-300' },
+                      { label: 'العجز', value: balance.deficit, color: balance.deficit > 0 ? 'text-red-600' : 'text-slate-400', bg: balance.deficit > 0 ? 'bg-white border border-red-300' : 'bg-slate-50' },
+                    ].map(item => (
+                      <div key={item.label} className={`${item.bg} rounded-xl p-4 text-center border border-white/60`}>
+                        <div className={`text-2xl font-black ${item.color}`}>{item.value}</div>
+                        <div className="text-[10px] text-slate-500 font-bold mt-1">{item.label}</div>
+                      </div>
+                    ))}
+                  </div>
+                  {balance.deficit > 0 && (
+                    <p className="text-sm text-white mt-4 font-bold bg-red-500 rounded-xl p-3">
+                      💡 الرقم الأقرب المتاح: <span className="font-black text-lg">{balance.suggestedMax}</span> منتظرين/حصة
+                    </p>
+                  )}
                 </div>
-                <div className="grid grid-cols-3 gap-4">
-                  {[
-                    { label: 'المطلوب/حصة', value: balance.required, color: 'text-blue-600', bg: 'bg-blue-50' },
-                    { label: 'المتاح/حصة', value: balance.available, color: 'text-emerald-600', bg: 'bg-emerald-50' },
-                    { label: 'العجز', value: balance.deficit, color: balance.deficit > 0 ? 'text-red-600' : 'text-slate-400', bg: balance.deficit > 0 ? 'bg-red-50' : 'bg-slate-50' },
-                  ].map(item => (
-                    <div key={item.label} className={`${item.bg} rounded-xl p-4 text-center border border-white/60`}>
-                      <div className={`text-2xl font-black ${item.color}`}>{item.value}</div>
-                      <div className="text-[10px] text-slate-500 font-bold mt-1">{item.label}</div>
-                    </div>
-                  ))}
-                </div>
-                {balance.deficit > 0 && (
-                  <p className="text-xs text-red-600 mt-4 font-bold bg-red-50 rounded-lg p-3">
-                    💡 الرقم الأقرب المتاح: <span className="font-black text-lg">{balance.suggestedMax}</span> منتظرين/حصة
-                  </p>
-                )}
-              </div>
+              </>
             )}
           </div>
         </div>
@@ -194,10 +197,10 @@ export default function SubstitutionTab({ teachers, config, weekDays, periodsPer
 
       {config.method === 'manual' && (
         <div className="relative">
-          <div className="absolute -inset-1 bg-gradient-to-br from-amber-400/10 to-orange-400/10 rounded-[2rem] blur-xl" />
-          <div className="relative bg-white/80 backdrop-blur-sm rounded-[1.75rem] border border-amber-100/60 p-6">
+          <div className="absolute -inset-1 bg-gradient-to-br from-[#655ac1]/10 to-[#8779fb]/10 rounded-[2rem] blur-xl" />
+          <div className="relative bg-white/80 backdrop-blur-sm rounded-[1.75rem] border border-[#8779fb]/20 p-6">
             <div className="flex items-center gap-2 mb-4">
-              <Check className="text-amber-500" size={20} />
+              <Check className="text-[#655ac1]" size={20} />
               <span className="font-black text-slate-800">كيف يعمل التوزيع اليدوي؟</span>
             </div>
             <div className="space-y-2">
@@ -207,8 +210,8 @@ export default function SubstitutionTab({ teachers, config, weekDays, periodsPer
                 'ظهور عداد تراكمي للمنتظرين في رأس كل حصة',
                 'التحكم الكامل في عدد ومواقع حصص الانتظار لكل معلم',
               ].map((text, i) => (
-                <div key={i} className="flex items-center gap-3 p-3 bg-amber-50/60 rounded-xl">
-                  <div className="w-6 h-6 bg-gradient-to-br from-amber-500 to-orange-600 rounded-lg flex items-center justify-center">
+                <div key={i} className="flex items-center gap-3 p-3 bg-[#e5e1fe]/40 rounded-xl">
+                  <div className="w-6 h-6 bg-gradient-to-br from-[#655ac1] to-[#8779fb] rounded-lg flex items-center justify-center">
                     <Check size={12} className="text-white" />
                   </div>
                   <span className="text-sm text-slate-600 font-medium">{text}</span>
