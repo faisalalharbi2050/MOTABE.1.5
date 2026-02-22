@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Teacher, Specialization, TeacherConstraint, SpecializedMeeting, ClassInfo } from '../../types';
 import { Users, Search, AlertTriangle, X, Copy, Sliders, Ban, Clock, ArrowRightFromLine, ArrowLeftFromLine, Plus, Repeat, GripVertical, ChevronUp, ChevronDown, Calendar, Sparkles, Check, CheckCircle2 } from 'lucide-react';
 import { ValidationWarning } from '../../utils/scheduleConstraints';
@@ -25,6 +25,7 @@ interface Props {
   meetings?: SpecializedMeeting[];
   activeDays?: string[];
   periodsPerDay?: number;
+  periodCounts?: Record<string, number>; // عدد الحصص لكل يوم على حدة
   warnings?: ValidationWarning[];
   classes?: ClassInfo[];
   onChangeConstraints: (c: TeacherConstraint[]) => void;
@@ -34,6 +35,7 @@ interface Props {
 export default function TeacherConstraintsModal({
   isOpen, onClose,
   teachers = [], specializations = [], constraints = [], meetings = [], activeDays = [], periodsPerDay = 7,
+  periodCounts = {},
   warnings = [], classes = [], onChangeConstraints, onChangeMeetings
 }: Props) {
 
@@ -49,6 +51,53 @@ export default function TeacherConstraintsModal({
     return (activeDays && activeDays.length > 0) ? activeDays.filter(Boolean) : DAYS_AR_DEFAULT;
   }, [activeDays]);
 
+  // --- Engine: الحصة الأخيرة لكل يوم (ديناميكية) ---
+  const dayLastPeriods = useMemo(() => {
+    const result: Record<string, number> = {};
+    days.forEach(d => {
+      result[d] = Math.max(1, Math.min(20, Math.floor(Number(periodCounts[d])) || safePeriodsCount));
+    });
+    return result;
+  }, [days, periodCounts, safePeriodsCount]);
+
+  // --- Engine: حساب الاحتياج الكلي وتوزيع الحصص ---
+  const periodEngine = useMemo(() => {
+    const numClasses = classes.length;
+    const numDays = days.length || 1;
+    const totalNeeded = numClasses * numDays;
+
+    const qualifiedTeachers = teachers.filter(t => (t.quotaLimit || 0) > 0);
+    const numQualified = qualifiedTeachers.length;
+    const teacherShare = numQualified > 0 ? Math.ceil(totalNeeded / numQualified) : 0;
+
+    const totalFirst = qualifiedTeachers.reduce((sum, t) => {
+      const c = constraints.find(x => x.teacherId === t.id);
+      return sum + (c?.maxFirstPeriods ?? 0);
+    }, 0);
+    const totalLast = qualifiedTeachers.reduce((sum, t) => {
+      const c = constraints.find(x => x.teacherId === t.id);
+      return sum + (c?.maxLastPeriods ?? 0);
+    }, 0);
+
+    const firstDeficit = Math.max(0, totalNeeded - totalFirst);
+    const lastDeficit = Math.max(0, totalNeeded - totalLast);
+    const firstSurplus = Math.max(0, totalFirst - totalNeeded);
+    const lastSurplus = Math.max(0, totalLast - totalNeeded);
+
+    // نسبة تغطية الحصص الأولى والأخيرة
+    const firstCoverage = totalNeeded > 0 ? Math.min(100, Math.round((totalFirst / totalNeeded) * 100)) : 0;
+    const lastCoverage = totalNeeded > 0 ? Math.min(100, Math.round((totalLast / totalNeeded) * 100)) : 0;
+
+    return {
+      numClasses, numDays, totalNeeded,
+      numQualified, teacherShare,
+      totalFirst, totalLast,
+      firstDeficit, lastDeficit,
+      firstSurplus, lastSurplus,
+      firstCoverage, lastCoverage,
+    };
+  }, [classes, days, teachers, constraints]);
+
   // --- State ---
   const [selId, setSelId] = useState<string | null>(null);
   const [search, setSearch] = useState('');
@@ -56,6 +105,7 @@ export default function TeacherConstraintsModal({
   const [specOrder, setSpecOrder] = useState<string[]>(() => INITIAL_SPECIALIZATIONS.map(s => s.id));
   const [showSpecPanel, setShowSpecPanel] = useState(false);
   const [showCopy, setShowCopy] = useState(false);
+  const [showCopyModal, setShowCopyModal] = useState(false);
   const [copyTargets, setCopyTargets] = useState<string[]>([]);
   
   // Meeting Form & Smart Distribution
@@ -72,7 +122,43 @@ export default function TeacherConstraintsModal({
   });
   
   // Sections Expansions
-  const [open, setOpen] = useState<Record<string, boolean>>({ c1: true, c2: true, c3: true, c4: true, c5: true, c_copy: false, c6: true });
+  const [open, setOpen] = useState<Record<string, boolean>>({ c1: true, c2: true, c3: true, c4: true, c5: true, c6: true });
+
+  // --- التوزيع التلقائي الفوري (Reactive Engine) ---
+  // يُشغَّل فور فتح النافذة أو تغيّر الفصول / الأيام / المعلمين
+  const prevKeyRef = useRef<string>('');
+  useEffect(() => {
+    if (!isOpen) return;
+    const { teacherShare, numClasses, numDays, numQualified } = periodEngine;
+    // مفتاح يتغيّر فقط عند تغيّر المدخلات الجوهرية
+    const key = `${numClasses}|${numDays}|${numQualified}|${teacherShare}`;
+    if (key === prevKeyRef.current) return; // لم تتغيّر المدخلات — لا إعادة توزيع
+    prevKeyRef.current = key;
+    if (numClasses === 0 || numQualified === 0) return;
+
+    const nc = [...constraints];
+    let changed = false;
+
+    teachers.forEach(t => {
+      const isExcluded = (t.quotaLimit || 0) === 0;
+      const share = isExcluded ? 0 : teacherShare;
+      const idx = nc.findIndex(c => c.teacherId === t.id);
+      if (idx >= 0) {
+        if (nc[idx].maxFirstPeriods !== share || nc[idx].maxLastPeriods !== share) {
+          nc[idx] = { ...nc[idx], maxFirstPeriods: share === 0 ? undefined : share, maxLastPeriods: share === 0 ? undefined : share };
+          changed = true;
+        }
+      } else {
+        nc.push({ teacherId: t.id, maxConsecutive: 2, excludedSlots: {},
+          maxFirstPeriods: share === 0 ? undefined : share,
+          maxLastPeriods:  share === 0 ? undefined : share });
+        changed = true;
+      }
+    });
+
+    if (changed) onChangeConstraints(nc);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, periodEngine.teacherShare, periodEngine.numClasses, periodEngine.numDays, periodEngine.numQualified]);
 
   // Early Return
   if (!isOpen) return null;
@@ -87,6 +173,118 @@ export default function TeacherConstraintsModal({
       ? constraints.map(c => c.teacherId === tid ? { ...c, ...upd } : c)
       : [...constraints, { teacherId: tid, maxConsecutive: 2, excludedSlots: {}, ...upd }];
     onChangeConstraints(newConstraints);
+  };
+
+  // --- Engine: التوزيع التلقائي الكامل (زر التوزيع التلقائي) ---
+  const autoDistributeFirstLast = () => {
+    const totalNeeded = periodEngine.totalNeeded;
+    const qualifiedTeachers = teachers.filter(t => (t.quotaLimit || 0) > 0);
+    if (qualifiedTeachers.length === 0) return;
+
+    const share = Math.ceil(totalNeeded / qualifiedTeachers.length);
+    const nc = [...constraints];
+
+    qualifiedTeachers.forEach(t => {
+      const idx = nc.findIndex(c => c.teacherId === t.id);
+      if (idx >= 0) {
+        nc[idx] = { ...nc[idx], maxFirstPeriods: share, maxLastPeriods: share };
+      } else {
+        nc.push({ teacherId: t.id, maxConsecutive: 2, excludedSlots: {}, maxFirstPeriods: share, maxLastPeriods: share });
+      }
+    });
+
+    teachers.filter(t => (t.quotaLimit || 0) === 0).forEach(t => {
+      const idx = nc.findIndex(c => c.teacherId === t.id);
+      if (idx >= 0) {
+        nc[idx] = { ...nc[idx], maxFirstPeriods: undefined, maxLastPeriods: undefined };
+      }
+    });
+
+    onChangeConstraints(nc);
+  };
+
+  // --- Engine: تحديث يدوي مع إعادة توزيع البقية تلقائياً ---
+  const updCFirstLast = (tid: string, type: 'first' | 'last', val: number | undefined) => {
+    const totalNeeded = periodEngine.totalNeeded;
+    const qualifiedOthers = teachers.filter(t => t.id !== tid && (t.quotaLimit || 0) > 0);
+    const userVal = val ?? 0;
+
+    // 1. أعمّر نسخة جديدة من القيود مع تطبيق قيمة المعلم الحالي
+    let nc = constraints.map(c =>
+      c.teacherId === tid
+        ? { ...c, ...(type === 'first' ? { maxFirstPeriods: val } : { maxLastPeriods: val }) }
+        : { ...c }
+    );
+    if (!nc.find(c => c.teacherId === tid)) {
+      nc.push({ teacherId: tid, maxConsecutive: 2, excludedSlots: {},
+        ...(type === 'first' ? { maxFirstPeriods: val } : { maxLastPeriods: val }) });
+    }
+
+    // 2. احسب الباقي على المعلمين الآخرين
+    const remaining = totalNeeded - userVal;
+
+    if (qualifiedOthers.length > 0) {
+      if (remaining > 0) {
+        const shareForOthers = Math.ceil(remaining / qualifiedOthers.length);
+        qualifiedOthers.forEach(t => {
+          const idx = nc.findIndex(c => c.teacherId === t.id);
+          if (idx >= 0) {
+            nc[idx] = { ...nc[idx], ...(type === 'first' ? { maxFirstPeriods: shareForOthers } : { maxLastPeriods: shareForOthers }) };
+          } else {
+            nc.push({ teacherId: t.id, maxConsecutive: 2, excludedSlots: {},
+              ...(type === 'first' ? { maxFirstPeriods: shareForOthers } : { maxLastPeriods: shareForOthers }) });
+          }
+        });
+      } else {
+        // المعلم الحالي يغطي الكامل أو أكثر — يصفّر باقي المعلمين
+        qualifiedOthers.forEach(t => {
+          const idx = nc.findIndex(c => c.teacherId === t.id);
+          if (idx >= 0) {
+            nc[idx] = { ...nc[idx], ...(type === 'first' ? { maxFirstPeriods: undefined } : { maxLastPeriods: undefined }) };
+          }
+        });
+      }
+    } else if (remaining > 0) {
+      // لا توجد معلمون آخرون لتوزيع الباقي عليهم — سيظهر تنبيه النقص تلقائياً في الـ UI
+    }
+
+    onChangeConstraints(nc);
+  };
+
+  // --- Engine: حساب إتاحة المعلم للحصص الطرفية ---
+  const getTeacherPeriodAvailability = (tid: string) => {
+    const teacher = teachers.find(t => t.id === tid);
+    if (!teacher) return { firstAvailDays: 0, lastAvailDays: 0, lastAvailByDay: {} as Record<string, number | null>, excluded: false };
+
+    if ((teacher.quotaLimit || 0) === 0) {
+      return { firstAvailDays: 0, lastAvailDays: 0, lastAvailByDay: {} as Record<string, number | null>, excluded: true };
+    }
+
+    const c = getC(tid);
+    let firstAvailDays = 0;
+    let lastAvailDays = 0;
+    const lastAvailByDay: Record<string, number | null> = {};
+
+    days.forEach(d => {
+      const excluded = c.excludedSlots?.[d] || [];
+
+      // الحصة الأولى (حصة رقم 1)
+      if (!excluded.includes(1)) firstAvailDays++;
+
+      // الحصة الأخيرة الديناميكية لهذا اليوم
+      const lastP = dayLastPeriods[d] ?? safePeriodsCount;
+      let foundLast: number | null = null;
+      for (let p = lastP; p >= 1; p--) {
+        if (!excluded.includes(p)) {
+          foundLast = p;
+          lastAvailDays++;
+          break;
+        }
+      }
+      lastAvailByDay[d] = foundLast;
+    });
+
+    return { firstAvailDays, lastAvailDays, lastAvailByDay, excluded: false };
   };
 
   // --- Stats ---
@@ -245,7 +443,15 @@ export default function TeacherConstraintsModal({
                       </div>
                     </div>
                   </div>
-
+                  {/* Quick Copy Button */}
+                  <button
+                    onClick={() => setShowCopyModal(true)}
+                    title="نسخ القيود لمعلم آخر"
+                    className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold border bg-[#eeecff] text-[#8779fb] border-[#c8c1fd] hover:bg-[#e5e1fe] transition-all"
+                  >
+                    <Copy size={14} />
+                    <span>نسخ القيود لمعلم آخر</span>
+                  </button>
                 </div>
 
                 {/* Warnings */}
@@ -431,54 +637,242 @@ export default function TeacherConstraintsModal({
                   )}
                 </div>
 
-                {/* 4. First/Last - Auto-enable Dropdowns */}
+                {/* 4. First/Last */}
                 <div className="space-y-2">
-                  {renderSectionHeader('c4', 'bg-emerald-50', 'border-emerald-200', 'bg-emerald-100', 'text-emerald-600', ArrowRightFromLine, 'الحصص الأولى والأخيرة', 'تخصيص توزيع عدد الحصص الأولى والأخيرة')}
+                  {renderSectionHeader('c4', 'bg-violet-50', 'border-violet-200', 'bg-violet-100', 'text-violet-600', ArrowRightFromLine, 'الحصص الأولى والأخيرة', 'تخصيص توزيع عدد الحصص الأولى والأخيرة')}
                   {open.c4 && (
-                    <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm grid md:grid-cols-2 gap-6">
-                      
-                      <div className="p-4 border border-slate-100 rounded-2xl bg-slate-50/50 hover:bg-white hover:shadow-md transition-all">
-                        <div className="flex items-center justify-between mb-3">
-                          <label className="text-sm font-black text-slate-700">الحصص الأولى</label>
-                          <div className="text-[10px] text-slate-400 font-bold">أقصى حد أسبوعي</div>
+                    <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
+
+                      {/* ── شريط الاحتياج ── */}
+                      <div className="px-5 pt-4 pb-3 border-b border-slate-100 flex flex-col gap-3">
+
+                        {/* صف العداد + زر التوزيع */}
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-4">
+                            <div className="flex items-center gap-1.5 text-[11px] font-bold text-slate-500">
+                              <span className="text-slate-800 font-black text-base">{periodEngine.numClasses}</span> فصل
+                              <span className="text-slate-300 mx-0.5">×</span>
+                              <span className="text-slate-800 font-black text-base">{periodEngine.numDays}</span> يوم
+                              <span className="text-slate-300 mx-0.5">=</span>
+                              <span className="text-[#655ac1] font-black text-base">{periodEngine.totalNeeded}</span>
+                              <span>حصة مطلوبة</span>
+                            </div>
+                            <span className="hidden sm:flex items-center gap-1 px-2 py-0.5 bg-[#e5e1fe] text-[#655ac1] text-[9px] font-black rounded-full">
+                              نصيب كل معلم: {periodEngine.teacherShare}
+                            </span>
+                          </div>
+                          <button
+                            onClick={autoDistributeFirstLast}
+                            disabled={periodEngine.numClasses === 0 || periodEngine.numQualified === 0}
+                            className="flex items-center gap-1.5 px-3 py-1.5 bg-[#655ac1] hover:bg-[#5046b5] text-white text-[10px] font-black rounded-lg transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                          >
+                            <Sparkles size={12} />
+                            توزيع تلقائي
+                          </button>
                         </div>
-                        <div className="relative">
-                          <select 
-                             value={sc?.maxFirstPeriods ?? 0} 
-                             onChange={e => {
-                               const val = Number(e.target.value);
-                               updC(selTeacher.id, { maxFirstPeriods: val === 0 ? undefined : val }); // 0 means disabled
-                             }} 
-                             className="w-full p-3 bg-white border border-slate-200 rounded-xl text-sm font-bold focus:border-emerald-400 focus:ring-4 focus:ring-emerald-50 outline-none transition-all">
-                             <option value={0}>-- غير مفعل --</option>
-                             {[...Array(days.length + 1).keys()].slice(1).map(n => <option key={n} value={n}>{n} حصص</option>)}
-                          </select>
-                          <ChevronDown size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+
+                        {/* شريطا تغطية */}
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <div className="flex justify-between text-[9px] font-bold text-slate-400 mb-1">
+                              <span>الأولى — {periodEngine.totalFirst}/{periodEngine.totalNeeded}</span>
+                              <span className={periodEngine.firstDeficit > 0 ? 'text-rose-500' : 'text-[#655ac1]'}>
+                                {periodEngine.firstDeficit > 0 ? `نقص ${periodEngine.firstDeficit}` : periodEngine.firstSurplus > 0 ? `+${periodEngine.firstSurplus}` : '✓'}
+                              </span>
+                            </div>
+                            <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                              <div
+                                className={`h-full rounded-full transition-all duration-500 ${periodEngine.firstCoverage >= 100 ? 'bg-[#655ac1]' : periodEngine.firstCoverage >= 70 ? 'bg-amber-400' : 'bg-rose-400'}`}
+                                style={{ width: `${Math.min(100, periodEngine.firstCoverage)}%` }}
+                              />
+                            </div>
+                          </div>
+                          <div>
+                            <div className="flex justify-between text-[9px] font-bold text-slate-400 mb-1">
+                              <span>الأخيرة — {periodEngine.totalLast}/{periodEngine.totalNeeded}</span>
+                              <span className={periodEngine.lastDeficit > 0 ? 'text-rose-500' : 'text-[#655ac1]'}>
+                                {periodEngine.lastDeficit > 0 ? `نقص ${periodEngine.lastDeficit}` : periodEngine.lastSurplus > 0 ? `+${periodEngine.lastSurplus}` : '✓'}
+                              </span>
+                            </div>
+                            <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                              <div
+                                className={`h-full rounded-full transition-all duration-500 ${periodEngine.lastCoverage >= 100 ? 'bg-[#655ac1]' : periodEngine.lastCoverage >= 70 ? 'bg-amber-400' : 'bg-rose-400'}`}
+                                style={{ width: `${Math.min(100, periodEngine.lastCoverage)}%` }}
+                              />
+                            </div>
+                          </div>
                         </div>
-                        <p className="text-[10px] text-slate-400 mt-2 leading-relaxed">تحديد الحد الأقصى للحصص الأولى التي يمكن إسنادها للمعلم خلال الأسبوع.</p>
                       </div>
 
-                      <div className="p-4 border border-slate-100 rounded-2xl bg-slate-50/50 hover:bg-white hover:shadow-md transition-all">
-                        <div className="flex items-center justify-between mb-3">
-                          <label className="text-sm font-black text-slate-700">الحصص الأخيرة</label>
-                          <div className="text-[10px] text-slate-400 font-bold">أقصى حد أسبوعي</div>
+                      {/* ── تنبيه النقص ── */}
+                      {(periodEngine.firstDeficit > 0 || periodEngine.lastDeficit > 0) && (
+                        <div className="px-5 py-2.5 bg-rose-50 border-b border-rose-100 space-y-1">
+                          {periodEngine.firstDeficit > 0 && (
+                            <div className="flex items-start gap-2 text-rose-600 text-[10px] font-bold">
+                              <AlertTriangle size={12} className="shrink-0 mt-0.5" />
+                              <span>التوزيع الحالي للحصص الأولى غير كافٍ لتغطية كافة الفصول (نقص {periodEngine.firstDeficit} حصة).</span>
+                            </div>
+                          )}
+                          {periodEngine.lastDeficit > 0 && (
+                            <div className="flex items-start gap-2 text-rose-600 text-[10px] font-bold">
+                              <AlertTriangle size={12} className="shrink-0 mt-0.5" />
+                              <span>التوزيع الحالي للحصص الأخيرة غير كافٍ لتغطية كافة الفصول (نقص {periodEngine.lastDeficit} حصة).</span>
+                            </div>
+                          )}
                         </div>
-                        <div className="relative">
-                          <select 
-                             value={sc?.maxLastPeriods ?? 0} 
-                             onChange={e => {
-                               const val = Number(e.target.value);
-                               updC(selTeacher.id, { maxLastPeriods: val === 0 ? undefined : val }); // 0 means disabled
-                             }} 
-                             className="w-full p-3 bg-white border border-slate-200 rounded-xl text-sm font-bold focus:border-emerald-400 focus:ring-4 focus:ring-emerald-50 outline-none transition-all">
-                             <option value={0}>-- غير مفعل --</option>
-                             {[...Array(days.length + 1).keys()].slice(1).map(n => <option key={n} value={n}>{n} حصص</option>)}
-                          </select>
-                          <ChevronDown size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
-                        </div>
-                        <p className="text-[10px] text-slate-400 mt-2 leading-relaxed">تحديد الحد الأقصى للحصص الأخيرة التي يمكن إسنادها للمعلم خلال الأسبوع.</p>
-                      </div>
+                      )}
 
+                      {/* ── إعدادات المعلم ── */}
+                      <div className="p-5 space-y-4">
+                        {(() => {
+                          const isExcluded = (selTeacher.quotaLimit || 0) === 0;
+                          const avail = getTeacherPeriodAvailability(selTeacher.id);
+                          return (
+                            <>
+                              {/* مستبعد تلقائياً */}
+                              {isExcluded && (
+                                <div className="flex items-center gap-3 p-3.5 bg-slate-50 border border-slate-200 rounded-xl">
+                                  <Ban size={15} className="text-slate-400 shrink-0" />
+                                  <div>
+                                    <div className="text-xs font-black text-slate-600">مستبعد تلقائياً</div>
+                                    <div className="text-[10px] text-slate-400 mt-0.5">نصاب هذا المعلم (0) — تم استبعاده من توزيع الحصص الطرفية.</div>
+                                  </div>
+                                </div>
+                              )}
+
+                              {/* إتاحة المعلم اليومية */}
+                              {!isExcluded && (
+                                <div className="flex items-center justify-between px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl">
+                                  <div className="flex items-center gap-1.5 text-[10px] font-bold text-slate-500">
+                                    <Calendar size={12} className="text-slate-400" />
+                                    إتاحة هذا الأسبوع
+                                  </div>
+                                  <div className="flex items-center gap-3">
+                                    <div className="flex items-center gap-1.5 text-[10px] text-slate-600 font-bold">
+                                      <ArrowRightFromLine size={11} className="text-[#655ac1]" />
+                                      <span>أولى:</span>
+                                      <span className="font-black text-[#655ac1]">{avail.firstAvailDays}/{days.length}</span>
+                                    </div>
+                                    <div className="w-px h-4 bg-slate-200" />
+                                    <div className="flex items-center gap-1.5 text-[10px] text-slate-600 font-bold">
+                                      <ArrowLeftFromLine size={11} className="text-[#655ac1]" />
+                                      <span>أخيرة:</span>
+                                      <span className="font-black text-[#655ac1]">{avail.lastAvailDays}/{days.length}</span>
+                                    </div>
+                                  </div>
+                                  {/* تفاصيل الحصة الأخيرة الديناميكية */}
+                                  <div className="flex items-center gap-1">
+                                    {days.map(d => {
+                                      const lastP = dayLastPeriods[d] ?? safePeriodsCount;
+                                      const teacherLastP = avail.lastAvailByDay?.[d];
+                                      const canTake = teacherLastP != null;
+                                      const isDynamic = canTake && teacherLastP < lastP;
+                                      return (
+                                        <div
+                                          key={d}
+                                          title={`${getDayLabel(d)}: ${canTake ? (isDynamic ? `بديل ح${teacherLastP} (الأصلية ح${lastP} مستثناة)` : `ح${lastP}`) : 'غير متاح'}`}
+                                          className={`w-6 h-6 rounded-md flex items-center justify-center text-[8px] font-black border ${
+                                            canTake
+                                              ? isDynamic
+                                                ? 'bg-amber-50 border-amber-200 text-amber-600'
+                                                : 'bg-[#e5e1fe] border-violet-200 text-[#655ac1]'
+                                              : 'bg-slate-100 border-slate-200 text-slate-300'
+                                          }`}
+                                        >
+                                          {canTake ? teacherLastP : '—'}
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                </div>
+                              )}
+
+                              {/* حقلا التخصيص */}
+                              <div className="grid md:grid-cols-2 gap-4">
+
+                                {/* الحصص الأولى */}
+                                <div className={`p-4 border rounded-2xl transition-all ${isExcluded ? 'opacity-50 pointer-events-none bg-slate-50 border-slate-200' : 'bg-slate-50/40 border-slate-200 hover:bg-white hover:shadow-sm hover:border-violet-200'}`}>
+                                  <div className="flex items-center justify-between mb-3">
+                                    <div className="flex items-center gap-2">
+                                      <ArrowRightFromLine size={14} className="text-[#655ac1]" />
+                                      <label className="text-sm font-black text-slate-700">الحصص الأولى</label>
+                                    </div>
+                                    <div className="flex items-center gap-1.5">
+                                      {!isExcluded && periodEngine.teacherShare > 0 && (
+                                        <span className="px-2 py-0.5 bg-[#e5e1fe] text-[#655ac1] text-[9px] font-black rounded-full">
+                                          مقترح: {periodEngine.teacherShare}
+                                        </span>
+                                      )}
+                                      <span className="text-[9px] text-slate-400 font-bold">أسبوعياً</span>
+                                    </div>
+                                  </div>
+                                  <div className="relative">
+                                    <select
+                                      value={isExcluded ? 0 : (sc?.maxFirstPeriods ?? 0)}
+                                      disabled={isExcluded}
+                                      onChange={e => {
+                                        const val = Number(e.target.value);
+                                        updCFirstLast(selTeacher.id, 'first', val === 0 ? undefined : val);
+                                      }}
+                                      className="w-full p-3 bg-white border border-slate-200 rounded-xl text-sm font-bold focus:border-[#655ac1] focus:ring-4 focus:ring-[#e5e1fe] outline-none transition-all appearance-none disabled:bg-slate-100 disabled:text-slate-400 disabled:cursor-not-allowed">
+                                      <option value={0}>{isExcluded ? 'مستبعد' : '-- غير مفعل --'}</option>
+                                      {!isExcluded && Array.from({ length: days.length }, (_, i) => i + 1).map(n => (
+                                        <option key={n} value={n}>
+                                          {n} {n === 1 ? 'حصة' : 'حصص'}{n === periodEngine.teacherShare ? ' ✦' : ''}
+                                        </option>
+                                      ))}
+                                    </select>
+                                    <ChevronDown size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                                  </div>
+                                  <p className="text-[10px] text-slate-400 mt-2 leading-relaxed">
+                                    {isExcluded ? 'مستبعد لعدم وجود نصاب تدريسي.' : `عدد الحصص الأولى أسبوعياً — مؤهل في ${avail.firstAvailDays} من ${days.length} يوم.`}
+                                  </p>
+                                </div>
+
+                                {/* الحصص الأخيرة */}
+                                <div className={`p-4 border rounded-2xl transition-all ${isExcluded ? 'opacity-50 pointer-events-none bg-slate-50 border-slate-200' : 'bg-slate-50/40 border-slate-200 hover:bg-white hover:shadow-sm hover:border-violet-200'}`}>
+                                  <div className="flex items-center justify-between mb-3">
+                                    <div className="flex items-center gap-2">
+                                      <ArrowLeftFromLine size={14} className="text-[#655ac1]" />
+                                      <label className="text-sm font-black text-slate-700">الحصص الأخيرة</label>
+                                    </div>
+                                    <div className="flex items-center gap-1.5">
+                                      {!isExcluded && periodEngine.teacherShare > 0 && (
+                                        <span className="px-2 py-0.5 bg-[#e5e1fe] text-[#655ac1] text-[9px] font-black rounded-full">
+                                          مقترح: {periodEngine.teacherShare}
+                                        </span>
+                                      )}
+                                      <span className="text-[9px] text-slate-400 font-bold">أسبوعياً</span>
+                                    </div>
+                                  </div>
+                                  <div className="relative">
+                                    <select
+                                      value={isExcluded ? 0 : (sc?.maxLastPeriods ?? 0)}
+                                      disabled={isExcluded}
+                                      onChange={e => {
+                                        const val = Number(e.target.value);
+                                        updCFirstLast(selTeacher.id, 'last', val === 0 ? undefined : val);
+                                      }}
+                                      className="w-full p-3 bg-white border border-slate-200 rounded-xl text-sm font-bold focus:border-[#655ac1] focus:ring-4 focus:ring-[#e5e1fe] outline-none transition-all appearance-none disabled:bg-slate-100 disabled:text-slate-400 disabled:cursor-not-allowed">
+                                      <option value={0}>{isExcluded ? 'مستبعد' : '-- غير مفعل --'}</option>
+                                      {!isExcluded && Array.from({ length: days.length }, (_, i) => i + 1).map(n => (
+                                        <option key={n} value={n}>
+                                          {n} {n === 1 ? 'حصة' : 'حصص'}{n === periodEngine.teacherShare ? ' ✦' : ''}
+                                        </option>
+                                      ))}
+                                    </select>
+                                    <ChevronDown size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                                  </div>
+                                  <p className="text-[10px] text-slate-400 mt-2 leading-relaxed">
+                                    {isExcluded ? 'مستبعد لعدم وجود نصاب تدريسي.' : `عدد الحصص الأخيرة أسبوعياً (ديناميكية) — مؤهل في ${avail.lastAvailDays} من ${days.length} يوم.`}
+                                  </p>
+                                </div>
+
+                              </div>
+                            </>
+                          );
+                        })()}
+                      </div>
                     </div>
                   )}
                 </div>
@@ -559,127 +953,7 @@ export default function TeacherConstraintsModal({
                   )}
                 </div>
 
-<div className="space-y-2">
-                  {renderSectionHeader('c_copy', 'bg-cyan-50', 'border-cyan-200', 'bg-cyan-100', 'text-cyan-600', Copy, 'نسخ القيود للمعلمين', 'نسخ قيود معلم لآخر')}
-                  {open.c_copy && (
-                    <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm space-y-4">
-                        {/* Copy Options */}
-                        <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 mb-4">
-                             <div className="flex justify-between items-center mb-3">
-                                <h4 className="font-bold text-slate-700 text-xs">خيارات النسخ</h4>
-                                <label className="flex items-center gap-2 cursor-pointer text-xs font-bold text-cyan-600 hover:text-cyan-700">
-                                    <input type="checkbox" checked={copyOpts.consecutive && copyOpts.excluded && copyOpts.allocation && copyOpts.firstLast && copyOpts.earlyEntry} 
-                                           onChange={e => {
-                                               const v = e.target.checked;
-                                               setCopyOpts({ consecutive: v, excluded: v, allocation: v, firstLast: v, earlyEntry: v });
-                                           }} className="accent-cyan-600 w-4 h-4 rounded" />
-                                    <span>تحديد الكل</span>
-                                </label>
-                             </div>
-                             <div className="flex flex-wrap gap-2">
-                                {[
-                                    { k: 'consecutive', l: 'تتابع' },
-                                    { k: 'excluded', l: 'استثناء' },
-                                    { k: 'allocation', l: 'تخصيص يومي' },
-                                    { k: 'firstLast', l: 'أولى/أخيرة' },
-                                    { k: 'earlyEntry', l: 'خروج مبكر' }
-                                ].map(opt => (
-                                    <label key={opt.k} className="flex-1 min-w-[80px] flex items-center gap-2 bg-white px-3 py-2 rounded-lg border border-slate-200 cursor-pointer hover:border-cyan-300 transition-colors select-none">
-                                        <input type="checkbox" checked={copyOpts[opt.k as keyof typeof copyOpts]} 
-                                               onChange={e => setCopyOpts({...copyOpts, [opt.k]: e.target.checked})} className="accent-cyan-600 w-4 h-4 rounded" />
-                                        <span className="text-[10px] font-bold text-slate-600 whitespace-nowrap">{opt.l}</span>
-                                    </label>
-                                ))}
-                             </div>
-                        </div>
-
-                        <div className="flex justify-between items-center bg-cyan-50/50 p-4 rounded-xl border border-cyan-100">
-                             <div>
-                                 <h4 className="font-bold text-slate-700">تحديد المعلمين</h4>
-                                 <p className="text-xs text-slate-400 mt-1">اختر المعلمين المراد تطبيق نفس القيود عليهم</p>
-                             </div>
-                             <div className="flex items-center gap-3">
-                                <span className="text-xs font-bold text-slate-500 bg-white px-3 py-1.5 rounded-lg border border-slate-200">
-                                    {copyTargets.length} معلمين محددين
-                                </span>
-                                <button 
-                                    onClick={() => {
-                                        const allIds = filteredTeachers.filter(t => t.id !== selId).map(t => t.id);
-                                        if (copyTargets.length === allIds.length) setCopyTargets([]);
-                                        else setCopyTargets(allIds);
-                                    }}
-                                    className="text-xs font-bold text-cyan-600 hover:text-cyan-700 px-3 py-1.5 hover:bg-cyan-50 rounded-lg transition-colors"
-                                >
-                                    {copyTargets.length === filteredTeachers.filter(t => t.id !== selId).length ? 'إلغاء الكل' : 'تحديد الكل'}
-                                </button>
-                             </div>
-                        </div>
-
-                        <div className="max-h-60 overflow-y-auto border border-slate-100 rounded-xl p-2 space-y-1 bg-slate-50/50 custom-scrollbar">
-                           {filteredTeachers.filter(t => t.id !== selId).map(t => (
-                             <label key={t.id} className="flex items-center gap-3 p-2.5 hover:bg-white border border-transparent hover:border-slate-100 rounded-xl cursor-pointer transition-all">
-                                <div className={`w-5 h-5 rounded-md border flex items-center justify-center transition-colors ${copyTargets.includes(t.id) ? 'bg-cyan-500 border-cyan-500' : 'bg-white border-slate-300'}`}>
-                                   {copyTargets.includes(t.id) && <Check size={14} className="text-white" strokeWidth={3} />}
-                                </div>
-                                <span className="text-xs font-bold text-slate-700">{t.name}</span>
-                                <input type="checkbox" className="hidden" checked={copyTargets.includes(t.id)} onChange={e => {
-                                  if (e.target.checked) setCopyTargets([...copyTargets, t.id]);
-                                  else setCopyTargets(copyTargets.filter(id => id !== t.id));
-                                }} />
-                             </label>
-                           ))}
-                           {filteredTeachers.length <= 1 && <div className="text-center py-4 text-xs text-slate-400">لا يوجد معلمين آخرين للنسخ إليهم</div>}
-                        </div>
-                        
-                        <div className="pt-2">
-                           <button 
-                            disabled={copyTargets.length === 0}
-                            onClick={() => {
-                                if (copyTargets.length === 0) return;
-                                if (!confirm(`هل أنت متأكد من نسخ القيود المحددة إلى ${copyTargets.length} معلم؟`)) return;
-                                
-                                const src = getC(selId!);
-                                const nc = [...constraints];
-                                copyTargets.forEach(tid => {
-                                    const idx = nc.findIndex(c => c.teacherId === tid);
-                                    const existing: TeacherConstraint = idx >= 0 ? nc[idx] : { 
-                                        teacherId: tid, 
-                                        maxConsecutive: 2, 
-                                        excludedSlots: {} 
-                                    };
-                                    
-                                    // Merge logic
-                                    const n = { ...existing };
-                                    if (copyOpts.consecutive) n.maxConsecutive = src.maxConsecutive;
-                                    if (copyOpts.excluded) n.excludedSlots = src.excludedSlots;
-                                    if (copyOpts.allocation) n.dailyLimits = src.dailyLimits;
-                                    if (copyOpts.firstLast) {
-                                        n.maxFirstPeriods = src.maxFirstPeriods;
-                                        n.maxLastPeriods = src.maxLastPeriods;
-                                    }
-                                    if (copyOpts.earlyEntry) {
-                                        n.earlyExit = src.earlyExit;
-                                        n.earlyExitMode = src.earlyExitMode;
-                                    }
-
-                                    if (idx >= 0) nc[idx] = n; else nc.push(n);
-                                });
-                                onChangeConstraints(nc);
-                                setCopyTargets([]);
-                                alert('تم نسخ القيود بنجاح');
-                            }} 
-                            className="w-full py-3 bg-cyan-600 text-white rounded-xl text-xs font-bold hover:bg-cyan-700 shadow-lg shadow-cyan-200 disabled:opacity-50 disabled:shadow-none transition-all flex items-center justify-center gap-2"
-                          >
-                                <Copy size={16} /> تطبيق النسخ على المحدد ({copyTargets.length})
-                          </button>
-                        </div>
-                    </div>
-                  )}
-                </div>
-
-                <div className="my-6 border-t border-slate-100 mx-4" />
-
-                {/* 6. Meetings - Fix Add All Teachers */}
+                {/* 6. Meetings */}
                 <div className="space-y-2">
                   {renderSectionHeader('c6', 'bg-indigo-50', 'border-indigo-200', 'bg-indigo-100', 'text-indigo-600', Calendar, 'الاجتماعات', 'مواعيد ثابتة للتخصص')}
                   {open.c6 && (
@@ -769,8 +1043,128 @@ export default function TeacherConstraintsModal({
 
         {/* Copy Modal - Added Select All */}
 
-
       </div>
+
+      {/* ── Quick Copy Modal ── */}
+      {showCopyModal && selTeacher && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4" onClick={() => setShowCopyModal(false)}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden animate-in fade-in zoom-in-95 duration-200" onClick={e => e.stopPropagation()}>
+            {/* Header */}
+            <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100 bg-[#eeecff]">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-xl bg-[#e5e1fe] text-[#8779fb] flex items-center justify-center"><Copy size={18} /></div>
+                <div>
+                  <h3 className="font-black text-slate-800 text-sm">نسخ القيود والاستثناءات</h3>
+                  <p className="text-[10px] text-slate-400 mt-0.5">نسخ قيود <span className="font-bold text-[#8779fb]">{selTeacher.name}</span> إلى معلمين آخرين</p>
+                </div>
+              </div>
+              <button onClick={() => setShowCopyModal(false)} className="p-2 hover:bg-slate-100 rounded-xl text-slate-400 hover:text-slate-600 transition-all"><X size={18} /></button>
+            </div>
+
+            <div className="p-5 space-y-4 max-h-[70vh] overflow-y-auto">
+              {/* Copy Options */}
+              <div className="bg-slate-50 p-4 rounded-xl border border-slate-100">
+                <div className="flex justify-between items-center mb-4">
+                  <h4 className="font-bold text-slate-700 text-sm">خيارات النسخ</h4>
+                  <label className="flex items-center gap-2 cursor-pointer text-sm font-bold text-[#8779fb] hover:text-[#655ac1]">
+                    <input type="checkbox"
+                      checked={copyOpts.consecutive && copyOpts.excluded && copyOpts.allocation && copyOpts.firstLast && copyOpts.earlyEntry}
+                      onChange={e => { const v = e.target.checked; setCopyOpts({ consecutive: v, excluded: v, allocation: v, firstLast: v, earlyEntry: v }); }}
+                      className="accent-[#8779fb] w-4 h-4 rounded" />
+                    <span>تحديد الكل</span>
+                  </label>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  {[
+                    { k: 'consecutive', l: 'تتابع الحصص' },
+                    { k: 'excluded', l: 'استثناء الحصص' },
+                    { k: 'allocation', l: 'تخصيص يومي' },
+                    { k: 'firstLast', l: 'أولى / أخيرة' },
+                    { k: 'earlyEntry', l: 'خروج مبكر' }
+                  ].map((opt, idx) => (
+                    <label key={opt.k} className={`flex items-center gap-2.5 bg-white px-4 py-3 rounded-xl border border-slate-200 cursor-pointer hover:border-[#a99ffc] hover:bg-[#eeecff]/40 transition-colors select-none ${idx === 4 ? 'col-span-2' : ''}`}>
+                      <input type="checkbox" checked={copyOpts[opt.k as keyof typeof copyOpts]}
+                        onChange={e => setCopyOpts({ ...copyOpts, [opt.k]: e.target.checked })} className="accent-[#8779fb] w-4 h-4 rounded shrink-0" />
+                      <span className="text-xs font-bold text-slate-600">{opt.l}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              {/* Teacher Selection */}
+              <div className="flex justify-between items-center bg-[#eeecff]/50 p-4 rounded-xl border border-[#dbd7fe]">
+                <div>
+                  <h4 className="font-bold text-slate-700 text-sm">تحديد المعلمين</h4>
+                  <p className="text-xs text-slate-400 mt-1">اختر المعلمين المراد تطبيق نفس القيود عليهم</p>
+                </div>
+                <div className="flex items-center gap-3">
+                  <span className="text-xs font-bold text-slate-500 bg-white px-3 py-1.5 rounded-lg border border-slate-200">{copyTargets.length} محددين</span>
+                  <button
+                    onClick={() => {
+                      const allIds = filteredTeachers.filter(t => t.id !== selId).map(t => t.id);
+                      if (copyTargets.length === allIds.length) setCopyTargets([]);
+                      else setCopyTargets(allIds);
+                    }}
+                    className="text-xs font-bold text-[#8779fb] hover:text-[#655ac1] px-3 py-1.5 hover:bg-[#eeecff] rounded-lg transition-colors"
+                  >
+                    {copyTargets.length === filteredTeachers.filter(t => t.id !== selId).length ? 'إلغاء الكل' : 'تحديد الكل'}
+                  </button>
+                </div>
+              </div>
+
+              {/* Teachers List */}
+              <div className="max-h-52 overflow-y-auto border border-slate-100 rounded-xl p-2 space-y-1 bg-slate-50/50">
+                {filteredTeachers.filter(t => t.id !== selId).map(t => (
+                  <label key={t.id} className="flex items-center gap-3 p-2.5 hover:bg-white border border-transparent hover:border-slate-100 rounded-xl cursor-pointer transition-all">
+                    <div className={`w-5 h-5 rounded-md border flex items-center justify-center transition-colors ${copyTargets.includes(t.id) ? 'bg-[#8779fb] border-[#8779fb]' : 'bg-white border-slate-300'}`}>
+                      {copyTargets.includes(t.id) && <Check size={14} className="text-white" strokeWidth={3} />}
+                    </div>
+                    <span className="text-xs font-bold text-slate-700">{t.name}</span>
+                    <input type="checkbox" className="hidden" checked={copyTargets.includes(t.id)} onChange={e => {
+                      if (e.target.checked) setCopyTargets([...copyTargets, t.id]);
+                      else setCopyTargets(copyTargets.filter(id => id !== t.id));
+                    }} />
+                  </label>
+                ))}
+                {filteredTeachers.filter(t => t.id !== selId).length === 0 && (
+                  <div className="text-center py-4 text-xs text-slate-400">لا يوجد معلمين آخرين للنسخ إليهم</div>
+                )}
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="px-5 py-4 border-t border-slate-100 bg-slate-50/50">
+              <button
+                disabled={copyTargets.length === 0}
+                onClick={() => {
+                  if (copyTargets.length === 0) return;
+                  if (!confirm(`هل أنت متأكد من نسخ القيود المحددة إلى ${copyTargets.length} معلم؟`)) return;
+                  const src = getC(selId!);
+                  const nc = [...constraints];
+                  copyTargets.forEach(tid => {
+                    const idx = nc.findIndex(c => c.teacherId === tid);
+                    const existing: TeacherConstraint = idx >= 0 ? nc[idx] : { teacherId: tid, maxConsecutive: 2, excludedSlots: {} };
+                    const n = { ...existing };
+                    if (copyOpts.consecutive) n.maxConsecutive = src.maxConsecutive;
+                    if (copyOpts.excluded) n.excludedSlots = src.excludedSlots;
+                    if (copyOpts.allocation) n.dailyLimits = src.dailyLimits;
+                    if (copyOpts.firstLast) { n.maxFirstPeriods = src.maxFirstPeriods; n.maxLastPeriods = src.maxLastPeriods; }
+                    if (copyOpts.earlyEntry) { n.earlyExit = src.earlyExit; n.earlyExitMode = src.earlyExitMode; }
+                    if (idx >= 0) nc[idx] = n; else nc.push(n);
+                  });
+                  onChangeConstraints(nc);
+                  setCopyTargets([]);
+                  setShowCopyModal(false);
+                  alert('تم نسخ القيود بنجاح');
+                }}
+                className="w-full py-3 bg-[#8779fb] text-white rounded-xl text-sm font-bold hover:bg-[#655ac1] shadow-lg shadow-[#c8c1fd] disabled:opacity-50 disabled:shadow-none transition-all flex items-center justify-center gap-2"
+              >
+                <Copy size={16} /> تطبيق النسخ على {copyTargets.length > 0 ? `${copyTargets.length} معلم` : 'المحدد'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Smart Distribution Modal */}
       {distributeModal && (
