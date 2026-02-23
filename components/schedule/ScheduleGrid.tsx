@@ -147,10 +147,10 @@ const ScheduleGrid: React.FC<ScheduleGridProps> = ({
         return (
             <div className={`
                 w-full h-full p-1 rounded-lg text-[10px] flex flex-col items-center justify-center gap-0.5
-                bg-[#e5e1fe] text-[#655ac1]
-                cursor-grab active:cursor-grabbing border border-transparent hover:border-[#655ac1]/30 transition-all
+                bg-[#f4f2ff] text-[#7c6dd6]
+                cursor-grab active:cursor-grabbing border border-transparent hover:border-[#a59bf0]/30 transition-all
             `}>
-                <span className="font-black truncate w-full text-center" title={subj?.name}>
+                <span className="font-extrabold truncate w-full text-center" title={subj?.name}>
                     {settings.subjectAbbreviations?.[subj?.id || ''] || subj?.name || '---'}
                 </span>
                 <span className="font-bold opacity-80 truncate w-full text-center dir-ltr">{cls?.name || '---'}</span>

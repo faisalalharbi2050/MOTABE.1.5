@@ -28,7 +28,10 @@ import {
   LayoutGrid,
   MonitorPlay,
   FileText,
-  BookOpen
+  BookOpen,
+  GripVertical,
+  Minus,
+  Plus
 } from 'lucide-react';
 import { SchoolInfo, ScheduleSettingsData, Teacher, Subject, ClassInfo, Admin, Assignment } from '../../../types';
 import { validateAllConstraints, ValidationWarning } from '../../../utils/scheduleConstraints';
@@ -110,8 +113,11 @@ const Step9Schedule: React.FC<Step9Props> = ({
   type TeacherSortMode = 'alpha' | 'specialization' | 'custom';
   const [teacherSortMode, setTeacherSortMode] = useState<TeacherSortMode>('alpha');
   const [teacherCustomOrder, setTeacherCustomOrder] = useState<string[]>([]);
+  const [specializationCustomOrder, setSpecializationCustomOrder] = useState<string[]>([]);
   const [showSortModal, setShowSortModal] = useState(false);
+  const [showSpecSortModal, setShowSpecSortModal] = useState(false);
   const [pendingOrder, setPendingOrder] = useState<string[]>([]);
+  const [pendingSpecOrder, setPendingSpecOrder] = useState<string[]>([]);
 
   const hasSharedSchools = schoolInfo.sharedSchools && schoolInfo.sharedSchools.length > 0;
 
@@ -611,9 +617,16 @@ const Step9Schedule: React.FC<Step9Props> = ({
                     className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-700 outline-none focus:ring-2 focus:ring-[#8779fb]/30 focus:border-[#655ac1] transition-all"
                   >
                     <option value="">-- اختر من القائمة --</option>
-                    {(activeDisplayView === 'individual_teacher' ? teachers : classes).map(item => (
-                      <option key={item.id} value={item.id}>{item.name}</option>
-                    ))}
+                    {activeDisplayView === 'individual_teacher'
+                      ? teachers.map(t => (
+                          <option key={t.id} value={t.id}>{t.name}</option>
+                        ))
+                      : [...classes]
+                          .sort((a,b) => a.grade !== b.grade ? a.grade - b.grade : (a.section||0)-(b.section||0))
+                          .map(c => (
+                            <option key={c.id} value={c.id}>{c.name || `${c.grade} / ${c.section}`}</option>
+                          ))
+                    }
                   </select>
                 </div>
               </div>
@@ -643,6 +656,24 @@ const Step9Schedule: React.FC<Step9Props> = ({
                               : teachers.map(t => t.id);
                             setPendingOrder(currentOrder);
                             setShowSortModal(true);
+                          } else if (opt.id === 'specialization') {
+                            // Filter specializations to only show those used by teachers
+                            const usedSpecIds = new Set(teachers.map(t => t.specializationId));
+                            const relevantSpecs = specializations.filter(s => usedSpecIds.has(s.id));
+                            
+                            const currentSpecOrder = specializationCustomOrder.length > 0
+                              ? specializationCustomOrder
+                              : relevantSpecs.map(s => s.id);
+                            
+                            // Ensure only valid specs are in the order (in case data changed)
+                            const validOrder = currentSpecOrder.filter(id => usedSpecIds.has(id));
+                            // Add any missing new ones
+                            relevantSpecs.forEach(s => {
+                                if(!validOrder.includes(s.id)) validOrder.push(s.id);
+                            });
+
+                            setPendingSpecOrder(validOrder);
+                            setShowSpecSortModal(true);
                           }
                         }}
                         className={`px-4 py-1.5 rounded-xl text-xs font-black border-2 transition-all ${
@@ -662,6 +693,14 @@ const Step9Schedule: React.FC<Step9Props> = ({
                         تعديل الترتيب
                       </button>
                     )}
+                    {teacherSortMode === 'specialization' && specializationCustomOrder.length > 0 && (
+                      <button
+                        onClick={() => { setPendingSpecOrder([...specializationCustomOrder]); setShowSpecSortModal(true); }}
+                        className="px-4 py-1.5 rounded-xl text-xs font-black border-2 border-[#655ac1] text-[#655ac1] bg-white hover:bg-[#e5e1fe] transition-all"
+                      >
+                        تعديل ترتيب التخصصات
+                      </button>
+                    )}
                   </div>
                 </div>
               </div>
@@ -671,34 +710,40 @@ const Step9Schedule: React.FC<Step9Props> = ({
       })()}
 
       {/* ══════ Main Content Area ══════ */}
-      <div className="bg-white rounded-[2.5rem] border border-slate-200 shadow-sm min-h-[500px] overflow-hidden relative">
+      <div className="bg-white rounded-[2.5rem] border border-slate-200 shadow-sm min-h-[500px] relative">
 
 
 
-          {/* State: No Schedule */}
-          {!hasSchedule && !isGenerating && (
-              <div className="absolute inset-0 flex flex-col items-center justify-center bg-slate-50/50">
-                  <div className="w-24 h-24 bg-white rounded-full flex items-center justify-center shadow-sm mb-6 animate-in zoom-in duration-500">
-                      <Calendar size={48} className="text-slate-300" />
+          {/* State: No Schedule Alert */}
+          {!hasSchedule && !isGenerating && !activeDisplayView && (
+              <div className="flex flex-col items-center justify-center h-full min-h-[400px]">
+                  <div className="w-full max-w-2xl bg-amber-50 border-r-4 border-amber-500 rounded-xl p-6 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-4 animate-in zoom-in duration-300">
+                      <div className="flex items-center gap-4 text-center sm:text-right">
+                          <div className="w-12 h-12 bg-amber-100 rounded-full flex items-center justify-center text-amber-600 shrink-0 mx-auto sm:mx-0">
+                              <Sparkles size={24} />
+                          </div>
+                          <div>
+                              <h4 className="text-lg font-black text-slate-800 mb-1">لم يتم إنشاء الجدول بعد</h4>
+                              <p className="text-sm font-medium text-slate-600 leading-relaxed">
+                                  اضغط على زر "التوليد الذكي للجدول" لبدء عملية التوزيع الآلي للحصص بناءً على القيود والبيانات المدخلة
+                              </p>
+                          </div>
+                      </div>
+                      <button 
+                          onClick={handleValidation}
+                          className="px-6 py-3 bg-[#655ac1] text-white rounded-xl font-bold hover:bg-[#5448a8] shadow-lg shadow-[#655ac1]/20 transition-all active:scale-95 flex items-center gap-2 shrink-0"
+                      >
+                          <Play size={18} fill="currentColor" />
+                          <span>التوليد الذكي للجدول</span>
+                      </button>
                   </div>
-                  <h4 className="text-xl font-black text-slate-700 mb-2">لم يتم إنشاء الجدول بعد</h4>
-                  <p className="text-slate-500 max-w-md text-center mb-8">
-                      اضغط على زر "التوليد الذكي للجدول" لبدء عملية التوزيع الآلي للحصص بناءً على القيود والبيانات المدخلة.
-                  </p>
-                  <button 
-                      onClick={handleValidation}
-                      className="px-8 py-3 bg-[#655ac1] text-white rounded-xl font-bold hover:bg-[#5448a8] shadow-lg shadow-[#655ac1]/20 transition-all active:scale-95 flex items-center gap-2"
-                  >
-                      <Play size={18} fill="currentColor" />
-                      البدء الآن
-                  </button>
               </div>
           )}
 
           {/* State: Generating Overlay - REMOVED (Handled by Modal) */}
 
           {/* Display View: PrintableSchedule inline */}
-          {hasSchedule && activeDisplayView && (
+          {activeDisplayView && (
             (() => {
               const needsId = activeDisplayView === 'individual_teacher' || activeDisplayView === 'individual_class';
               const isReady = !needsId || !!selectedDisplayId;
@@ -722,7 +767,7 @@ const Step9Schedule: React.FC<Step9Props> = ({
               const specNames: Record<string, string> = {};
               specializations.forEach(s => { specNames[s.id] = s.name; });
               return (
-                <div className="p-6 overflow-auto">
+                <div className="p-4 h-full">
                   <InlineScheduleView
                     type={activeDisplayView}
                     settings={scheduleSettings}
@@ -732,6 +777,7 @@ const Step9Schedule: React.FC<Step9Props> = ({
                     targetId={selectedDisplayId}
                     teacherSortMode={teacherSortMode}
                     teacherCustomOrder={teacherCustomOrder}
+                    specializationCustomOrder={specializationCustomOrder}
                     specializationNames={specNames}
                   />
                 </div>
@@ -807,46 +853,47 @@ const Step9Schedule: React.FC<Step9Props> = ({
                 </div>
                 <div>
                   <h3 className="font-black text-slate-800">ترتيب المعلمين</h3>
-                  <p className="text-xs text-slate-500">حدد ترتيب ظهور المعلمين في الجدول</p>
+                  <p className="text-xs text-slate-500">اسحب وغير ترتيب المعلمين كما تريد</p>
                 </div>
               </div>
               <button onClick={() => setShowSortModal(false)} className="p-2 hover:bg-slate-100 rounded-xl text-slate-400">
                 <X size={18} />
               </button>
             </div>
-            <div className="overflow-y-auto flex-1 p-4 space-y-1.5">
+            <div className="overflow-y-auto flex-1 p-4 space-y-2">
               {pendingOrder.map((teacherId, idx) => {
                 const teacher = teachers.find(t => t.id === teacherId);
                 if (!teacher) return null;
                 const specName = specializations.find(s => s.id === teacher.specializationId)?.name || '—';
                 return (
-                  <div key={teacherId} className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl border border-slate-200 hover:border-[#8779fb]/30 transition-all">
+                  <div 
+                    key={teacherId} 
+                    draggable
+                    onDragStart={(e) => {
+                        e.dataTransfer.setData('text/plain', idx.toString());
+                        e.dataTransfer.effectAllowed = 'move';
+                    }}
+                    onDragOver={(e) => {
+                        e.preventDefault();
+                        e.dataTransfer.dropEffect = 'move';
+                    }}
+                    onDrop={(e) => {
+                        e.preventDefault();
+                        const sourceIdx = parseInt(e.dataTransfer.getData('text/plain'));
+                        if (isNaN(sourceIdx) || sourceIdx === idx) return;
+                        
+                        const newOrder = [...pendingOrder];
+                        const [movedItem] = newOrder.splice(sourceIdx, 1);
+                        newOrder.splice(idx, 0, movedItem);
+                        setPendingOrder(newOrder);
+                    }}
+                    className="flex items-center gap-3 p-3 bg-white rounded-xl border border-slate-200 hover:border-[#8779fb] hover:shadow-md transition-all cursor-move group"
+                  >
+                    <GripVertical size={20} className="text-slate-300 group-hover:text-[#655ac1]" />
                     <span className="w-6 h-6 rounded-lg bg-[#e5e1fe] text-[#655ac1] text-xs font-black flex items-center justify-center shrink-0">{idx + 1}</span>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-bold text-slate-800 truncate">{teacher.name}</p>
                       <p className="text-[10px] text-slate-400">{specName}</p>
-                    </div>
-                    <div className="flex gap-1 shrink-0">
-                      <button
-                        onClick={() => {
-                          if (idx === 0) return;
-                          const newOrder = [...pendingOrder];
-                          [newOrder[idx - 1], newOrder[idx]] = [newOrder[idx], newOrder[idx - 1]];
-                          setPendingOrder(newOrder);
-                        }}
-                        disabled={idx === 0}
-                        className="w-7 h-7 rounded-lg bg-white border border-slate-200 flex items-center justify-center text-slate-500 hover:bg-[#e5e1fe] hover:text-[#655ac1] disabled:opacity-30 transition-all"
-                      >▲</button>
-                      <button
-                        onClick={() => {
-                          if (idx === pendingOrder.length - 1) return;
-                          const newOrder = [...pendingOrder];
-                          [newOrder[idx + 1], newOrder[idx]] = [newOrder[idx], newOrder[idx + 1]];
-                          setPendingOrder(newOrder);
-                        }}
-                        disabled={idx === pendingOrder.length - 1}
-                        className="w-7 h-7 rounded-lg bg-white border border-slate-200 flex items-center justify-center text-slate-500 hover:bg-[#e5e1fe] hover:text-[#655ac1] disabled:opacity-30 transition-all"
-                      >▼</button>
                     </div>
                   </div>
                 );
@@ -862,6 +909,79 @@ const Step9Schedule: React.FC<Step9Props> = ({
                   setTeacherCustomOrder(pendingOrder);
                   setTeacherSortMode('custom');
                   setShowSortModal(false);
+                }}
+                className="flex-1 py-2.5 bg-[#655ac1] hover:bg-[#5046a0] text-white rounded-xl font-bold text-sm shadow-lg shadow-[#655ac1]/20 transition-all"
+              >اعتماد الترتيب</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showSpecSortModal && (
+        <div className="fixed inset-0 z-[150] flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm animate-in fade-in">
+          <div className="bg-white rounded-3xl w-full max-w-md shadow-2xl flex flex-col max-h-[80vh] overflow-hidden animate-in zoom-in-95">
+            <div className="flex items-center justify-between p-5 border-b border-slate-100">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-[#e5e1fe] rounded-xl flex items-center justify-center">
+                  <Users size={18} className="text-[#655ac1]" />
+                </div>
+                <div>
+                  <h3 className="font-black text-slate-800">ترتيب التخصصات</h3>
+                  <p className="text-xs text-slate-500">اسحب وغير ترتيب التخصصات كما تريد</p>
+                </div>
+              </div>
+              <button onClick={() => setShowSpecSortModal(false)} className="p-2 hover:bg-slate-100 rounded-xl text-slate-400">
+                <X size={18} />
+              </button>
+            </div>
+            <div className="overflow-y-auto flex-1 p-4 space-y-2">
+              {pendingSpecOrder.map((specId, idx) => {
+                const spec = specializations.find(s => s.id === specId);
+                // Even though filtered earlier, ensure display logic handles potentially missing specs gracefully
+                if (!spec) return null;
+                return (
+                  <div 
+                    key={specId} 
+                    draggable
+                    onDragStart={(e) => {
+                        e.dataTransfer.setData('text/plain', idx.toString());
+                        e.dataTransfer.effectAllowed = 'move';
+                    }}
+                    onDragOver={(e) => {
+                        e.preventDefault();
+                        e.dataTransfer.dropEffect = 'move';
+                    }}
+                    onDrop={(e) => {
+                        e.preventDefault();
+                        const sourceIdx = parseInt(e.dataTransfer.getData('text/plain'));
+                        if (isNaN(sourceIdx) || sourceIdx === idx) return;
+                        
+                        const newOrder = [...pendingSpecOrder];
+                        const [movedItem] = newOrder.splice(sourceIdx, 1);
+                        newOrder.splice(idx, 0, movedItem);
+                        setPendingSpecOrder(newOrder);
+                    }}
+                    className="flex items-center gap-3 p-3 bg-white rounded-xl border border-slate-200 hover:border-[#8779fb] hover:shadow-md transition-all cursor-move group"
+                  >
+                    <GripVertical size={20} className="text-slate-300 group-hover:text-[#655ac1]" />
+                    <span className="w-6 h-6 rounded-lg bg-[#e5e1fe] text-[#655ac1] text-xs font-black flex items-center justify-center shrink-0">{idx + 1}</span>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-bold text-slate-800 truncate">{spec.name}</p>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+            <div className="p-4 border-t border-slate-100 flex gap-3">
+              <button
+                onClick={() => setShowSpecSortModal(false)}
+                className="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-bold text-sm transition-all"
+              >إلغاء</button>
+              <button
+                onClick={() => {
+                  setSpecializationCustomOrder(pendingSpecOrder);
+                  setTeacherSortMode('specialization');
+                  setShowSpecSortModal(false);
                 }}
                 className="flex-1 py-2.5 bg-[#655ac1] hover:bg-[#5046a0] text-white rounded-xl font-bold text-sm shadow-lg shadow-[#655ac1]/20 transition-all"
               >اعتماد الترتيب</button>

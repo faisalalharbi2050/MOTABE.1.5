@@ -934,6 +934,7 @@ const Step6Teachers: React.FC<Step6Props> = ({ teachers = [], setTeachers, speci
         meetings={scheduleSettings?.meetings || []}
         activeDays={schoolInfo.timing?.activeDays || ['الأحد', 'الإثنين', 'الثلاثاء', 'الأربعاء', 'الخميس']}
         periodsPerDay={Math.max(7, ...(Object.values(schoolInfo.timing?.periodCounts || {}) as number[]))}
+        periodCounts={schoolInfo.timing?.periodCounts || {}}
         warnings={[]} // Optional: Pass actual warnings if needed/calculated
         classes={classes}
         onChangeConstraints={c => setScheduleSettings && setScheduleSettings(prev => ({ ...prev, teacherConstraints: c }))}

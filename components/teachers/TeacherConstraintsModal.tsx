@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Teacher, Specialization, TeacherConstraint, SpecializedMeeting, ClassInfo } from '../../types';
-import { Users, Search, AlertTriangle, X, Copy, Sliders, Ban, Clock, ArrowRightFromLine, ArrowLeftFromLine, Plus, Repeat, GripVertical, ChevronUp, ChevronDown, Calendar, Sparkles, Check, CheckCircle2 } from 'lucide-react';
+import { Users, Search, AlertTriangle, X, Copy, Sliders, Ban, Clock, ArrowRightFromLine, ArrowLeftFromLine, Plus, Repeat, GripVertical, ChevronUp, ChevronDown, Calendar, Sparkles, Check, CheckCircle2, RotateCcw } from 'lucide-react';
 import { ValidationWarning } from '../../utils/scheduleConstraints';
 import { INITIAL_SPECIALIZATIONS } from '../../constants';
 
@@ -68,7 +68,15 @@ export default function TeacherConstraintsModal({
 
     const qualifiedTeachers = teachers.filter(t => (t.quotaLimit || 0) > 0);
     const numQualified = qualifiedTeachers.length;
-    const teacherShare = numQualified > 0 ? Math.ceil(totalNeeded / numQualified) : 0;
+
+    // الحد الأدنى من المعلمين المطلوبين = عدد الفصول
+    // (كل يوم تُفتح numClasses حصة أولى في آنٍ واحد)
+    const minTeachersNeeded = numClasses;
+    const distributionFeasible = numQualified >= minTeachersNeeded;
+
+    // النصيب العادل مقيَّد بأيام العمل (لا يمكن أن يتجاوز عدد الأيام)
+    const rawShare = numQualified > 0 ? Math.ceil(totalNeeded / numQualified) : 0;
+    const teacherShare = Math.min(rawShare, numDays);
 
     const totalFirst = qualifiedTeachers.reduce((sum, t) => {
       const c = constraints.find(x => x.teacherId === t.id);
@@ -84,13 +92,13 @@ export default function TeacherConstraintsModal({
     const firstSurplus = Math.max(0, totalFirst - totalNeeded);
     const lastSurplus = Math.max(0, totalLast - totalNeeded);
 
-    // نسبة تغطية الحصص الأولى والأخيرة
     const firstCoverage = totalNeeded > 0 ? Math.min(100, Math.round((totalFirst / totalNeeded) * 100)) : 0;
     const lastCoverage = totalNeeded > 0 ? Math.min(100, Math.round((totalLast / totalNeeded) * 100)) : 0;
 
     return {
       numClasses, numDays, totalNeeded,
       numQualified, teacherShare,
+      minTeachersNeeded, distributionFeasible,
       totalFirst, totalLast,
       firstDeficit, lastDeficit,
       firstSurplus, lastSurplus,
@@ -122,7 +130,7 @@ export default function TeacherConstraintsModal({
   });
   
   // Sections Expansions
-  const [open, setOpen] = useState<Record<string, boolean>>({ c1: true, c2: true, c3: true, c4: true, c5: true, c6: true });
+  const [open, setOpen] = useState<Record<string, boolean>>({ c1: false, c2: false, c4: false, c5: false, c6: false });
 
   // --- التوزيع التلقائي الفوري (Reactive Engine) ---
   // يُشغَّل فور فتح النافذة أو تغيّر الفصول / الأيام / المعلمين
@@ -177,11 +185,11 @@ export default function TeacherConstraintsModal({
 
   // --- Engine: التوزيع التلقائي الكامل (زر التوزيع التلقائي) ---
   const autoDistributeFirstLast = () => {
-    const totalNeeded = periodEngine.totalNeeded;
+    const { totalNeeded, numDays } = periodEngine;
     const qualifiedTeachers = teachers.filter(t => (t.quotaLimit || 0) > 0);
     if (qualifiedTeachers.length === 0) return;
 
-    const share = Math.ceil(totalNeeded / qualifiedTeachers.length);
+    const share = Math.min(Math.ceil(totalNeeded / qualifiedTeachers.length), numDays);
     const nc = [...constraints];
 
     qualifiedTeachers.forEach(t => {
@@ -203,14 +211,10 @@ export default function TeacherConstraintsModal({
     onChangeConstraints(nc);
   };
 
-  // --- Engine: تحديث يدوي مع إعادة توزيع البقية تلقائياً ---
+  // --- Engine: تحديث يدوي فقط للمعلم المحدد — بدون إعادة توزيع على الآخرين ---
+  // شريط التغطية والنقص/الفائض يعملان تلقائياً لإظهار الوضع الحالي
   const updCFirstLast = (tid: string, type: 'first' | 'last', val: number | undefined) => {
-    const totalNeeded = periodEngine.totalNeeded;
-    const qualifiedOthers = teachers.filter(t => t.id !== tid && (t.quotaLimit || 0) > 0);
-    const userVal = val ?? 0;
-
-    // 1. أعمّر نسخة جديدة من القيود مع تطبيق قيمة المعلم الحالي
-    let nc = constraints.map(c =>
+    const nc = constraints.map(c =>
       c.teacherId === tid
         ? { ...c, ...(type === 'first' ? { maxFirstPeriods: val } : { maxLastPeriods: val }) }
         : { ...c }
@@ -219,35 +223,6 @@ export default function TeacherConstraintsModal({
       nc.push({ teacherId: tid, maxConsecutive: 2, excludedSlots: {},
         ...(type === 'first' ? { maxFirstPeriods: val } : { maxLastPeriods: val }) });
     }
-
-    // 2. احسب الباقي على المعلمين الآخرين
-    const remaining = totalNeeded - userVal;
-
-    if (qualifiedOthers.length > 0) {
-      if (remaining > 0) {
-        const shareForOthers = Math.ceil(remaining / qualifiedOthers.length);
-        qualifiedOthers.forEach(t => {
-          const idx = nc.findIndex(c => c.teacherId === t.id);
-          if (idx >= 0) {
-            nc[idx] = { ...nc[idx], ...(type === 'first' ? { maxFirstPeriods: shareForOthers } : { maxLastPeriods: shareForOthers }) };
-          } else {
-            nc.push({ teacherId: t.id, maxConsecutive: 2, excludedSlots: {},
-              ...(type === 'first' ? { maxFirstPeriods: shareForOthers } : { maxLastPeriods: shareForOthers }) });
-          }
-        });
-      } else {
-        // المعلم الحالي يغطي الكامل أو أكثر — يصفّر باقي المعلمين
-        qualifiedOthers.forEach(t => {
-          const idx = nc.findIndex(c => c.teacherId === t.id);
-          if (idx >= 0) {
-            nc[idx] = { ...nc[idx], ...(type === 'first' ? { maxFirstPeriods: undefined } : { maxLastPeriods: undefined }) };
-          }
-        });
-      }
-    } else if (remaining > 0) {
-      // لا توجد معلمون آخرون لتوزيع الباقي عليهم — سيظهر تنبيه النقص تلقائياً في الـ UI
-    }
-
     onChangeConstraints(nc);
   };
 
@@ -490,6 +465,19 @@ export default function TeacherConstraintsModal({
                   {renderSectionHeader('c2', 'bg-rose-50', 'border-rose-200', 'bg-rose-100', 'text-rose-600', Ban, 'استثناء الحصص', 'منع إسناد حصص معينة')}
                   {open.c2 && (
                       <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm overflow-x-auto">
+
+                        {/* توجيه سريع */}
+                        <div className="flex flex-wrap gap-3 mb-4 min-w-[600px]">
+                          <div className="flex items-center gap-2 px-3 py-1.5 bg-rose-50 border border-rose-100 rounded-xl">
+                            <Ban size={11} className="text-rose-400 shrink-0" />
+                            <span className="text-[10px] font-bold text-rose-600">انقر على <span className="font-black">رقم الحصة</span> لإغلاق تلك الحصة في جميع الأيام</span>
+                          </div>
+                          <div className="flex items-center gap-2 px-3 py-1.5 bg-rose-50 border border-rose-100 rounded-xl">
+                            <Ban size={11} className="text-rose-400 shrink-0" />
+                            <span className="text-[10px] font-bold text-rose-600">انقر على <span className="font-black">اسم اليوم</span> لإغلاق جميع حصصه دفعةً واحدة</span>
+                          </div>
+                        </div>
+
                         <div className="min-w-[600px]">
                           {/* Header */}
                           <div className="flex mb-3 gap-2">
@@ -565,136 +553,115 @@ export default function TeacherConstraintsModal({
                   )}
                 </div>
 
-                {/* 3. Daily Limits - Redesigned Table */}
-                <div className="space-y-2">
-                  {renderSectionHeader('c3', 'bg-blue-50', 'border-blue-200', 'bg-blue-100', 'text-blue-600', Sparkles, 'تخصيص الحصص اليومية', 'تخصيص حصص المعلم في اليوم من وإلى')}
-                  {open.c3 && (
-                    <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm overflow-x-auto">
-                      <table className="w-full text-center border-collapse">
-                        <thead>
-                          <tr className="bg-slate-50/50">
-                            <th className="p-3 text-[10px] text-slate-400 font-bold rounded-r-xl">اليوم</th>
-                            <th className="p-3 text-[10px] text-slate-400 font-bold">بداية الدوام</th>
-                            <th className="p-3 text-[10px] text-slate-400 font-bold">نهاية الدوام</th>
-
-                            <th className="p-3 text-[10px] text-slate-400 font-bold rounded-l-xl">تعميم</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-50">
-                          {days.map(d => {
-                            const l = sc?.dailyLimits?.[d] || { min: 0, max: safePeriodsCount, windowStart: 1, windowEnd: safePeriodsCount };
-                            return (
-                              <tr key={d} className="hover:bg-slate-50/30 transition-colors">
-                                <td className="p-3 text-[11px] font-bold text-slate-600 text-right">{getDayLabel(d)}</td>
-                                <td className="p-2">
-                                  <div className="relative inline-block w-full max-w-[4rem]">
-                                    <select value={l.windowStart} onChange={e => {
-                                        const val = Number(e.target.value);
-                                        const currentEnd = l.windowEnd || safePeriodsCount;
-                                        // Auto-adjust Max based on window
-                                        const newMax = Math.max(0, currentEnd - val + 1);
-                                        const lims = { ...(sc?.dailyLimits || {}) };
-                                        lims[d] = { ...l, windowStart: val, max: newMax, min: 0 };
-                                        updC(selTeacher.id, { dailyLimits: lims });
-                                    }} className="w-full p-1.5 bg-white border border-slate-200 rounded-lg text-xs font-bold text-center appearance-none focus:border-blue-400 outline-none">
-                                        {periods.map(p => <option key={p} value={p}>{p}</option>)}
-                                    </select>
-                                    <div className="absolute left-1 top-1/2 -translate-y-1/2 pointer-events-none opacity-50"><ChevronDown size={10} /></div>
-                                  </div>
-                                </td>
-                                <td className="p-2">
-                                  <div className="relative inline-block w-full max-w-[4rem]">
-                                    <select value={l.windowEnd} onChange={e => {
-                                        const val = Number(e.target.value);
-                                        const currentStart = l.windowStart || 1;
-                                        // Auto-adjust Max based on window
-                                        const newMax = Math.max(0, val - currentStart + 1);
-                                        const lims = { ...(sc?.dailyLimits || {}) };
-                                        lims[d] = { ...l, windowEnd: val, max: newMax, min: 0 };
-                                        updC(selTeacher.id, { dailyLimits: lims });
-                                    }} className="w-full p-1.5 bg-white border border-slate-200 rounded-lg text-xs font-bold text-center appearance-none focus:border-blue-400 outline-none">
-                                        {periods.map(p => <option key={p} value={p}>{p}</option>)}
-                                    </select>
-                                    <div className="absolute left-1 top-1/2 -translate-y-1/2 pointer-events-none opacity-50"><ChevronDown size={10} /></div>
-                                  </div>
-                                </td>
-
-                                <td className="p-2">
-                                  <button onClick={() => {
-                                    const src = sc?.dailyLimits?.[d];
-                                    if (!src) return;
-                                    const lims = { ...(sc?.dailyLimits || {}) };
-                                    days.forEach(day => { if (day !== d) lims[day] = { ...src }; });
-                                    updC(selTeacher.id, { dailyLimits: lims });
-                                  }} className="p-1.5 rounded-lg text-slate-300 hover:bg-blue-50 hover:text-blue-500 transition-colors" title="نسخ لباقي الأيام"><Repeat size={14} /></button>
-                                </td>
-                              </tr>
-                            );
-                          })}
-                        </tbody>
-                      </table>
-                    </div>
-                  )}
-                </div>
-
                 {/* 4. First/Last */}
                 <div className="space-y-2">
                   {renderSectionHeader('c4', 'bg-violet-50', 'border-violet-200', 'bg-violet-100', 'text-violet-600', ArrowRightFromLine, 'الحصص الأولى والأخيرة', 'تخصيص توزيع عدد الحصص الأولى والأخيرة')}
                   {open.c4 && (
                     <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
 
-                      {/* ── شريط الاحتياج ── */}
-                      <div className="px-5 pt-4 pb-3 border-b border-slate-100 flex flex-col gap-3">
+                      {/* ── شرح آلية النظام ── */}
+                      <div className="px-5 pt-4 pb-4 border-b border-slate-100 bg-slate-50/60 space-y-2.5">
+                        <div className="flex items-start gap-2.5">
+                          <div className="w-5 h-5 rounded-full bg-[#e5e1fe] text-[#655ac1] flex items-center justify-center shrink-0 mt-0.5 font-black text-[10px]">١</div>
+                          <p className="text-[11px] text-slate-600 leading-relaxed font-medium">
+                            <span className="font-black text-slate-700">التوزيع التلقائي:</span> يقوم النظام آلياً بحساب <span className="text-[#655ac1] font-black">عدد الفصول × عدد الأيام</span> = عدد الحصص الأولى والأخيرة المطلوبة، ثم يوزعها بالتساوي على جميع المعلمين.
+                          </p>
+                        </div>
+                        <div className="flex items-start gap-2.5">
+                          <div className="w-5 h-5 rounded-full bg-[#e5e1fe] text-[#655ac1] flex items-center justify-center shrink-0 mt-0.5 font-black text-[10px]">٢</div>
+                          <p className="text-[11px] text-slate-600 leading-relaxed font-medium">
+                            <span className="font-black text-slate-700">التخصيص اليدوي:</span> يمكنك تعديل نصيب أي معلم بحرية. تتبّع شريط التغطية أدناه لمعرفة حالة التوزيع، وفي حال وجود نقص يظهر تنبيه تلقائي.
+                          </p>
+                        </div>
+                        <div className="flex items-start gap-2.5">
+                          <div className="w-5 h-5 rounded-full bg-[#e5e1fe] text-[#655ac1] flex items-center justify-center shrink-0 mt-0.5 font-black text-[10px]">٣</div>
+                          <p className="text-[11px] text-slate-600 leading-relaxed font-medium">
+                            <span className="font-black text-slate-700">التخصيص اليدوي:</span> يمكنك تعديل نصيب أي معلم يدوياً من الجدول أدناه، وسيتكيّف النظام تلقائياً مع تعديلاتك. إذا رغبت في <span className="font-black text-[#655ac1]">العودة للتوزيع العادل التلقائي</span> استخدم زر الإعادة.
+                          </p>
+                        </div>
+                      </div>
 
-                        {/* صف العداد + زر التوزيع */}
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-4">
-                            <div className="flex items-center gap-1.5 text-[11px] font-bold text-slate-500">
-                              <span className="text-slate-800 font-black text-base">{periodEngine.numClasses}</span> فصل
-                              <span className="text-slate-300 mx-0.5">×</span>
-                              <span className="text-slate-800 font-black text-base">{periodEngine.numDays}</span> يوم
-                              <span className="text-slate-300 mx-0.5">=</span>
-                              <span className="text-[#655ac1] font-black text-base">{periodEngine.totalNeeded}</span>
-                              <span>حصة مطلوبة</span>
-                            </div>
-                            <span className="hidden sm:flex items-center gap-1 px-2 py-0.5 bg-[#e5e1fe] text-[#655ac1] text-[9px] font-black rounded-full">
-                              نصيب كل معلم: {periodEngine.teacherShare}
-                            </span>
+                      {/* ── لوحة الاحتياج والتوزيع ── */}
+                      <div className="p-5 border-b border-slate-100 space-y-4">
+
+                        {/* إحصاءات: فصول × أيام = مطلوب + معلمون + نصيب */}
+                        <div className="grid grid-cols-6 gap-2">
+                          <div className="flex flex-col items-center justify-center gap-0.5 py-3 bg-slate-50 border border-slate-200 rounded-xl">
+                            <span className="text-2xl font-black text-slate-800">{periodEngine.numClasses}</span>
+                            <span className="text-[9px] font-bold text-slate-400">فصل</span>
                           </div>
-                          <button
-                            onClick={autoDistributeFirstLast}
-                            disabled={periodEngine.numClasses === 0 || periodEngine.numQualified === 0}
-                            className="flex items-center gap-1.5 px-3 py-1.5 bg-[#655ac1] hover:bg-[#5046b5] text-white text-[10px] font-black rounded-lg transition-all disabled:opacity-40 disabled:cursor-not-allowed"
-                          >
-                            <Sparkles size={12} />
-                            توزيع تلقائي
-                          </button>
+                          <div className="flex flex-col items-center justify-center gap-0.5 py-3 bg-slate-50 border border-slate-200 rounded-xl">
+                            <span className="text-2xl font-black text-slate-800">{periodEngine.numDays}</span>
+                            <span className="text-[9px] font-bold text-slate-400">يوم دراسي</span>
+                          </div>
+                          <div className="flex flex-col items-center justify-center gap-0.5 py-3 bg-slate-50 border border-slate-200 rounded-xl">
+                            <span className="text-2xl font-black text-slate-800">{periodEngine.totalNeeded}</span>
+                            <span className="text-[9px] font-bold text-slate-400">حصة مطلوبة</span>
+                          </div>
+                          <div className="flex flex-col items-center justify-center gap-0.5 py-3 bg-slate-50 border border-slate-200 rounded-xl">
+                            <span className="text-2xl font-black text-slate-800">{periodEngine.numQualified}</span>
+                            <span className="text-[9px] font-bold text-slate-400">عدد المعلمين</span>
+                          </div>
+                          <div className="flex flex-col items-center justify-center gap-0.5 py-3 bg-slate-50 border border-slate-200 rounded-xl">
+                            <span className="text-2xl font-black text-slate-800">{periodEngine.teacherShare}</span>
+                            <span className="text-[9px] font-bold text-slate-400">نصيب المعلم أولى</span>
+                          </div>
+                          <div className="flex flex-col items-center justify-center gap-0.5 py-3 bg-slate-50 border border-slate-200 rounded-xl">
+                            <span className="text-2xl font-black text-slate-800">{periodEngine.teacherShare}</span>
+                            <span className="text-[9px] font-bold text-slate-400">نصيب المعلم أخيرة</span>
+                          </div>
                         </div>
 
                         {/* شريطا تغطية */}
-                        <div className="grid grid-cols-2 gap-3">
-                          <div>
-                            <div className="flex justify-between text-[9px] font-bold text-slate-400 mb-1">
-                              <span>الأولى — {periodEngine.totalFirst}/{periodEngine.totalNeeded}</span>
-                              <span className={periodEngine.firstDeficit > 0 ? 'text-rose-500' : 'text-[#655ac1]'}>
-                                {periodEngine.firstDeficit > 0 ? `نقص ${periodEngine.firstDeficit}` : periodEngine.firstSurplus > 0 ? `+${periodEngine.firstSurplus}` : '✓'}
-                              </span>
+                        <div className="space-y-2.5">
+                          {/* الأولى */}
+                          <div className="space-y-1">
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-1.5">
+                                <ArrowRightFromLine size={12} className="text-slate-400" />
+                                <span className="text-[10px] font-black text-slate-600">الحصص الأولى</span>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <span className="text-xs font-black text-slate-600">{periodEngine.totalFirst} / {periodEngine.totalNeeded}</span>
+                                <span className={`text-[10px] font-black px-2 py-0.5 rounded-full ${
+                                  periodEngine.firstDeficit > 0
+                                    ? 'bg-rose-50 text-rose-500'
+                                    : periodEngine.firstSurplus > 0
+                                    ? 'bg-violet-50 text-[#655ac1]'
+                                    : 'bg-emerald-50 text-emerald-600'
+                                }`}>
+                                  {periodEngine.firstDeficit > 0 ? `نقص ${periodEngine.firstDeficit}` : periodEngine.firstSurplus > 0 ? `+${periodEngine.firstSurplus}` : '✓ مكتمل'}
+                                </span>
+                              </div>
                             </div>
-                            <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                            <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
                               <div
                                 className={`h-full rounded-full transition-all duration-500 ${periodEngine.firstCoverage >= 100 ? 'bg-[#655ac1]' : periodEngine.firstCoverage >= 70 ? 'bg-amber-400' : 'bg-rose-400'}`}
                                 style={{ width: `${Math.min(100, periodEngine.firstCoverage)}%` }}
                               />
                             </div>
                           </div>
-                          <div>
-                            <div className="flex justify-between text-[9px] font-bold text-slate-400 mb-1">
-                              <span>الأخيرة — {periodEngine.totalLast}/{periodEngine.totalNeeded}</span>
-                              <span className={periodEngine.lastDeficit > 0 ? 'text-rose-500' : 'text-[#655ac1]'}>
-                                {periodEngine.lastDeficit > 0 ? `نقص ${periodEngine.lastDeficit}` : periodEngine.lastSurplus > 0 ? `+${periodEngine.lastSurplus}` : '✓'}
-                              </span>
+                          {/* الأخيرة */}
+                          <div className="space-y-1">
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-1.5">
+                                <ArrowLeftFromLine size={12} className="text-slate-400" />
+                                <span className="text-[10px] font-black text-slate-600">الحصص الأخيرة</span>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <span className="text-xs font-black text-slate-600">{periodEngine.totalLast} / {periodEngine.totalNeeded}</span>
+                                <span className={`text-[10px] font-black px-2 py-0.5 rounded-full ${
+                                  periodEngine.lastDeficit > 0
+                                    ? 'bg-rose-50 text-rose-500'
+                                    : periodEngine.lastSurplus > 0
+                                    ? 'bg-violet-50 text-[#655ac1]'
+                                    : 'bg-emerald-50 text-emerald-600'
+                                }`}>
+                                  {periodEngine.lastDeficit > 0 ? `نقص ${periodEngine.lastDeficit}` : periodEngine.lastSurplus > 0 ? `+${periodEngine.lastSurplus}` : '✓ مكتمل'}
+                                </span>
+                              </div>
                             </div>
-                            <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                            <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
                               <div
                                 className={`h-full rounded-full transition-all duration-500 ${periodEngine.lastCoverage >= 100 ? 'bg-[#655ac1]' : periodEngine.lastCoverage >= 70 ? 'bg-amber-400' : 'bg-rose-400'}`}
                                 style={{ width: `${Math.min(100, periodEngine.lastCoverage)}%` }}
@@ -702,7 +669,27 @@ export default function TeacherConstraintsModal({
                             </div>
                           </div>
                         </div>
+
+                        {/* زر إعادة التوزيع الافتراضي */}
+                        <button
+                          onClick={autoDistributeFirstLast}
+                          disabled={periodEngine.numClasses === 0 || periodEngine.numQualified === 0}
+                          className="w-full flex items-center justify-center gap-2 py-2 border border-[#655ac1]/40 bg-[#e5e1fe]/40 hover:bg-[#e5e1fe] hover:border-[#655ac1] active:scale-[0.98] text-[#655ac1] text-[11px] font-black rounded-xl transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                        >
+                          <RotateCcw size={13} />
+                          إعادة التوزيع العادل التلقائي
+                        </button>
                       </div>
+
+                      {/* ── تنبيه استحالة التوزيع ── */}
+                      {!periodEngine.distributionFeasible && periodEngine.numClasses > 0 && (
+                        <div className="px-5 py-2.5 bg-amber-50 border-b border-amber-100 space-y-1">
+                          <div className="flex items-start gap-2 text-amber-700 text-[10px] font-bold">
+                            <AlertTriangle size={12} className="shrink-0 mt-0.5" />
+                            <span>التوزيع العادل غير ممكن حالياً — تحتاج على الأقل <span className="font-black">{periodEngine.minTeachersNeeded} معلمًا</span> بنصاب رسمي لتغطية {periodEngine.numClasses} فصلاً. المعلمون الحاليون: {periodEngine.numQualified}.</span>
+                          </div>
+                        </div>
+                      )}
 
                       {/* ── تنبيه النقص ── */}
                       {(periodEngine.firstDeficit > 0 || periodEngine.lastDeficit > 0) && (
@@ -726,7 +713,6 @@ export default function TeacherConstraintsModal({
                       <div className="p-5 space-y-4">
                         {(() => {
                           const isExcluded = (selTeacher.quotaLimit || 0) === 0;
-                          const avail = getTeacherPeriodAvailability(selTeacher.id);
                           return (
                             <>
                               {/* مستبعد تلقائياً */}
@@ -740,133 +726,140 @@ export default function TeacherConstraintsModal({
                                 </div>
                               )}
 
-                              {/* إتاحة المعلم اليومية */}
-                              {!isExcluded && (
-                                <div className="flex items-center justify-between px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl">
-                                  <div className="flex items-center gap-1.5 text-[10px] font-bold text-slate-500">
-                                    <Calendar size={12} className="text-slate-400" />
-                                    إتاحة هذا الأسبوع
-                                  </div>
-                                  <div className="flex items-center gap-3">
-                                    <div className="flex items-center gap-1.5 text-[10px] text-slate-600 font-bold">
-                                      <ArrowRightFromLine size={11} className="text-[#655ac1]" />
-                                      <span>أولى:</span>
-                                      <span className="font-black text-[#655ac1]">{avail.firstAvailDays}/{days.length}</span>
-                                    </div>
-                                    <div className="w-px h-4 bg-slate-200" />
-                                    <div className="flex items-center gap-1.5 text-[10px] text-slate-600 font-bold">
-                                      <ArrowLeftFromLine size={11} className="text-[#655ac1]" />
-                                      <span>أخيرة:</span>
-                                      <span className="font-black text-[#655ac1]">{avail.lastAvailDays}/{days.length}</span>
-                                    </div>
-                                  </div>
-                                  {/* تفاصيل الحصة الأخيرة الديناميكية */}
-                                  <div className="flex items-center gap-1">
-                                    {days.map(d => {
-                                      const lastP = dayLastPeriods[d] ?? safePeriodsCount;
-                                      const teacherLastP = avail.lastAvailByDay?.[d];
-                                      const canTake = teacherLastP != null;
-                                      const isDynamic = canTake && teacherLastP < lastP;
-                                      return (
-                                        <div
-                                          key={d}
-                                          title={`${getDayLabel(d)}: ${canTake ? (isDynamic ? `بديل ح${teacherLastP} (الأصلية ح${lastP} مستثناة)` : `ح${lastP}`) : 'غير متاح'}`}
-                                          className={`w-6 h-6 rounded-md flex items-center justify-center text-[8px] font-black border ${
-                                            canTake
-                                              ? isDynamic
-                                                ? 'bg-amber-50 border-amber-200 text-amber-600'
-                                                : 'bg-[#e5e1fe] border-violet-200 text-[#655ac1]'
-                                              : 'bg-slate-100 border-slate-200 text-slate-300'
-                                          }`}
-                                        >
-                                          {canTake ? teacherLastP : '—'}
-                                        </div>
-                                      );
-                                    })}
-                                  </div>
-                                </div>
-                              )}
+                              {/* عنوان قسم التخصيص */}
+                              <div className="flex items-center gap-2 pt-1">
+                                <div className="w-1 h-5 rounded-full bg-[#655ac1]" />
+                                <h4 className="text-sm font-black text-slate-700">تخصيص الحصص الأولى والأخيرة</h4>
+                              </div>
 
                               {/* حقلا التخصيص */}
                               <div className="grid md:grid-cols-2 gap-4">
 
                                 {/* الحصص الأولى */}
-                                <div className={`p-4 border rounded-2xl transition-all ${isExcluded ? 'opacity-50 pointer-events-none bg-slate-50 border-slate-200' : 'bg-slate-50/40 border-slate-200 hover:bg-white hover:shadow-sm hover:border-violet-200'}`}>
-                                  <div className="flex items-center justify-between mb-3">
-                                    <div className="flex items-center gap-2">
-                                      <ArrowRightFromLine size={14} className="text-[#655ac1]" />
-                                      <label className="text-sm font-black text-slate-700">الحصص الأولى</label>
-                                    </div>
-                                    <div className="flex items-center gap-1.5">
-                                      {!isExcluded && periodEngine.teacherShare > 0 && (
-                                        <span className="px-2 py-0.5 bg-[#e5e1fe] text-[#655ac1] text-[9px] font-black rounded-full">
-                                          مقترح: {periodEngine.teacherShare}
-                                        </span>
+                                {(() => {
+                                  const curFirst = isExcluded ? 0 : (sc?.maxFirstPeriods ?? 0);
+                                  const maxOpts = days.length; // الحد الأقصى = أيام الأسبوع
+                                  const diffFirst = curFirst - periodEngine.teacherShare;
+                                  return (
+                                    <div className={`p-4 border rounded-2xl transition-all ${
+                                      isExcluded ? 'opacity-50 pointer-events-none bg-slate-50 border-slate-200'
+                                      : curFirst === 0 ? 'bg-slate-50/40 border-dashed border-slate-300'
+                                      : 'bg-slate-50/40 border-slate-200 hover:bg-white hover:shadow-sm hover:border-violet-200'
+                                    }`}>
+                                      <div className="flex items-center justify-between mb-3">
+                                        <div className="flex items-center gap-2">
+                                          <ArrowRightFromLine size={14} className={curFirst === 0 && !isExcluded ? 'text-slate-300' : 'text-[#655ac1]'} />
+                                          <label className="text-sm font-black text-slate-700">الحصص الأولى</label>
+                                          {curFirst === 0 && !isExcluded && (
+                                            <span className="text-[9px] font-bold text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded-full">معفي</span>
+                                          )}
+                                        </div>
+                                        <div className="flex items-center gap-1.5">
+                                          {!isExcluded && periodEngine.teacherShare > 0 && (
+                                            <span className="px-2 py-0.5 bg-[#e5e1fe] text-[#655ac1] text-[9px] font-black rounded-full">
+                                              مقترح: {periodEngine.teacherShare}
+                                            </span>
+                                          )}
+                                          <span className="text-[9px] text-slate-400 font-bold">أسبوعياً</span>
+                                        </div>
+                                      </div>
+                                      <div className="relative">
+                                        <select
+                                          value={curFirst}
+                                          disabled={isExcluded}
+                                          onChange={e => {
+                                            const val = Number(e.target.value);
+                                            updCFirstLast(selTeacher.id, 'first', val === 0 ? undefined : val);
+                                          }}
+                                          className={`w-full p-3 bg-white border rounded-xl text-sm font-bold focus:border-[#655ac1] focus:ring-4 focus:ring-[#e5e1fe] outline-none transition-all appearance-none disabled:bg-slate-100 disabled:text-slate-400 disabled:cursor-not-allowed ${
+                                            curFirst === 0 && !isExcluded ? 'border-slate-200 text-slate-400 italic' : 'border-slate-200'
+                                          }`}>
+                                          <option value={0}>{isExcluded ? 'مستبعد' : '-- غير مفعل (معفي) --'}</option>
+                                          {!isExcluded && Array.from({ length: maxOpts }, (_, i) => i + 1).map(n => (
+                                            <option key={n} value={n}>
+                                              {n} {n === 1 ? 'حصة' : 'حصص'}{n === periodEngine.teacherShare ? ' ← مقترح' : ''}
+                                            </option>
+                                          ))}
+                                        </select>
+                                        <ChevronDown size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                                      </div>
+                                      {!isExcluded && curFirst === 0 && (
+                                        <p className="text-[10px] mt-2 font-bold text-slate-400">ℹ️ سيتم توزيع نصيبه من الحصص الأولى على بقية المعلمين تلقائياً.</p>
                                       )}
-                                      <span className="text-[9px] text-slate-400 font-bold">أسبوعياً</span>
+                                      {!isExcluded && curFirst > 0 && periodEngine.teacherShare > 0 && (
+                                        <p className={`text-[10px] mt-2 font-bold flex items-center gap-1 ${diffFirst === 0 ? 'text-emerald-500' : diffFirst > 0 ? 'text-amber-500' : 'text-rose-500'}`}>
+                                          {diffFirst === 0 ? '✓ يساوي النصيب العادل' : diffFirst > 0 ? `▲ أعلى من المقترح بـ ${diffFirst} حصة` : `▼ أقل من المقترح بـ ${Math.abs(diffFirst)} حصة`}
+                                        </p>
+                                      )}
+                                      {isExcluded && (
+                                        <p className="text-[10px] text-slate-400 mt-2 leading-relaxed">مستبعد لعدم وجود نصاب تدريسي.</p>
+                                      )}
                                     </div>
-                                  </div>
-                                  <div className="relative">
-                                    <select
-                                      value={isExcluded ? 0 : (sc?.maxFirstPeriods ?? 0)}
-                                      disabled={isExcluded}
-                                      onChange={e => {
-                                        const val = Number(e.target.value);
-                                        updCFirstLast(selTeacher.id, 'first', val === 0 ? undefined : val);
-                                      }}
-                                      className="w-full p-3 bg-white border border-slate-200 rounded-xl text-sm font-bold focus:border-[#655ac1] focus:ring-4 focus:ring-[#e5e1fe] outline-none transition-all appearance-none disabled:bg-slate-100 disabled:text-slate-400 disabled:cursor-not-allowed">
-                                      <option value={0}>{isExcluded ? 'مستبعد' : '-- غير مفعل --'}</option>
-                                      {!isExcluded && Array.from({ length: days.length }, (_, i) => i + 1).map(n => (
-                                        <option key={n} value={n}>
-                                          {n} {n === 1 ? 'حصة' : 'حصص'}{n === periodEngine.teacherShare ? ' ✦' : ''}
-                                        </option>
-                                      ))}
-                                    </select>
-                                    <ChevronDown size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
-                                  </div>
-                                  <p className="text-[10px] text-slate-400 mt-2 leading-relaxed">
-                                    {isExcluded ? 'مستبعد لعدم وجود نصاب تدريسي.' : `عدد الحصص الأولى أسبوعياً — مؤهل في ${avail.firstAvailDays} من ${days.length} يوم.`}
-                                  </p>
-                                </div>
+                                  );
+                                })()}
 
                                 {/* الحصص الأخيرة */}
-                                <div className={`p-4 border rounded-2xl transition-all ${isExcluded ? 'opacity-50 pointer-events-none bg-slate-50 border-slate-200' : 'bg-slate-50/40 border-slate-200 hover:bg-white hover:shadow-sm hover:border-violet-200'}`}>
-                                  <div className="flex items-center justify-between mb-3">
-                                    <div className="flex items-center gap-2">
-                                      <ArrowLeftFromLine size={14} className="text-[#655ac1]" />
-                                      <label className="text-sm font-black text-slate-700">الحصص الأخيرة</label>
-                                    </div>
-                                    <div className="flex items-center gap-1.5">
-                                      {!isExcluded && periodEngine.teacherShare > 0 && (
-                                        <span className="px-2 py-0.5 bg-[#e5e1fe] text-[#655ac1] text-[9px] font-black rounded-full">
-                                          مقترح: {periodEngine.teacherShare}
-                                        </span>
+                                {(() => {
+                                  const curLast = isExcluded ? 0 : (sc?.maxLastPeriods ?? 0);
+                                  const maxOpts = days.length; // الحد الأقصى = أيام الأسبوع
+                                  const diffLast = curLast - periodEngine.teacherShare;
+                                  return (
+                                    <div className={`p-4 border rounded-2xl transition-all ${
+                                      isExcluded ? 'opacity-50 pointer-events-none bg-slate-50 border-slate-200'
+                                      : curLast === 0 ? 'bg-slate-50/40 border-dashed border-slate-300'
+                                      : 'bg-slate-50/40 border-slate-200 hover:bg-white hover:shadow-sm hover:border-violet-200'
+                                    }`}>
+                                      <div className="flex items-center justify-between mb-3">
+                                        <div className="flex items-center gap-2">
+                                          <ArrowLeftFromLine size={14} className={curLast === 0 && !isExcluded ? 'text-slate-300' : 'text-[#655ac1]'} />
+                                          <label className="text-sm font-black text-slate-700">الحصص الأخيرة</label>
+                                          {curLast === 0 && !isExcluded && (
+                                            <span className="text-[9px] font-bold text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded-full">معفي</span>
+                                          )}
+                                        </div>
+                                        <div className="flex items-center gap-1.5">
+                                          {!isExcluded && periodEngine.teacherShare > 0 && (
+                                            <span className="px-2 py-0.5 bg-[#e5e1fe] text-[#655ac1] text-[9px] font-black rounded-full">
+                                              مقترح: {periodEngine.teacherShare}
+                                            </span>
+                                          )}
+                                          <span className="text-[9px] text-slate-400 font-bold">أسبوعياً</span>
+                                        </div>
+                                      </div>
+                                      <div className="relative">
+                                        <select
+                                          value={curLast}
+                                          disabled={isExcluded}
+                                          onChange={e => {
+                                            const val = Number(e.target.value);
+                                            updCFirstLast(selTeacher.id, 'last', val === 0 ? undefined : val);
+                                          }}
+                                          className={`w-full p-3 bg-white border rounded-xl text-sm font-bold focus:border-[#655ac1] focus:ring-4 focus:ring-[#e5e1fe] outline-none transition-all appearance-none disabled:bg-slate-100 disabled:text-slate-400 disabled:cursor-not-allowed ${
+                                            curLast === 0 && !isExcluded ? 'border-slate-200 text-slate-400 italic' : 'border-slate-200'
+                                          }`}>
+                                          <option value={0}>{isExcluded ? 'مستبعد' : '-- غير مفعل (معفي) --'}</option>
+                                          {!isExcluded && Array.from({ length: maxOpts }, (_, i) => i + 1).map(n => (
+                                            <option key={n} value={n}>
+                                              {n} {n === 1 ? 'حصة' : 'حصص'}{n === periodEngine.teacherShare ? ' ← مقترح' : ''}
+                                            </option>
+                                          ))}
+                                        </select>
+                                        <ChevronDown size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                                      </div>
+                                      {!isExcluded && curLast === 0 && (
+                                        <p className="text-[10px] mt-2 font-bold text-slate-400">ℹ️ سيتم توزيع نصيبه من الحصص الأخيرة على بقية المعلمين تلقائياً.</p>
                                       )}
-                                      <span className="text-[9px] text-slate-400 font-bold">أسبوعياً</span>
+                                      {!isExcluded && curLast > 0 && periodEngine.teacherShare > 0 && (
+                                        <p className={`text-[10px] mt-2 font-bold flex items-center gap-1 ${diffLast === 0 ? 'text-emerald-500' : diffLast > 0 ? 'text-amber-500' : 'text-rose-500'}`}>
+                                          {diffLast === 0 ? '✓ يساوي النصيب العادل' : diffLast > 0 ? `▲ أعلى من المقترح بـ ${diffLast} حصة` : `▼ أقل من المقترح بـ ${Math.abs(diffLast)} حصة`}
+                                        </p>
+                                      )}
+                                      {isExcluded && (
+                                        <p className="text-[10px] text-slate-400 mt-2 leading-relaxed">مستبعد لعدم وجود نصاب تدريسي.</p>
+                                      )}
                                     </div>
-                                  </div>
-                                  <div className="relative">
-                                    <select
-                                      value={isExcluded ? 0 : (sc?.maxLastPeriods ?? 0)}
-                                      disabled={isExcluded}
-                                      onChange={e => {
-                                        const val = Number(e.target.value);
-                                        updCFirstLast(selTeacher.id, 'last', val === 0 ? undefined : val);
-                                      }}
-                                      className="w-full p-3 bg-white border border-slate-200 rounded-xl text-sm font-bold focus:border-[#655ac1] focus:ring-4 focus:ring-[#e5e1fe] outline-none transition-all appearance-none disabled:bg-slate-100 disabled:text-slate-400 disabled:cursor-not-allowed">
-                                      <option value={0}>{isExcluded ? 'مستبعد' : '-- غير مفعل --'}</option>
-                                      {!isExcluded && Array.from({ length: days.length }, (_, i) => i + 1).map(n => (
-                                        <option key={n} value={n}>
-                                          {n} {n === 1 ? 'حصة' : 'حصص'}{n === periodEngine.teacherShare ? ' ✦' : ''}
-                                        </option>
-                                      ))}
-                                    </select>
-                                    <ChevronDown size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
-                                  </div>
-                                  <p className="text-[10px] text-slate-400 mt-2 leading-relaxed">
-                                    {isExcluded ? 'مستبعد لعدم وجود نصاب تدريسي.' : `عدد الحصص الأخيرة أسبوعياً (ديناميكية) — مؤهل في ${avail.lastAvailDays} من ${days.length} يوم.`}
-                                  </p>
-                                </div>
+                                  );
+                                })()}
 
                               </div>
                             </>
@@ -879,7 +872,7 @@ export default function TeacherConstraintsModal({
 
                 {/* 5. Early Exit - Improved Design */}
                 <div className="space-y-2">
-                  {renderSectionHeader('c5', 'bg-amber-50', 'border-amber-200', 'bg-amber-100', 'text-amber-600', Clock, 'الخروج المبكر', 'إنهاء الدوام مبكراً')}
+                  {renderSectionHeader('c5', 'bg-violet-50', 'border-violet-200', 'bg-violet-100', 'text-violet-600', Clock, 'الخروج المبكر', 'إنهاء الدوام مبكراً')}
                   {open.c5 && (
                     <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm space-y-6">
                       
@@ -889,7 +882,7 @@ export default function TeacherConstraintsModal({
                              const isSel = (sc?.earlyExitMode || 'manual') === m;
                              return (
                                <button key={m} onClick={() => updC(selTeacher.id, { earlyExitMode: m as any })}
-                                 className={`relative z-10 px-6 py-2 rounded-lg text-xs font-bold transition-all ${isSel ? 'bg-white text-amber-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>
+                                 className={`relative z-10 px-6 py-2 rounded-lg text-xs font-bold transition-all ${isSel ? 'bg-white text-violet-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>
                                  {m === 'manual' ? 'تحديد يوم يدوي' : 'تحديد يوم تلقائي'}
                                </button>
                              );
@@ -897,7 +890,7 @@ export default function TeacherConstraintsModal({
                         </div>
                       </div>
 
-                      <div className="bg-amber-50/50 rounded-2xl p-6 border border-amber-100/50 flex flex-col md:flex-row gap-6 items-center">
+                      <div className="bg-violet-50/50 rounded-2xl p-6 border border-violet-100/50 flex flex-col md:flex-row gap-6 items-center">
                         {(sc?.earlyExitMode || 'manual') === 'manual' && (
                           <div className="w-full md:w-1/2">
                             <label className="text-xs font-bold text-slate-500 block mb-2">اليوم المطلوب</label>
@@ -910,7 +903,7 @@ export default function TeacherConstraintsModal({
                                     const oldP = sc?.earlyExit ? Object.values(sc.earlyExit)[0] : (safePeriodsCount - 1);
                                     updC(selTeacher.id, { earlyExit: { [d]: oldP || (safePeriodsCount - 1) } });
                                   }}
-                                  className="w-full p-3 bg-white border border-amber-200 rounded-xl text-sm font-bold focus:ring-4 focus:ring-amber-100 outline-none">
+                                  className="w-full p-3 bg-white border border-violet-200 rounded-xl text-sm font-bold focus:ring-4 focus:ring-violet-100 outline-none">
                                   <option value="">-- اختر يوماً --</option>
                                   {days.map(d => <option key={d} value={d}>{getDayLabel(d)}</option>)}
                                 </select>
@@ -940,7 +933,7 @@ export default function TeacherConstraintsModal({
                                   
                                   updC(selTeacher.id, { earlyExit: { [targetDay]: v } });
                                 }}
-                                className="w-full p-3 bg-white border border-amber-200 rounded-xl text-sm font-bold focus:ring-4 focus:ring-amber-100 outline-none">
+                                className="w-full p-3 bg-white border border-violet-200 rounded-xl text-sm font-bold focus:ring-4 focus:ring-violet-100 outline-none">
                                 <option value="">-- اختر --</option>
                                 {periods.slice(0, -1).map(p => <option key={p} value={p}>{p}</option>)}
                               </select>
@@ -953,16 +946,21 @@ export default function TeacherConstraintsModal({
                   )}
                 </div>
 
+                {/* فاصل بصري */}
+                <div className="flex items-center gap-3 px-1">
+                  <div className="flex-1 h-px bg-gradient-to-r from-transparent via-slate-200 to-transparent" />
+                </div>
+
                 {/* 6. Meetings */}
                 <div className="space-y-2">
-                  {renderSectionHeader('c6', 'bg-indigo-50', 'border-indigo-200', 'bg-indigo-100', 'text-indigo-600', Calendar, 'الاجتماعات', 'مواعيد ثابتة للتخصص')}
+                  {renderSectionHeader('c6', 'bg-violet-50', 'border-violet-200', 'bg-violet-100', 'text-violet-600', Calendar, 'الاجتماعات', 'مواعيد ثابتة للتخصص')}
                   {open.c6 && (
                     <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm space-y-4">
-                      <div className="p-4 bg-indigo-50/50 rounded-xl border border-indigo-100 grid grid-cols-4 gap-4 items-end">
+                      <div className="p-4 bg-violet-50/50 rounded-xl border border-violet-100 grid grid-cols-4 gap-4 items-end">
                         <div className="col-span-1">
                            <label className="text-[10px] font-bold block mb-1.5 text-slate-600">التخصص</label>
                            <div className="relative">
-                               <select value={mForm.specId} onChange={e => setMForm({...mForm, specId: e.target.value})} className="w-full p-2.5 text-xs font-bold rounded-lg border border-slate-200 bg-white outline-none focus:border-indigo-500">
+                               <select value={mForm.specId} onChange={e => setMForm({...mForm, specId: e.target.value})} className="w-full p-2.5 text-xs font-bold rounded-lg border border-slate-200 bg-white outline-none focus:border-violet-500">
                                  <option value="">اختر التخصص...</option>
                                  {specializations.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
                                </select>
@@ -971,7 +969,7 @@ export default function TeacherConstraintsModal({
                         <div>
                            <label className="text-[10px] font-bold block mb-1.5 text-slate-600">اليوم</label>
                            <div className="relative">
-                               <select value={mForm.day} onChange={e => setMForm({...mForm, day: e.target.value})} className="w-full p-2.5 text-xs font-bold rounded-lg border border-slate-200 bg-white outline-none focus:border-indigo-500">
+                               <select value={mForm.day} onChange={e => setMForm({...mForm, day: e.target.value})} className="w-full p-2.5 text-xs font-bold rounded-lg border border-slate-200 bg-white outline-none focus:border-violet-500">
                                  {days.map(d => <option key={d} value={d}>{getDayLabel(d)}</option>)}
                                </select>
                            </div>
@@ -979,7 +977,7 @@ export default function TeacherConstraintsModal({
                         <div>
                            <label className="text-[10px] font-bold block mb-1.5 text-slate-600">الحصة</label>
                            <div className="relative">
-                               <select value={mForm.period} onChange={e => setMForm({...mForm, period: Number(e.target.value)})} className="w-full p-2.5 text-xs font-bold rounded-lg border border-slate-200 bg-white outline-none focus:border-indigo-500">
+                               <select value={mForm.period} onChange={e => setMForm({...mForm, period: Number(e.target.value)})} className="w-full p-2.5 text-xs font-bold rounded-lg border border-slate-200 bg-white outline-none focus:border-violet-500">
                                  {periods.map(p => <option key={p} value={p}>{p}</option>)}
                                </select>
                            </div>
@@ -1007,7 +1005,7 @@ export default function TeacherConstraintsModal({
                           };
 
                           onChangeMeetings([...meetings, newMeeting]);
-                        }} className="bg-indigo-600 text-white p-2.5 rounded-lg text-xs font-bold hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-200 flex items-center justify-center gap-2">
+                        }} className="bg-[#655ac1] text-white p-2.5 rounded-lg text-xs font-bold hover:bg-[#5046b5] transition-all shadow-lg shadow-violet-200 flex items-center justify-center gap-2">
                             <Plus size={16} /> إضافة للجميع
                         </button>
                       </div>
@@ -1015,13 +1013,13 @@ export default function TeacherConstraintsModal({
                       {meetings.length > 0 ? (
                         <div className="space-y-2">
                           {meetings.map((m, i) => (
-                            <div key={i} className="flex justify-between items-center p-3 border border-slate-100 rounded-xl bg-white hover:border-indigo-100 transition-colors">
+                            <div key={i} className="flex justify-between items-center p-3 border border-slate-100 rounded-xl bg-white hover:border-violet-100 transition-colors">
                               <div className="flex items-center gap-3">
-                                <div className="w-8 h-8 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center">
+                                <div className="w-8 h-8 rounded-lg bg-violet-50 text-violet-600 flex items-center justify-center">
                                     <Users size={16} />
                                 </div>
                                 <div>
-                                    <div className="text-xs font-bold text-indigo-900">{specializations.find(s=>s.id===m.specializationId)?.name}</div>
+                                    <div className="text-xs font-bold text-violet-900">{specializations.find(s=>s.id===m.specializationId)?.name}</div>
                                     <div className="text-[10px] text-slate-400 font-bold mt-0.5">{getDayLabel(m.day)} - الحصة {m.period} • {m.teacherIds.length} معلمين</div>
                                 </div>
                               </div>
@@ -1170,9 +1168,9 @@ export default function TeacherConstraintsModal({
       {distributeModal && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in-95 duration-200">
-             <div className="p-5 border-b border-slate-100 bg-indigo-50/50 flex justify-between items-center">
+             <div className="p-5 border-b border-slate-100 bg-violet-50/50 flex justify-between items-center">
                <div className="flex items-center gap-3">
-                 <div className="w-10 h-10 rounded-xl bg-white text-indigo-600 flex items-center justify-center shadow-sm">
+                 <div className="w-10 h-10 rounded-xl bg-white text-violet-600 flex items-center justify-center shadow-sm">
                    <Sparkles size={20} />
                  </div>
                  <div>
@@ -1195,8 +1193,8 @@ export default function TeacherConstraintsModal({
                    };
                    onChangeMeetings([...meetings, newMeeting]);
                    setDistributeModal(null);
-               }} className="w-full text-right p-4 rounded-xl border border-slate-200 hover:border-indigo-300 hover:bg-indigo-50 transition-all group">
-                  <div className="font-bold text-slate-700 group-hover:text-indigo-700">جمع الجميع في يوم واحد</div>
+               }} className="w-full text-right p-4 rounded-xl border border-slate-200 hover:border-violet-300 hover:bg-violet-50 transition-all group">
+                  <div className="font-bold text-slate-700 group-hover:text-violet-700">جمع الجميع في يوم واحد</div>
                   <div className="text-xs text-slate-400 mt-1">إضافة {distributeModal.teachers.length} معلم في {distributeModal.day} - الحصة {distributeModal.period}</div>
                </button>
 

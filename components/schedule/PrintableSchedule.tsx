@@ -13,7 +13,7 @@ interface PrintableScheduleProps {
 }
 
 const DAYS = ['الأحد', 'الإثنين', 'الثلاثاء', 'الأربعاء', 'الخميس'];
-const MAX_PERIODS = 8;
+const MAX_PERIODS = 7;
 
 const PrintableSchedule: React.FC<PrintableScheduleProps> = ({
     type, settings, teachers, classes, subjects, targetId, schoolInfo
@@ -61,8 +61,8 @@ const PrintableSchedule: React.FC<PrintableScheduleProps> = ({
             if (!slot) return null;
             return (
                 <div className="text-center">
-                    <div className="font-bold text-[10px] break-words">{className(slot.classId || '')}</div>
-                    <div className="text-[9px] text-gray-600">{subjectName(slot.subjectId || '')}</div>
+                    <div className="font-bold text-[10px] break-words" style={{color:'#a59bf0'}}>{className(slot.classId || '')}</div>
+                    <div className="text-[9px] font-bold text-slate-600">{subjectName(slot.subjectId || '')}</div>
                 </div>
             );
         }
@@ -71,8 +71,8 @@ const PrintableSchedule: React.FC<PrintableScheduleProps> = ({
             if (!slot) return null;
             return (
                 <div className="text-center">
-                    <div className="font-bold text-[10px] truncate">{subjectName(slot.subjectId || '')}</div>
-                    <div className="text-[9px] text-gray-600 break-words">{teacherName(slot.teacherId)}</div>
+                    <div className="font-bold text-[10px] truncate" style={{color:'#a59bf0'}}>{subjectName(slot.subjectId || '')}</div>
+                    <div className="text-[9px] font-bold text-slate-600 break-words">{teacherName(slot.teacherId)}</div>
                 </div>
             );
         }
@@ -81,9 +81,9 @@ const PrintableSchedule: React.FC<PrintableScheduleProps> = ({
             if (!slot) return null;
             if (slot.isSubstitution) {
                 return (
-                    <div className="text-center bg-gray-100 h-full w-full flex flex-col justify-center items-center">
-                        <div className="font-bold text-[10px] text-gray-800">انتظار</div>
-                        <div className="text-[9px] font-black text-gray-600">{className(slot.classId || '')}</div>
+                    <div className="text-center h-full w-full flex flex-col justify-center items-center" style={{background:'#f4f2ff'}}>
+                        <div className="font-black text-sm" style={{color:'#a59bf0'}}>م</div>
+                        <div className="text-[9px] font-bold" style={{color:'#a59bf0'}}>انتظار</div>
                     </div>
                 );
             }
@@ -93,11 +93,11 @@ const PrintableSchedule: React.FC<PrintableScheduleProps> = ({
             const slot = getTeacherSlot(rowId, day, period);
             if (!slot) return null;
             return (
-                <div className={`text-center h-full w-full flex flex-col justify-center items-center ${slot.isSubstitution ? 'bg-gray-100' : ''}`}>
-                    <div className="font-bold text-sm text-gray-800 break-words mb-1">{className(slot.classId || '')}</div>
-                    <div className="text-[11px] text-gray-600">
+                <div className="text-center h-full w-full flex flex-col justify-center items-center">
+                    <div className="font-bold text-sm break-words mb-1" style={{color:'#a59bf0'}}>{className(slot.classId || '')}</div>
+                    <div className="text-[11px] font-bold text-slate-600">
                         {subjectName(slot.subjectId || '')}
-                        {slot.isSubstitution && <span className="text-gray-500 block text-[9px]">(انتظار)</span>}
+                        {slot.isSubstitution && <span className="block text-[9px] font-black mt-0.5 px-1 rounded" style={{background:'#f4f2ff',color:'#a59bf0'}}>(م انتظار)</span>}
                     </div>
                 </div>
             );
@@ -107,8 +107,8 @@ const PrintableSchedule: React.FC<PrintableScheduleProps> = ({
             if (!slot) return null;
             return (
                 <div className="text-center h-full w-full flex flex-col justify-center items-center">
-                    <div className="font-bold text-sm text-gray-800 break-words mb-1">{subjectName(slot.subjectId || '')}</div>
-                    <div className="text-[11px] text-gray-600">{teacherName(slot.teacherId)}</div>
+                    <div className="font-bold text-sm break-words mb-1" style={{color:'#a59bf0'}}>{subjectName(slot.subjectId || '')}</div>
+                    <div className="text-[11px] font-bold text-slate-600">{teacherName(slot.teacherId)}</div>
                 </div>
             );
         }
@@ -131,7 +131,139 @@ const PrintableSchedule: React.FC<PrintableScheduleProps> = ({
         if (c) rowsToRender = [{ id: c.id, name: c.name || `${c.grade}/${c.section}` }];
     }
 
-    const isIndividual = type === 'individual_teacher' || type === 'individual_class';
+    const isIndividual = type.startsWith('individual_');
+    const C_BG      = '#a59bf0'; // purple
+    const C_BG_SOFT = '#f4f2ff'; // light purple
+    const C_BORDER  = '#94a3b8'; // slate-400 – normal dividers
+    const C_DAY_SEP = '#64748b'; // slate-500 – day separators / outer border
+    const C_STRONG_SEP = '#334155'; // slate-700 – strong separator
+
+    const renderIndividualLayout = () => {
+        const row = rowsToRender[0];
+        if (!row) return null;
+        const isT = type === 'individual_teacher';
+        const t   = isT ? teachers.find(t => t.id === row.id) : null;
+        const c   = !isT ? classes.find(c => c.id === row.id) : null;
+        let lessonCount = 0;
+        if (c) Object.values(timetable as Record<string,any>).forEach(s => { if(s.classId===c.id && s.type==='lesson') lessonCount++; });
+
+        return (
+            <div className="w-full flex flex-col bg-white" style={{direction:'rtl', border:'2px solid '+C_DAY_SEP, borderRadius:'10px', overflow:'hidden'}}>
+
+                {/* ── School header ── */}
+                <div className="flex justify-between items-center px-5 py-3 border-b" style={{borderColor:C_BORDER}}>
+                    <div>
+                        <div className="text-base font-black text-slate-800">{schoolName}</div>
+                        <div className="text-xs text-slate-500 font-semibold">{academicYear}{academicYear && semesterName ? ' | ' : ''}{semesterName}</div>
+                    </div>
+                    <div className="text-xs text-slate-400">تاريخ الطباعة: {printDate}</div>
+                </div>
+
+                {/* ── Info strip (matches inline design) ── */}
+                <div className="flex items-center gap-6 flex-wrap px-5 py-3 border-b" style={{background:C_BG, borderColor:C_DAY_SEP}}>
+                    {isT && t ? <>
+                        <div className="flex items-baseline gap-2">
+                            <span className="text-white/60 text-[10px] font-semibold">اسم المعلم</span>
+                            <span className="text-white font-black text-base">{t.name}</span>
+                        </div>
+                        <div className="w-px self-stretch bg-white/20"/>
+                        <div className="flex items-baseline gap-2">
+                            <span className="text-white/60 text-[10px] font-semibold">التخصص</span>
+                            <span className="text-white font-bold text-xs">{t.specializationId ? (subjects.find(s=>s.id===t.specializationId)?.name||'—') : '—'}</span>
+                        </div>
+                        <div className="flex-1"/>
+                        <div className="flex items-center gap-4">
+                            <div className="text-center">
+                                <div className="text-white/60 text-[9px] font-semibold leading-none mb-0.5">نصاب الحصص</div>
+                                <div className="text-white font-black text-lg leading-none">{t.quotaLimit||0}</div>
+                            </div>
+                            <div className="w-px self-stretch bg-white/20"/>
+                            <div className="text-center">
+                                <div className="text-white/60 text-[9px] font-semibold leading-none mb-0.5">نصاب الانتظار</div>
+                                <div className="text-white font-black text-lg leading-none">{t.waitingQuota||0}</div>
+                            </div>
+                        </div>
+                    </> : c ? <>
+                        <div className="flex items-baseline gap-2">
+                            <span className="text-white/60 text-[10px] font-semibold">اسم الفصل</span>
+                            <span className="text-white font-black text-base">{row.name}</span>
+                        </div>
+                        <div className="flex-1"/>
+                        <div className="text-center">
+                            <div className="text-white/60 text-[9px] font-semibold leading-none mb-0.5">عدد الحصص</div>
+                            <div className="text-white font-black text-lg leading-none">{lessonCount}</div>
+                        </div>
+                    </> : null}
+                </div>
+
+                {/* ── Table ── */}
+                <table className="w-full border-collapse">
+                    <thead>
+                        <tr>
+                            <th className="p-2 w-20 font-bold text-sm text-center"
+                                style={{background:C_BG, color:'#fff', borderBottom:'2px solid '+C_DAY_SEP, borderRight:'2px solid '+C_DAY_SEP}}>
+                                اليوم
+                            </th>
+                            {Array.from({length:MAX_PERIODS}).map((_,i)=>(
+                                <th key={i} className="p-2 font-bold text-sm text-center"
+                                    style={{background:C_BG_SOFT, color:'#64748b', borderBottom:'2px solid '+C_DAY_SEP, borderLeft:'1px solid '+C_BORDER}}>
+                                    {i+1}
+                                </th>
+                            ))}
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {DAYS.map((day, di)=>{
+                            const dayCode = ['sunday','monday','tuesday','wednesday','thursday'][di];
+                            return (
+                                <tr key={day} style={{borderBottom:'1px solid '+C_BORDER}}>
+                                    <td className="p-2 font-black text-sm text-center"
+                                        style={{background:C_BG_SOFT, color:C_BG, borderRight:'2px solid '+C_DAY_SEP}}>
+                                        {day}
+                                    </td>
+                                    {Array.from({length:MAX_PERIODS}).map((_,pi)=>{
+                                        const slot = isT
+                                            ? getTeacherSlot(row.id, dayCode, pi+1)
+                                            : classIndex[`${row.id}-${dayCode}-${pi+1}`];
+                                        return (
+                                            <td key={pi} className="text-center p-1 align-middle"
+                                                style={{height:'52px', background:'#fff', borderLeft:'1px solid '+C_BORDER}}>
+                                                {slot ? (
+                                                    <div className="flex flex-col items-center justify-center h-full gap-0.5">
+                                                        {isT ? <>
+                                                            <div className="font-black text-xs leading-tight" style={{color:C_BG}}>{className(slot.classId||'')}</div>
+                                                            <div className="text-[10px] font-semibold text-slate-500 leading-tight">{subjectName(slot.subjectId||'')}</div>
+                                                            {(slot.isSubstitution||slot.type==='waiting') &&
+                                                                <div className="text-[9px] font-black px-1 rounded mt-0.5" style={{background:C_BG_SOFT,color:C_BG}}>م انتظار</div>}
+                                                        </> : <>
+                                                            <div className="font-black text-xs leading-tight" style={{color:C_BG}}>{subjectName(slot.subjectId||'')}</div>
+                                                            <div className="text-[10px] font-semibold text-slate-500 leading-tight">{teacherName(slot.teacherId)}</div>
+                                                        </>}
+                                                    </div>
+                                                ) : null}
+                                            </td>
+                                        );
+                                    })}
+                                </tr>
+                            );
+                        })}
+                    </tbody>
+                </table>
+
+                {/* ── Footer ── */}
+                <div className="flex justify-between items-end px-5 py-3 border-t" style={{borderColor:C_BORDER}}>
+                    <div className="text-center">
+                        <div className="text-xs font-bold text-slate-600 mb-3">مدير المدرسة{principal ? `: ${principal}` : ''}</div>
+                        <div className="border-t pt-1 w-32 text-[10px] text-slate-400 text-center" style={{borderColor:C_BORDER}}>التوقيع</div>
+                    </div>
+                </div>
+            </div>
+        );
+    };
+
+    if(isIndividual) return renderIndividualLayout();
+
+    /* ── GENERAL TABLE RENDER (Existing Logic Updated) ── */
     const titleMap: Record<string, string> = {
         general_teachers:   'الجدول العام للمعلمين',
         general_classes:    'الجدول العام للفصول',
@@ -160,23 +292,34 @@ const PrintableSchedule: React.FC<PrintableScheduleProps> = ({
 
             {/* ── Table ── */}
             <div className="overflow-x-auto">
-                <table className="w-full border-collapse border border-gray-400 text-sm table-fixed">
+                <table className="w-full border-collapse text-sm table-fixed" style={{border:'2px solid '+C_DAY_SEP}}>
                     <thead>
-                        <tr className="bg-gray-100">
-                            <th className="border border-gray-400 p-2 w-32 font-bold max-w-[120px]">
+                        <tr>
+                            <th className="p-2 w-32 font-bold max-w-[120px] text-white"
+                                style={{background:C_BG, border:'1px solid '+C_BORDER}}>
                                 {type === 'general_classes' ? 'الفصل' : 'المعلم'}
                             </th>
-                            {DAYS.map(day => (
-                                <th key={day} colSpan={MAX_PERIODS} className="border border-gray-400 p-1 font-bold text-center">
+                            {DAYS.map((day,di) => (
+                                <th key={day} colSpan={MAX_PERIODS} className="p-1 font-bold text-center text-white"
+                                    style={{background:C_BG,
+                                        borderTop:'1px solid '+C_BORDER,
+                                        borderBottom:'2px solid '+C_DAY_SEP,
+                                        borderLeft: di<DAYS.length-1 ? '3px solid '+C_DAY_SEP : '1px solid '+C_BORDER,
+                                        borderRight:'1px solid '+C_BORDER}}>
                                     {day}
                                 </th>
                             ))}
                         </tr>
-                        <tr className="bg-gray-50 text-[10px]">
-                            <th className="border border-gray-400 p-1 bg-gray-100 font-bold">الحصص ←</th>
-                            {DAYS.map(day =>
+                        <tr>
+                            <th className="p-1 font-bold text-white" style={{background:C_BG, border:'1px solid '+C_BORDER}}>الحصص ←</th>
+                            {DAYS.map((day,di) =>
                                 Array.from({ length: MAX_PERIODS }).map((_, i) => (
-                                    <th key={`${day}-${i}`} className="border border-gray-400 p-1 w-10 text-center text-gray-600">
+                                    <th key={`${day}-${i}`} className="p-1 w-10 text-center font-bold"
+                                        style={{background:C_BG_SOFT, color:C_BG,
+                                            borderTop:'1px solid '+C_BORDER,
+                                            borderBottom:'2px solid '+C_DAY_SEP,
+                                            borderLeft: (i===MAX_PERIODS-1 && di<DAYS.length-1) ? '3px solid '+C_DAY_SEP : '1px solid '+C_BORDER,
+                                            borderRight:'1px solid '+C_BORDER}}>
                                         {i + 1}
                                     </th>
                                 ))
@@ -185,19 +328,23 @@ const PrintableSchedule: React.FC<PrintableScheduleProps> = ({
                     </thead>
                     <tbody>
                         {rowsToRender.map(row => (
-                            <tr key={row.id} className="border-b border-gray-400">
+                            <tr key={row.id} style={{borderBottom:'1px solid '+C_BORDER}}>
                                 <td
-                                    className={`border border-gray-400 p-2 font-bold truncate ${isIndividual ? 'text-sm' : 'text-[11px] w-32'} max-w-[120px]`}
-                                    title={row.name}
-                                >
+                                    className={`p-2 font-bold truncate ${isIndividual ? 'text-sm' : 'text-[11px] w-32'} max-w-[120px]`}
+                                    style={{background:'#fff', border:'1px solid '+C_BORDER}}
+                                    title={row.name}>
                                     {row.name}
                                 </td>
-                                {DAYS.map(day =>
+                                {DAYS.map((day,di) =>
                                     Array.from({ length: MAX_PERIODS }).map((_, i) => (
                                         <td
                                             key={`${day}-${i}`}
-                                            className={`border border-gray-400 p-0 ${isIndividual ? 'h-24 w-24' : 'h-10 w-10'} overflow-hidden relative align-middle`}
-                                        >
+                                            className={`p-0 ${isIndividual ? 'h-24 w-24' : 'h-10 w-10'} overflow-hidden relative align-middle`}
+                                            style={{background:'#fff',
+                                                borderTop:'1px solid '+C_BORDER,
+                                                borderBottom:'1px solid '+C_BORDER,
+                                                borderLeft: (i===MAX_PERIODS-1 && di<DAYS.length-1) ? '3px solid '+C_DAY_SEP : '1px solid '+C_BORDER,
+                                                borderRight:'1px solid '+C_BORDER}}>
                                             <div className="absolute inset-0 flex items-center justify-center p-0.5">
                                                 {renderCell(day, i + 1, row.id)}
                                             </div>

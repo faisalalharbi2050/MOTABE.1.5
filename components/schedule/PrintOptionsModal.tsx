@@ -27,9 +27,19 @@ const PrintOptionsModal: React.FC<PrintOptionsModalProps> = ({
     const [selectedType, setSelectedType] = useState<PrintType | null>(null);
     const [selectedTeacherIds, setSelectedTeacherIds] = useState<string[]>([]);
     const [selectedClassIds, setSelectedClassIds] = useState<string[]>([]);
+    const [itemsPerPage, setItemsPerPage] = useState<number>(1);
     const [showPreview, setShowPreview] = useState(false);
 
     if (!isOpen) return null;
+    
+    // Chunk helper
+    const chunkArray = (arr: any[], size: number) => {
+        const chunks = [];
+        for (let i = 0; i < arr.length; i += size) {
+            chunks.push(arr.slice(i, i + size));
+        }
+        return chunks;
+    };
 
     const printOptions: Array<{
         id: PrintType;
@@ -58,10 +68,13 @@ const PrintOptionsModal: React.FC<PrintOptionsModalProps> = ({
 
     if (showPreview && selectedType) {
         const targetIds = needsTeachers ? selectedTeacherIds : needsClasses ? selectedClassIds : ['__all__'];
+        // Use chunking if individual
+        const chunks = (needsTeachers || needsClasses) ? chunkArray(targetIds, itemsPerPage) : targetIds.map(id => [id]);
+
         return (
             <div className="fixed inset-0 z-[110] bg-white overflow-auto print:p-0">
                 {/* Toolbar */}
-                <div className="no-print sticky top-0 z-10 flex items-center gap-3 px-6 py-3 bg-white border-b border-slate-200 shadow-sm">
+                <div className="no-print sticky top-0 z-10 flex items-center gap-3 px-6 py-3 bg-white border-b border-slate-200 shadow-sm print:hidden">
                     <button
                         onClick={() => setShowPreview(false)}
                         className="flex items-center gap-2 px-5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-bold text-sm transition-colors"
@@ -69,6 +82,18 @@ const PrintOptionsModal: React.FC<PrintOptionsModalProps> = ({
                         <X size={16} />
                         رجوع
                     </button>
+                    <div className="bg-slate-100 rounded-lg px-3 py-2 flex gap-2 items-center">
+                        <span className="text-xs font-bold text-slate-500">جداول/صفحة:</span>
+                        {[1,2,3,4].map(n => (
+                            <button 
+                                key={n}
+                                onClick={() => setItemsPerPage(n)}
+                                className={`w-6 h-6 rounded flex items-center justify-center text-xs font-black transition-colors ${itemsPerPage===n ? 'bg-[#655ac1] text-white' : 'bg-white hover:bg-slate-200 text-slate-600'}`}
+                            >
+                                {n}
+                            </button>
+                        ))}
+                    </div>
                     <button
                         onClick={() => window.print()}
                         className="flex items-center gap-2 px-5 py-2 bg-[#655ac1] hover:bg-[#5046a0] text-white rounded-xl font-bold text-sm shadow-lg shadow-[#655ac1]/20 transition-colors"
@@ -82,30 +107,41 @@ const PrintOptionsModal: React.FC<PrintOptionsModalProps> = ({
                 </div>
                 {/* Preview Content */}
                 <div className="p-8 print:p-0">
-                    {targetIds.map(tid => (
-                        <div key={tid} className="mb-12 print:mb-0 print:break-after-page last:mb-0">
-                            <PrintableSchedule
-                                type={selectedType}
-                                settings={settings}
-                                teachers={teachers}
-                                classes={classes}
-                                subjects={subjects}
-                                targetId={tid === '__all__' ? undefined : tid}
-                                schoolInfo={schoolInfo}
-                                onClose={() => setShowPreview(false)}
-                            />
+                    {chunks.map((chunk, chunkIdx) => (
+                        <div key={chunkIdx} 
+                             className={`mb-12 print:mb-0 print:break-after-page last:mb-0 bg-white min-h-[29.7cm] p-[1cm] shadow-sm print:shadow-none print:min-h-0 print:h-auto print:w-full grid gap-4`}
+                             style={{
+                                 gridTemplateColumns: itemsPerPage > 1 ? 'repeat(2, 1fr)' : '1fr',
+                                 gridTemplateRows: itemsPerPage > 2 ? 'repeat(2, 1fr)' : (itemsPerPage === 2 ? 'repeat(2, 1fr)' : '1fr')
+                             }}
+                        >
+                            {chunk.map(tid => (
+                                <div key={tid} className="border border-slate-200 rounded-xl overflow-hidden print:border-none">
+                                    <PrintableSchedule
+                                        type={selectedType}
+                                        settings={settings}
+                                        teachers={teachers}
+                                        classes={classes}
+                                        subjects={subjects}
+                                        targetId={tid === '__all__' ? undefined : tid}
+                                        schoolInfo={schoolInfo}
+                                        onClose={() => setShowPreview(false)}
+                                    />
+                                </div>
+                            ))}
                         </div>
                     ))}
                 </div>
             </div>
         );
     }
-
+    
     return (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm animate-in fade-in">
             <div className="bg-white rounded-3xl w-full max-w-lg shadow-2xl flex flex-col overflow-hidden animate-in zoom-in-95">
                 {/* Header */}
-                <div className="p-5 bg-slate-50 border-b border-slate-100 flex items-center justify-between">
+          {/* ... existing header ... */}
+          <div className="p-5 bg-slate-50 border-b border-slate-100 flex items-center justify-between">
                     <div className="flex items-center gap-3">
                         <div className="w-10 h-10 rounded-2xl bg-[#e5e1fe] flex items-center justify-center">
                             <Printer size={20} className="text-[#655ac1]" />
@@ -115,6 +151,21 @@ const PrintOptionsModal: React.FC<PrintOptionsModalProps> = ({
                             <p className="text-xs text-slate-500">اختر نوع الجدول المطلوب</p>
                         </div>
                     </div>
+                     {/* Items per page selector (visible for individual) */}
+                     {(needsTeachers || needsClasses) && (
+                        <div className="flex gap-1 bg-white p-1 rounded-lg border border-slate-200">
+                            {[1,2,3,4].map(n => (
+                                <button 
+                                key={n}
+                                onClick={() => setItemsPerPage(n)}
+                                title={`${n} جدول في الصفحة`}
+                                className={`w-7 h-7 rounded-md flex items-center justify-center text-xs font-black transition-colors ${itemsPerPage===n ? 'bg-[#655ac1] text-white' : 'text-slate-400 hover:bg-slate-50'}`}
+                            >
+                                {n}
+                            </button>
+                            ))}
+                        </div>
+                    )}
                     <button onClick={onClose} className="p-2 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-xl transition-colors">
                         <X size={20} />
                     </button>

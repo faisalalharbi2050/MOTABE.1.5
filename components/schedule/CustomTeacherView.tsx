@@ -163,7 +163,7 @@ const CustomTeacherView: React.FC<CustomTeacherViewProps> = ({
         if (slot.type === 'waiting') {
             return (
                 <div className={`w-full h-full p-1 rounded-lg text-[10px] flex flex-col items-center justify-center gap-0.5 border transition-all cursor-grab active:cursor-grabbing
-                    ${isHovered ? 'ring-2 ring-orange-400 border-transparent bg-orange-100 text-orange-700' : 'bg-orange-50 text-orange-600 border-orange-100 hover:bg-orange-100'}
+                    ${isHovered ? 'ring-2 ring-[#4c3d8f] border-transparent bg-[#3d2b8e] text-white' : 'bg-[#2d1f6e] text-white border-[#4c3d8f] hover:bg-[#3d2b8e]'}
                 `}>
                     <Eye size={14} className="opacity-70" />
                     <span className="font-bold truncate w-full text-center">انتظار</span>
@@ -175,9 +175,9 @@ const CustomTeacherView: React.FC<CustomTeacherViewProps> = ({
             <div className={`
                 w-full h-full p-1 rounded-lg text-[10px] flex flex-col items-center justify-center gap-0.5 transition-all
                 cursor-grab active:cursor-grabbing border
-                ${isHovered ? 'ring-2 ring-[#655ac1] border-transparent bg-[#e5e1fe] text-[#5a4eb3]' : 'bg-[#f0edff] text-[#655ac1] border-[#e5e1fe] hover:border-[#655ac1]/40'}
+                ${isHovered ? 'ring-2 ring-[#a59bf0] border-transparent bg-[#f4f2ff] text-[#7c6dd6]' : 'bg-[#fcfcff] text-[#7c6dd6] border-[#f4f2ff] hover:border-[#a59bf0]/40'}
             `}>
-                <span className="font-black truncate w-full text-center" title={subj?.name}>
+                <span className="font-extrabold truncate w-full text-center" title={subj?.name}>
                     {settings.subjectAbbreviations?.[subj?.id || ''] || subj?.name || '---'}
                 </span>
                 <span className="font-bold opacity-80 truncate w-full text-center dir-ltr">{cls?.name || '---'}</span>
@@ -283,8 +283,8 @@ const CustomTeacherView: React.FC<CustomTeacherViewProps> = ({
                                         <div className="bg-white border border-slate-200 rounded-lg p-1.5 text-center text-slate-600 shadow-sm">
                                             أساسي: <strong className="text-slate-800">{teacher.quotaLimit}</strong>
                                         </div>
-                                        <div className="bg-orange-50/50 border border-orange-100 rounded-lg p-1.5 text-center text-orange-600 shadow-sm">
-                                            انتظار: <strong className="text-orange-700">{teacher.waitingQuota || 0}</strong>
+                                        <div className="bg-[#2d1f6e] border border-[#4c3d8f] rounded-lg p-1.5 text-center text-white shadow-sm">
+                                            انتظار: <strong className="text-white">{teacher.waitingQuota || 0}</strong>
                                         </div>
                                     </div>
                                 </div>
