@@ -144,11 +144,9 @@ const PrintableSchedule: React.FC<PrintableScheduleProps> = ({
         const isT = type === 'individual_teacher';
         const t   = isT ? teachers.find(t => t.id === row.id) : null;
         const c   = !isT ? classes.find(c => c.id === row.id) : null;
-        let lessonCount = 0;
-        if (c) Object.values(timetable as Record<string,any>).forEach(s => { if(s.classId===c.id && s.type==='lesson') lessonCount++; });
 
         return (
-            <div className="w-full flex flex-col bg-white" style={{direction:'rtl', border:'2px solid '+C_DAY_SEP, borderRadius:'10px', overflow:'hidden'}}>
+            <div className="w-full flex flex-col bg-white" style={{direction:'rtl', border:'2px solid '+C_DAY_SEP, borderRadius:'12px', overflow:'hidden'}}>
 
                 {/* ── School header ── */}
                 <div className="flex justify-between items-center px-5 py-3 border-b" style={{borderColor:C_BORDER}}>
@@ -159,55 +157,68 @@ const PrintableSchedule: React.FC<PrintableScheduleProps> = ({
                     <div className="text-xs text-slate-400">تاريخ الطباعة: {printDate}</div>
                 </div>
 
-                {/* ── Info strip (matches inline design) ── */}
-                <div className="flex items-center gap-6 flex-wrap px-5 py-3 border-b" style={{background:C_BG, borderColor:C_DAY_SEP}}>
-                    {isT && t ? <>
-                        <div className="flex items-baseline gap-2">
-                            <span className="text-white/60 text-[10px] font-semibold">اسم المعلم</span>
-                            <span className="text-white font-black text-base">{t.name}</span>
-                        </div>
-                        <div className="w-px self-stretch bg-white/20"/>
-                        <div className="flex items-baseline gap-2">
-                            <span className="text-white/60 text-[10px] font-semibold">التخصص</span>
-                            <span className="text-white font-bold text-xs">{t.specializationId ? (subjects.find(s=>s.id===t.specializationId)?.name||'—') : '—'}</span>
-                        </div>
-                        <div className="flex-1"/>
-                        <div className="flex items-center gap-4">
-                            <div className="text-center">
-                                <div className="text-white/60 text-[9px] font-semibold leading-none mb-0.5">نصاب الحصص</div>
-                                <div className="text-white font-black text-lg leading-none">{t.quotaLimit||0}</div>
+                {/* ── Info Card (matches inline gradient design) ── */}
+                <div className="px-5 py-5 relative overflow-hidden"
+                    style={{
+                        background:'linear-gradient(135deg, #5b50b8 0%, #7c6dd6 60%, #655ac1 100%)',
+                        boxShadow:'0 10px 30px rgba(101,90,193,0.35)'
+                    }}>
+                    <div className="flex items-center gap-5 flex-wrap">
+                        {/* Name + spec */}
+                        <div className="flex-1 min-w-0 text-right">
+                            <div className="text-white/70 text-xs font-semibold mb-0.5">
+                                {isT ? 'المعلم' : 'الفصل'}
                             </div>
-                            <div className="w-px self-stretch bg-white/20"/>
-                            <div className="text-center">
-                                <div className="text-white/60 text-[9px] font-semibold leading-none mb-0.5">نصاب الانتظار</div>
-                                <div className="text-white font-black text-lg leading-none">{t.waitingQuota||0}</div>
+                            <div className="text-white font-black text-xl leading-tight truncate" dir={isT ? 'rtl' : 'ltr'} style={{textAlign:'right'}}>
+                                {isT ? (t?.name || '—') : row.name}
                             </div>
+                            {isT && t && (
+                                <div className="text-white/60 text-xs font-medium mt-0.5">
+                                    {t.specializationId ? (subjects.find(s=>s.id===t.specializationId)?.name||'—') : '—'}
+                                </div>
+                            )}
                         </div>
-                    </> : c ? <>
-                        <div className="flex items-baseline gap-2">
-                            <span className="text-white/60 text-[10px] font-semibold">اسم الفصل</span>
-                            <span className="text-white font-black text-base">{row.name}</span>
+
+                        {/* Stats — نصاب only */}
+                        <div className="flex flex-wrap gap-2 shrink-0">
+                            <div className="flex flex-col items-center px-4 py-2 rounded-xl bg-white/15 border border-white/20 backdrop-blur-sm min-w-[68px]">
+                                <span className="text-white/60 text-[10px] font-semibold leading-none mb-1">
+                                    {isT ? 'نصاب الحصص' : 'عدد الحصص'}
+                                </span>
+                                <span className="text-white font-black text-xl leading-none">
+                                    {isT ? (t?.quotaLimit||0) : (c ? Object.values(timetable as Record<string,any>).filter(s=>s.classId===c.id&&s.type==='lesson').length : 0)}
+                                </span>
+                            </div>
+                            {isT && t && (
+                                <div className="flex flex-col items-center px-4 py-2 rounded-xl bg-white/15 border border-white/20 backdrop-blur-sm min-w-[68px]">
+                                    <span className="text-white/60 text-[10px] font-semibold leading-none mb-1">نصاب الانتظار</span>
+                                    <span className="text-white font-black text-xl leading-none">{t.waitingQuota||0}</span>
+                                </div>
+                            )}
                         </div>
-                        <div className="flex-1"/>
-                        <div className="text-center">
-                            <div className="text-white/60 text-[9px] font-semibold leading-none mb-0.5">عدد الحصص</div>
-                            <div className="text-white font-black text-lg leading-none">{lessonCount}</div>
-                        </div>
-                    </> : null}
+                    </div>
                 </div>
 
                 {/* ── Table ── */}
+                <div className="rounded-b-xl overflow-hidden border-2 m-4"
+                    style={{borderColor:'#e0dcfb', boxShadow:'0 4px 20px rgba(101,90,193,0.10)'}}>
+                <div className="overflow-x-auto">
                 <table className="w-full border-collapse">
                     <thead>
                         <tr>
-                            <th className="p-2 w-20 font-bold text-sm text-center"
-                                style={{background:C_BG, color:'#fff', borderBottom:'2px solid '+C_DAY_SEP, borderRight:'2px solid '+C_DAY_SEP}}>
+                            <th className="py-3 px-4 font-black text-sm text-center"
+                                style={{minWidth:'80px', background:'linear-gradient(135deg,#655ac1,#7c6dd6)', color:'#fff',
+                                    borderBottom:'2px solid #5b50b8', borderLeft:'2px solid #5b50b8'}}>
                                 اليوم
                             </th>
                             {Array.from({length:MAX_PERIODS}).map((_,i)=>(
-                                <th key={i} className="p-2 font-bold text-sm text-center"
-                                    style={{background:C_BG_SOFT, color:'#64748b', borderBottom:'2px solid '+C_DAY_SEP, borderLeft:'1px solid '+C_BORDER}}>
-                                    {i+1}
+                                <th key={i} className="py-3 px-2 font-bold text-sm text-center"
+                                    style={{background:'#f4f2ff', color:'#655ac1',
+                                        borderBottom:'2px solid #5b50b8', borderLeft:'1px solid #e0dcfb'}}>
+                                    <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-white border-2 font-black text-sm shadow-sm"
+                                          style={{borderColor:'#a59bf0', color:'#655ac1'}}>
+                                        {i+1}
+                                    </span>
                                 </th>
                             ))}
                         </tr>
@@ -215,32 +226,65 @@ const PrintableSchedule: React.FC<PrintableScheduleProps> = ({
                     <tbody>
                         {DAYS.map((day, di)=>{
                             const dayCode = ['sunday','monday','tuesday','wednesday','thursday'][di];
+                            const isEvenRow = di % 2 === 0;
                             return (
-                                <tr key={day} style={{borderBottom:'1px solid '+C_BORDER}}>
-                                    <td className="p-2 font-black text-sm text-center"
-                                        style={{background:C_BG_SOFT, color:C_BG, borderRight:'2px solid '+C_DAY_SEP}}>
+                                <tr key={day}>
+                                    <td className="py-3 px-3 font-black text-sm text-center"
+                                        style={{minWidth:'80px', height:'76px',
+                                            background: isEvenRow ? '#f4f2ff' : '#ece9ff',
+                                            color:'#655ac1', borderLeft:'2px solid #c4bcf7',
+                                            borderBottom:'1px solid #e0dcfb'}}>
                                         {day}
                                     </td>
                                     {Array.from({length:MAX_PERIODS}).map((_,pi)=>{
                                         const slot = isT
                                             ? getTeacherSlot(row.id, dayCode, pi+1)
                                             : classIndex[`${row.id}-${dayCode}-${pi+1}`];
+                                        const isWaiting = isT && slot && (slot.isSubstitution || (slot as any).type==='waiting');
                                         return (
-                                            <td key={pi} className="text-center p-1 align-middle"
-                                                style={{height:'52px', background:'#fff', borderLeft:'1px solid '+C_BORDER}}>
-                                                {slot ? (
-                                                    <div className="flex flex-col items-center justify-center h-full gap-0.5">
+                                            <td key={pi}
+                                                style={{height:'76px', minWidth:'100px',
+                                                    background: isEvenRow ? '#fafafe' : '#f7f6ff',
+                                                    borderLeft:'1px solid #e0dcfb',
+                                                    borderBottom:'1px solid #e0dcfb',
+                                                    padding:'6px 5px', verticalAlign:'middle'}}>
+                                                {!slot ? (
+                                                    <div className="w-full h-full rounded-xl border-2 border-dashed flex items-center justify-center"
+                                                         style={{borderColor:'#d1cdf4', background:'transparent', minHeight:'56px'}}>
+                                                        <span className="text-[10px] font-bold" style={{color:'#c4bcf7'}}>—</span>
+                                                    </div>
+                                                ) : isWaiting ? (
+                                                    <div className="w-full h-full rounded-xl border flex flex-col items-center justify-center px-2 gap-1"
+                                                         style={{background:'#fff8ee', borderColor:'#fbd28a', minHeight:'56px'}}>
+                                                        <span className="px-2 py-0.5 rounded-full text-[9px] font-black"
+                                                              style={{background:'#fef3c7', color:'#b45309', border:'1px solid #fcd34d'}}>
+                                                            انتظار
+                                                        </span>
+                                                        <span className="font-black text-xs leading-tight text-center" style={{color:'#92400e'}}>
+                                                            {className(slot.classId||'')}
+                                                        </span>
+                                                        {slot.subjectId && (
+                                                            <span className="text-[10px] font-medium leading-tight text-center" style={{color:'#b45309'}}>
+                                                                {subjectName(slot.subjectId)}
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                ) : (
+                                                    <div className="w-full h-full rounded-xl border flex flex-col items-center justify-center px-2 gap-1"
+                                                         style={{background:'#f0edff', borderColor:'#c4bcf7', minHeight:'56px'}}>
                                                         {isT ? <>
-                                                            <div className="font-black text-xs leading-tight" style={{color:C_BG}}>{className(slot.classId||'')}</div>
-                                                            <div className="text-[10px] font-semibold text-slate-500 leading-tight">{subjectName(slot.subjectId||'')}</div>
-                                                            {(slot.isSubstitution||slot.type==='waiting') &&
-                                                                <div className="text-[9px] font-black px-1 rounded mt-0.5" style={{background:C_BG_SOFT,color:C_BG}}>م انتظار</div>}
+                                                            <span className="font-black text-sm leading-tight text-center w-full truncate"
+                                                                  style={{color:'#4f46e5'}}>{className(slot.classId||'')}</span>
+                                                            <span className="text-[11px] font-semibold leading-tight text-center w-full truncate"
+                                                                  style={{color:'#7c6dd6'}}>{subjectName(slot.subjectId||'')}</span>
                                                         </> : <>
-                                                            <div className="font-black text-xs leading-tight" style={{color:C_BG}}>{subjectName(slot.subjectId||'')}</div>
-                                                            <div className="text-[10px] font-semibold text-slate-500 leading-tight">{teacherName(slot.teacherId)}</div>
+                                                            <span className="font-black text-sm leading-tight text-center w-full truncate"
+                                                                  style={{color:'#4f46e5'}}>{subjectName(slot.subjectId||'')}</span>
+                                                            <span className="text-[11px] font-semibold leading-tight text-center w-full truncate"
+                                                                  style={{color:'#7c6dd6'}}>{teacherName(slot.teacherId)}</span>
                                                         </>}
                                                     </div>
-                                                ) : null}
+                                                )}
                                             </td>
                                         );
                                     })}
@@ -249,6 +293,8 @@ const PrintableSchedule: React.FC<PrintableScheduleProps> = ({
                         })}
                     </tbody>
                 </table>
+                </div>
+                </div>
 
                 {/* ── Footer ── */}
                 <div className="flex justify-between items-end px-5 py-3 border-t" style={{borderColor:C_BORDER}}>
@@ -333,7 +379,7 @@ const PrintableSchedule: React.FC<PrintableScheduleProps> = ({
                                     className={`p-2 font-bold truncate ${isIndividual ? 'text-sm' : 'text-[11px] w-32'} max-w-[120px]`}
                                     style={{background:'#fff', border:'1px solid '+C_BORDER}}
                                     title={row.name}>
-                                    {row.name}
+                                    <span dir={type === 'general_classes' ? 'ltr' : 'auto'}>{row.name}</span>
                                 </td>
                                 {DAYS.map((day,di) =>
                                     Array.from({ length: MAX_PERIODS }).map((_, i) => (

@@ -31,7 +31,9 @@ import {
   BookOpen,
   GripVertical,
   Minus,
-  Plus
+  Plus,
+  Search,
+  Check
 } from 'lucide-react';
 import { SchoolInfo, ScheduleSettingsData, Teacher, Subject, ClassInfo, Admin, Assignment } from '../../../types';
 import { validateAllConstraints, ValidationWarning } from '../../../utils/scheduleConstraints';
@@ -107,7 +109,9 @@ const Step9Schedule: React.FC<Step9Props> = ({
   // NEW: Display View State
   type DisplayViewType = 'general_teachers' | 'general_classes' | 'general_waiting' | 'individual_teacher' | 'individual_class';
   const [activeDisplayView, setActiveDisplayView] = useState<DisplayViewType | null>(null);
-  const [selectedDisplayId, setSelectedDisplayId] = useState<string>('');
+  const [selectedDisplayIds, setSelectedDisplayIds] = useState<string[]>([]);
+  const [individualSearchQuery, setIndividualSearchQuery] = useState('');
+  const [showIndividualDropdown, setShowIndividualDropdown] = useState(false);
 
   // Teacher sort
   type TeacherSortMode = 'alpha' | 'specialization' | 'custom';
@@ -583,7 +587,9 @@ const Step9Schedule: React.FC<Step9Props> = ({
                   key={opt.id}
                   onClick={() => {
                     setActiveDisplayView(opt.id);
-                    setSelectedDisplayId('');
+                    setSelectedDisplayIds([]);
+                    setIndividualSearchQuery('');
+                    setShowIndividualDropdown(false);
                   }}
                   className={`flex items-center gap-3 px-4 py-3.5 rounded-2xl border-2 font-bold text-sm transition-all duration-200 ${
                     activeDisplayView === opt.id
@@ -599,38 +605,95 @@ const Step9Schedule: React.FC<Step9Props> = ({
               ))}
             </div>
 
-            {/* Individual Selector */}
-            {(activeDisplayView === 'individual_teacher' || activeDisplayView === 'individual_class') && (
-              <div className="mt-3 flex items-center gap-3 p-4 bg-white rounded-2xl border border-slate-200 shadow-sm animate-in fade-in slide-in-from-top-2">
-                <div className="w-9 h-9 rounded-xl bg-[#e5e1fe] flex items-center justify-center shrink-0">
-                  {activeDisplayView === 'individual_teacher'
-                    ? <User size={18} className="text-[#655ac1]" />
-                    : <BookOpen size={18} className="text-[#655ac1]" />}
+            {/* Individual Multi-Select */}
+            {(activeDisplayView === 'individual_teacher' || activeDisplayView === 'individual_class') && (() => {
+              const isTeacherView = activeDisplayView === 'individual_teacher';
+              const allItems = isTeacherView
+                ? teachers.map(t => ({ id: t.id, label: t.name }))
+                : [...classes]
+                    .sort((a,b) => a.grade !== b.grade ? a.grade - b.grade : (a.section||0)-(b.section||0))
+                    .map(c => ({ id: c.id, label: c.name || `${c.grade}/${c.section}` }));
+              const filteredItems = allItems.filter(item =>
+                item.label.toLowerCase().includes(individualSearchQuery.toLowerCase())
+              );
+              return (
+                <div className="mt-3 p-4 bg-white rounded-2xl border border-slate-200 shadow-sm animate-in fade-in slide-in-from-top-2 space-y-3">
+                  {/* Row: icon + label + search + dropdown button */}
+                  <div className="flex items-center gap-3">
+                    <div className="w-9 h-9 rounded-xl bg-[#e5e1fe] flex items-center justify-center shrink-0">
+                      {isTeacherView ? <User size={18} className="text-[#655ac1]" /> : <BookOpen size={18} className="text-[#655ac1]" />}
+                    </div>
+                    <div className="flex-1 relative">
+                      <p className="text-xs font-black text-slate-500 mb-1.5">
+                        {isTeacherView ? 'اختر معلماً أو أكثر لعرض جداولهم' : 'اختر فصلاً أو أكثر لعرض جداولها'}
+                      </p>
+                      <div className="relative">
+                        <Search className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400" size={15} />
+                        <input
+                          type="text"
+                          placeholder={isTeacherView ? 'ابحث عن معلم...' : 'ابحث عن فصل...'}
+                          value={individualSearchQuery}
+                          onChange={e => { setIndividualSearchQuery(e.target.value); setShowIndividualDropdown(true); }}
+                          onFocus={() => setShowIndividualDropdown(true)}
+                          onBlur={() => setTimeout(() => setShowIndividualDropdown(false), 180)}
+                          className="w-full pl-3 pr-9 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-700 outline-none focus:ring-2 focus:ring-[#8779fb]/30 focus:border-[#655ac1] transition-all"
+                        />
+                        {showIndividualDropdown && filteredItems.length > 0 && (
+                          <div className="absolute top-full right-0 mt-1 w-full bg-white rounded-xl shadow-xl border border-slate-200 z-50">
+                            {/* Select all / Clear all bar */}
+                            <div className="flex items-center justify-between px-3 py-2 border-b border-slate-100 bg-slate-50 rounded-t-xl">
+                              <button
+                                onMouseDown={e => { e.preventDefault(); setSelectedDisplayIds(allItems.map(i => i.id)); }}
+                                className="text-xs font-black text-[#655ac1] hover:underline"
+                              >
+                                اختيار الكل
+                              </button>
+                              <button
+                                onMouseDown={e => { e.preventDefault(); setSelectedDisplayIds([]); }}
+                                className="text-xs font-black text-slate-400 hover:text-red-500 hover:underline"
+                              >
+                                إلغاء الكل
+                              </button>
+                            </div>
+                            <div className="max-h-48 overflow-y-auto custom-scrollbar">
+                            {filteredItems.map(item => {
+                              const isSelected = selectedDisplayIds.includes(item.id);
+                              return (
+                                <button
+                                  key={item.id}
+                                  onMouseDown={e => {
+                                    e.preventDefault();
+                                    if (isSelected) {
+                                      setSelectedDisplayIds(prev => prev.filter(id => id !== item.id));
+                                    } else {
+                                      setSelectedDisplayIds(prev => [...prev, item.id]);
+                                    }
+                                  }}
+                                  className={`w-full text-right px-4 py-2.5 text-sm font-bold transition-colors flex items-center justify-between ${
+                                    isSelected
+                                      ? 'bg-[#f0edff] text-[#655ac1]'
+                                      : 'text-slate-700 hover:bg-[#f0edff] hover:text-[#655ac1]'
+                                  }`}
+                                >
+                                  <span>{item.label}</span>
+                                  <Check size={14} className={`shrink-0 ${ isSelected ? 'opacity-100 text-[#655ac1]' : 'opacity-0' }`} />
+                                </button>
+                              );
+                            })}
+                            </div>
+                          </div>
+                        )}
+                        {showIndividualDropdown && filteredItems.length === 0 && (
+                          <div className="absolute top-full right-0 mt-1 w-full bg-white rounded-xl shadow-xl border border-slate-200 z-50 p-3 text-center text-xs text-slate-400 font-medium">
+                            {allItems.every(i => selectedDisplayIds.includes(i.id)) ? 'تم اختيار الجميع' : 'لا توجد نتائج مطابقة'}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
                 </div>
-                <div className="flex-1">
-                  <label className="text-xs font-black text-slate-500 mb-1.5 block">
-                    {activeDisplayView === 'individual_teacher' ? 'اختر المعلم' : 'اختر الفصل'}
-                  </label>
-                  <select
-                    value={selectedDisplayId}
-                    onChange={e => setSelectedDisplayId(e.target.value)}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-700 outline-none focus:ring-2 focus:ring-[#8779fb]/30 focus:border-[#655ac1] transition-all"
-                  >
-                    <option value="">-- اختر من القائمة --</option>
-                    {activeDisplayView === 'individual_teacher'
-                      ? teachers.map(t => (
-                          <option key={t.id} value={t.id}>{t.name}</option>
-                        ))
-                      : [...classes]
-                          .sort((a,b) => a.grade !== b.grade ? a.grade - b.grade : (a.section||0)-(b.section||0))
-                          .map(c => (
-                            <option key={c.id} value={c.id}>{c.name || `${c.grade} / ${c.section}`}</option>
-                          ))
-                    }
-                  </select>
-                </div>
-              </div>
-            )}
+              );
+            })()}
 
             {/* Teacher Sort Controls — shown for teacher views */}
             {(activeDisplayView === 'general_teachers' || activeDisplayView === 'general_waiting') && (
@@ -746,7 +809,7 @@ const Step9Schedule: React.FC<Step9Props> = ({
           {activeDisplayView && (
             (() => {
               const needsId = activeDisplayView === 'individual_teacher' || activeDisplayView === 'individual_class';
-              const isReady = !needsId || !!selectedDisplayId;
+              const isReady = !needsId || selectedDisplayIds.length > 0;
               if (!isReady) {
                 return (
                   <div className="flex flex-col items-center justify-center h-64 text-slate-400">
@@ -758,7 +821,7 @@ const Step9Schedule: React.FC<Step9Props> = ({
                         : <MonitorPlay size={28} className="text-indigo-400" />}
                     </div>
                     <p className="text-sm font-bold">
-                      {activeDisplayView === 'individual_teacher' ? 'اختر معلماً من القائمة أعلاه' : 'اختر فصلاً من القائمة أعلاه'}
+                      {activeDisplayView === 'individual_teacher' ? 'ابحث عن معلم واختره من القائمة أعلاه' : 'ابحث عن فصل واختره من القائمة أعلاه'}
                     </p>
                   </div>
                 );
@@ -766,6 +829,38 @@ const Step9Schedule: React.FC<Step9Props> = ({
               // Build specialization names map
               const specNames: Record<string, string> = {};
               specializations.forEach(s => { specNames[s.id] = s.name; });
+              // For individual views — render one table per selected id stacked
+              if (needsId) {
+                return (
+                  <div className="p-4 space-y-10">
+                    {selectedDisplayIds.map((id, idx) => (
+                      <div key={id}>
+                        {idx > 0 && (
+                          <div className="flex items-center gap-3 mb-8">
+                            <div className="h-px flex-1 bg-gradient-to-r from-transparent via-[#a59bf0] to-transparent opacity-40"/>
+                            <span className="text-xs font-black text-[#a59bf0] px-3 py-1 bg-[#f4f2ff] rounded-full border border-[#e0dcfb]">
+                              ▼
+                            </span>
+                            <div className="h-px flex-1 bg-gradient-to-l from-transparent via-[#a59bf0] to-transparent opacity-40"/>
+                          </div>
+                        )}
+                        <InlineScheduleView
+                          type={activeDisplayView}
+                          settings={scheduleSettings}
+                          teachers={teachers}
+                          classes={classes}
+                          subjects={subjects}
+                          targetId={id}
+                          teacherSortMode={teacherSortMode}
+                          teacherCustomOrder={teacherCustomOrder}
+                          specializationCustomOrder={specializationCustomOrder}
+                          specializationNames={specNames}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                );
+              }
               return (
                 <div className="p-4 h-full">
                   <InlineScheduleView
@@ -774,7 +869,7 @@ const Step9Schedule: React.FC<Step9Props> = ({
                     teachers={teachers}
                     classes={classes}
                     subjects={subjects}
-                    targetId={selectedDisplayId}
+                    targetId={''}
                     teacherSortMode={teacherSortMode}
                     teacherCustomOrder={teacherCustomOrder}
                     specializationCustomOrder={specializationCustomOrder}

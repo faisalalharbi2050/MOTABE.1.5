@@ -72,8 +72,6 @@ const ManualAssignment: React.FC<Props> = ({
     }, 0);
   };
 
-  const getTeacherWaitingLoad = (t: Teacher) => t.waitingQuota || 0;
-
   const getTotalStats = () => {
     let totalPeriods = 0;
     let totalSubjects = 0;
@@ -578,19 +576,17 @@ const ManualAssignment: React.FC<Props> = ({
                 {filteredTeachers.length > 0 ? (
                     filteredTeachers.map(t => {
                         const assignedLoad = getTeacherLoad(t.id);
-                        const waitingLoad = getTeacherWaitingLoad(t);
-                        const totalLoad = assignedLoad + waitingLoad;
                         
                         const isSelected = selectedTeacherId === t.id;
                         
-                        const isOverLimit = totalLoad >= 24;
-                        const isHighLoad = totalLoad >= 20;
+                        const isOverLimit = assignedLoad >= 24;
+                        const isHighLoad = assignedLoad >= 20;
 
                         let progressColor = 'bg-emerald-500';
                         if (isOverLimit) progressColor = 'bg-rose-500';
                         else if (isHighLoad) progressColor = 'bg-amber-500';
 
-                        const progressValue = Math.min(100, Math.round((totalLoad / (t.quotaLimit || 24)) * 100));
+                        const progressValue = Math.min(100, Math.round((assignedLoad / (t.quotaLimit || 24)) * 100));
 
                         return (
                             <div 
@@ -669,7 +665,7 @@ const ManualAssignment: React.FC<Props> = ({
                                         </span>
                                         
                                         <span className={`px-1.5 py-0.5 rounded-md ${isOverLimit ? 'bg-rose-100 text-rose-600' : isHighLoad ? 'bg-amber-100 text-amber-600' : 'bg-emerald-100 text-emerald-600'}`}>
-                                            {totalLoad} حصة
+                                            {assignedLoad} حصة
                                         </span>
                                     </div>
                                     <div className="h-2 w-full bg-slate-200/50 rounded-full overflow-hidden">

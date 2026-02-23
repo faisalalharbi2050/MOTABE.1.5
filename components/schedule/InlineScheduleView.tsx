@@ -72,7 +72,7 @@ const InlineScheduleView: React.FC<InlineScheduleViewProps> = ({
     const subjName    = (id: string) => subjects.find(s => s.id === id)?.name || '';
     const subjDisplay = (id: string) => settings.subjectAbbreviations?.[id] || subjName(id);
     const tName       = (id: string) => teachers.find(t => t.id === id)?.name || '';
-    const cName       = (id: string) => { const c = classes.find(c => c.id === id); return c ? (c.name || c.grade+'/'+c.section) : ''; };
+    const cName       = (id: string) => { const c = classes.find(c => c.id === id); return c ? (c.name || `${c.grade}/${c.section}`) : ''; };
     const tLQ  = (t: Teacher) => t.quotaLimit   || 0;
     const tWQ  = (t: Teacher) => t.waitingQuota || 0;
 
@@ -362,7 +362,7 @@ const InlineScheduleView: React.FC<InlineScheduleViewProps> = ({
                                 <td className="text-right pr-2 text-slate-800 font-bold"
                                     style={{background:rowBg,borderTop:'1px solid '+C_BORDER,borderBottom:'1px solid '+C_BORDER,borderRight:'1px solid '+C_BORDER}}
                                     title={row.name}>
-                                    <span className="block truncate text-sm">{row.name}</span>
+                                    <span className="block truncate text-sm" dir={isClasses ? 'ltr' : 'auto'}>{row.name}</span>
                                 </td>
                                 {/* spec */}
                                 {!isClasses && (
@@ -415,7 +415,7 @@ const InlineScheduleView: React.FC<InlineScheduleViewProps> = ({
     };
 
     /* ════════════════════════════════════════════════════
-       INDIVIDUAL TABLE (teacher / class)
+       INDIVIDUAL TABLE (teacher / class) — Redesigned
     ════════════════════════════════════════════════════ */
     const renderIndividualTable = () => {
         const isTeacher = type==='individual_teacher';
@@ -423,104 +423,174 @@ const InlineScheduleView: React.FC<InlineScheduleViewProps> = ({
         const cls     = !isTeacher ? classes.find(c=>c.id===targetId) : null;
 
         return (
-            <div className="w-full max-w-4xl mx-auto" style={{direction:'rtl'}}>
+            <div className="w-full" style={{direction:'rtl'}}>
 
-                {/* ── Info strip ── */}
-                <div className="rounded-t-lg px-5 py-3 flex items-center gap-6 flex-wrap"
-                    style={{background:C_BG, borderTop:'1.5px solid '+C_DAY_SEP, borderRight:'1.5px solid '+C_DAY_SEP, borderLeft:'1.5px solid '+C_DAY_SEP}}>
-                    {isTeacher && teacher ? <>
-                        <div className="flex items-baseline gap-2">
-                            <span className="text-white/60 text-xs font-semibold">اسم المعلم</span>
-                            <span className="text-white font-black text-lg">{teacher.name}</span>
-                        </div>
-                        <div className="w-px self-stretch bg-white/20"/>
-                        <div className="flex items-baseline gap-2">
-                            <span className="text-white/60 text-xs font-semibold">التخصص</span>
-                            <span className="text-white font-bold text-sm">{specializationNames[teacher.specializationId]||'—'}</span>
-                        </div>
-                        <div className="flex-1"/>
-                        <div className="flex items-center gap-4">
-                            <div className="text-center">
-                                <div className="text-white/60 text-[10px] font-semibold leading-none mb-0.5">نصاب الحصص</div>
-                                <div className="text-white font-black text-xl leading-none">{tLQ(teacher)}</div>
+                {/* ── Info Card Header ── */}
+                <div className="rounded-2xl p-5 mb-5 relative overflow-hidden"
+                    style={{
+                        background:'linear-gradient(135deg, #5b50b8 0%, #7c6dd6 60%, #655ac1 100%)',
+                        boxShadow:'0 10px 30px rgba(101,90,193,0.35)'
+                    }}>
+                    <div className="relative flex items-center gap-5 flex-wrap">
+                        {/* Name + sub info */}
+                        <div className="flex-1 min-w-0 text-right">
+                            <div className="text-white/70 text-xs font-semibold mb-0.5">
+                                {isTeacher ? 'المعلم' : 'الفصل'}
                             </div>
-                            <div className="w-px self-stretch bg-white/20"/>
-                            <div className="text-center">
-                                <div className="text-white/60 text-[10px] font-semibold leading-none mb-0.5">نصاب الانتظار</div>
-                                <div className="text-white font-black text-xl leading-none">{tWQ(teacher)}</div>
+                            <div className="text-white font-black text-xl leading-tight truncate" dir="ltr" style={{textAlign:'right'}}>
+                                {isTeacher ? (teacher?.name||'—') : (cls?.name || (cls ? `${cls.grade}/${cls.section}` : '—'))}
                             </div>
+                            {isTeacher && teacher && (
+                                <div className="text-white/60 text-xs font-medium mt-0.5">
+                                    {specializationNames[teacher.specializationId]||'—'}
+                                </div>
+                            )}
                         </div>
-                    </> : cls ? <>
-                        <div className="flex items-baseline gap-2">
-                            <span className="text-white/60 text-xs font-semibold">اسم الفصل</span>
-                            <span className="text-white font-black text-lg">{cls.name||(cls.grade+'/'+cls.section)}</span>
+
+                        {/* Stats pills — نصاب الحصص + نصاب الانتظار فقط */}
+                        <div className="flex flex-wrap gap-2 shrink-0">
+                            <div className="flex flex-col items-center px-4 py-2 rounded-xl bg-white/15 border border-white/20 backdrop-blur-sm min-w-[68px]">
+                                <span className="text-white/60 text-[10px] font-semibold leading-none mb-1">
+                                    {isTeacher ? 'نصاب الحصص' : 'عدد الحصص'}
+                                </span>
+                                <span className="text-white font-black text-xl leading-none">
+                                    {isTeacher ? (teacher ? tLQ(teacher) : 0) : (classLessonCount.get(targetId||'')||0)}
+                                </span>
+                            </div>
+                            {isTeacher && (
+                                <div className="flex flex-col items-center px-4 py-2 rounded-xl bg-white/15 border border-white/20 backdrop-blur-sm min-w-[68px]">
+                                    <span className="text-white/60 text-[10px] font-semibold leading-none mb-1">نصاب الانتظار</span>
+                                    <span className="text-white font-black text-xl leading-none">{teacher ? tWQ(teacher) : 0}</span>
+                                </div>
+                            )}
                         </div>
-                        <div className="flex-1"/>
-                        <div className="text-center">
-                            <div className="text-white/60 text-[10px] font-semibold leading-none mb-0.5">عدد الحصص</div>
-                            <div className="text-white font-black text-xl leading-none">{classLessonCount.get(cls.id)||0}</div>
-                        </div>
-                    </> : null}
+                    </div>
                 </div>
 
                 {/* ── Table ── */}
-                <div className="overflow-x-auto rounded-b-lg" style={{border:'1.5px solid '+C_DAY_SEP, borderTop:'2px solid '+C_DAY_SEP}}>
-                    <table className="w-full border-collapse">
+                <div className="rounded-2xl overflow-hidden border-2 shadow-sm"
+                    style={{borderColor:'#e0dcfb', boxShadow:'0 4px 20px rgba(101,90,193,0.10)'}}>
+                    <div className="overflow-x-auto">
+                    <table className="w-full border-collapse" style={{minWidth:'600px'}}>
                         <thead>
                             <tr>
-                                <th className="px-4 py-2.5 font-bold text-white text-sm text-center"
-                                    style={{minWidth:'90px', background:C_BG, borderBottom:'2px solid '+C_DAY_SEP, borderRight:'2px solid '+C_DAY_SEP}}>
+                                {/* Day column header */}
+                                <th className="py-3 px-4 font-black text-sm text-center sticky right-0 z-10"
+                                    style={{
+                                        minWidth:'90px',
+                                        background:'linear-gradient(135deg,#655ac1,#7c6dd6)',
+                                        color:'#fff',
+                                        borderBottom:'2px solid #5b50b8',
+                                        borderLeft:'2px solid #5b50b8'
+                                    }}>
                                     اليوم
                                 </th>
+                                {/* Period number headers */}
                                 {Array.from({length:MAX_PERIODS}).map((_,i)=>(
-                                    <th key={i} className="py-2.5 font-bold text-sm text-center"
-                                        style={{minWidth:'100px', background:C_BG_SOFT, color:'#64748b',
-                                            borderBottom:'2px solid '+C_DAY_SEP, borderLeft:'1px solid '+C_BORDER}}>
-                                        {i+1}
+                                    <th key={i} className="py-3 px-2 font-bold text-sm text-center"
+                                        style={{
+                                            minWidth:'110px',
+                                            background:'#f4f2ff',
+                                            color:'#655ac1',
+                                            borderBottom:'2px solid #5b50b8',
+                                            borderLeft:'1px solid #e0dcfb'
+                                        }}>
+                                        <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-white border-2 font-black text-sm shadow-sm"
+                                              style={{borderColor:'#a59bf0', color:'#655ac1'}}>
+                                            {i+1}
+                                        </span>
                                     </th>
                                 ))}
                             </tr>
                         </thead>
                         <tbody>
-                            {ARABIC_DAYS.map((day,di)=>(
-                                <tr key={day} style={{borderBottom:'1px solid '+C_BORDER}}>
-                                    <td className="px-4 py-0 font-black text-sm text-center"
-                                        style={{minWidth:'90px', background:C_BG_SOFT, color:C_BG,
-                                            borderRight:'2px solid '+C_DAY_SEP, height:'68px'}}>
+                            {ARABIC_DAYS.map((day, di)=>{
+                                const isEvenRow = di % 2 === 0;
+                                return (
+                                <tr key={day}>
+                                    {/* Day label cell */}
+                                    <td className="py-3 px-3 font-black text-sm text-center sticky right-0 z-10"
+                                        style={{
+                                            minWidth:'90px',
+                                            height:'76px',
+                                            background: isEvenRow ? '#f4f2ff' : '#ece9ff',
+                                            color:'#655ac1',
+                                            borderLeft:'2px solid #c4bcf7',
+                                            borderBottom:'1px solid #e0dcfb'
+                                        }}>
                                         {day}
                                     </td>
-                                    {Array.from({length:MAX_PERIODS}).map((_,pi)=>(
-                                        <td key={pi} className="relative align-middle p-0"
-                                            style={{height:'68px', minWidth:'100px', background:'#fff', borderLeft:'1px solid '+C_BORDER}}>
-                                            <div className="absolute inset-0 flex items-center justify-center">
-                                                {isTeacher ? (() => {
-                                                    const slot = timetable[targetId+'-'+ENGLISH_DAYS[di]+'-'+(pi+1)];
-                                                    if(!slot) return null;
-                                                    const iw = slot.type==='waiting'||slot.isSubstitution;
-                                                    return (
-                                                        <div className="w-full h-full flex flex-col items-center justify-center p-1 gap-0.5">
-                                                            <span className="font-black text-sm leading-tight text-center" style={{color:C_BG}}>{cName(slot.classId||'')}</span>
-                                                            <span className="text-[11px] font-semibold text-slate-500 leading-tight text-center">{subjName(slot.subjectId||'')}</span>
-                                                            {iw && <span className="text-[9px] font-black px-1.5 py-0.5 rounded-full mt-0.5" style={{background:C_BG_SOFT, color:C_BG}}>انتظار</span>}
-                                                        </div>
-                                                    );
-                                                })() : (() => {
-                                                    const slot = classSlotMap.get(targetId+'-'+ENGLISH_DAYS[di]+'-'+(pi+1));
-                                                    if(!slot) return null;
-                                                    return (
-                                                        <div className="w-full h-full flex flex-col items-center justify-center p-1 gap-0.5">
-                                                            <span className="font-black text-sm leading-tight text-center" style={{color:C_BG}}>{subjName(slot.subjectId||'')}</span>
-                                                            <span className="text-[11px] font-semibold text-slate-500 leading-tight text-center">{tName(slot.teacherId)}</span>
-                                                        </div>
-                                                    );
-                                                })()}
-                                            </div>
-                                        </td>
-                                    ))}
+                                    {/* Period cells */}
+                                    {Array.from({length:MAX_PERIODS}).map((_,pi)=>{
+                                        const slot = isTeacher
+                                            ? timetable[targetId+'-'+ENGLISH_DAYS[di]+'-'+(pi+1)]
+                                            : classSlotMap.get(targetId+'-'+ENGLISH_DAYS[di]+'-'+(pi+1));
+                                        const isWaiting = isTeacher && slot && (slot.type==='waiting'||slot.isSubstitution);
+                                        return (
+                                            <td key={pi}
+                                                style={{
+                                                    height:'76px',
+                                                    minWidth:'110px',
+                                                    background: isEvenRow ? '#fafafe' : '#f7f6ff',
+                                                    borderLeft:'1px solid #e0dcfb',
+                                                    borderBottom:'1px solid #e0dcfb',
+                                                    padding:'6px 5px',
+                                                    verticalAlign:'middle'
+                                                }}>
+                                                {!slot ? (
+                                                    <div className="w-full h-full rounded-xl border-2 border-dashed flex items-center justify-center"
+                                                         style={{borderColor:'#d1cdf4', background:'transparent', minHeight:'56px'}}>
+                                                        <span className="text-[10px] font-bold" style={{color:'#c4bcf7'}}>—</span>
+                                                    </div>
+                                                ) : isWaiting ? (
+                                                    <div className="w-full h-full rounded-xl border flex flex-col items-center justify-center px-2 gap-1"
+                                                         style={{background:'#fff8ee', borderColor:'#fbd28a', minHeight:'56px'}}>
+                                                        <span className="px-2 py-0.5 rounded-full text-[9px] font-black"
+                                                              style={{background:'#fef3c7', color:'#b45309', border:'1px solid #fcd34d'}}>
+                                                            انتظار
+                                                        </span>
+                                                        <span className="font-black text-xs leading-tight text-center" style={{color:'#92400e'}}>
+                                                            {cName(slot.classId||'')}
+                                                        </span>
+                                                        {slot.subjectId && (
+                                                            <span className="text-[10px] font-medium leading-tight text-center" style={{color:'#b45309'}}>
+                                                                {subjName(slot.subjectId)}
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                ) : (
+                                                    <div className="w-full h-full rounded-xl border flex flex-col items-center justify-center px-2 gap-1 transition-shadow hover:shadow-md group"
+                                                         style={{background:'#f0edff', borderColor:'#c4bcf7', minHeight:'56px', cursor:'default'}}>
+                                                        {isTeacher ? (<>
+                                                            <span className="font-black text-sm leading-tight text-center w-full truncate"
+                                                                  style={{color:'#4f46e5'}} title={cName(slot.classId||'')}>
+                                                                {cName(slot.classId||'')}
+                                                            </span>
+                                                            <span className="text-[11px] font-semibold leading-tight text-center w-full truncate"
+                                                                  style={{color:'#7c6dd6'}} title={subjName(slot.subjectId||'')}>
+                                                                {subjDisplay(slot.subjectId||'')}
+                                                            </span>
+                                                        </>) : (<>
+                                                            <span className="font-black text-sm leading-tight text-center w-full truncate"
+                                                                  style={{color:'#4f46e5'}} title={subjName(slot.subjectId||'')}>
+                                                                {subjDisplay(slot.subjectId||'')}
+                                                            </span>
+                                                            <span className="text-[11px] font-semibold leading-tight text-center w-full truncate"
+                                                                  style={{color:'#7c6dd6'}} title={tName(slot.teacherId)}>
+                                                                {tName(slot.teacherId)}
+                                                            </span>
+                                                        </>)}
+                                                    </div>
+                                                )}
+                                            </td>
+                                        );
+                                    })}
                                 </tr>
-                            ))}
+                                );
+                            })}
                         </tbody>
                     </table>
+                    </div>
                 </div>
             </div>
         );
@@ -579,19 +649,19 @@ const InlineScheduleView: React.FC<InlineScheduleViewProps> = ({
                     </div>
                 )}
             </div>
-            {/* Inline Header */}
-            <div className="flex items-center justify-between mb-4">
-                <div className="text-right">
-                    <h2 className="text-lg font-black text-slate-800">{titleMap[type]}</h2>
-                </div>
-                {isGeneral && (
+            {/* Inline Header — only for general views; individual has its own card */}
+            {isGeneral && (
+                <div className="flex items-center justify-between mb-4">
+                    <div className="text-right">
+                        <h2 className="text-lg font-black text-slate-800">{titleMap[type]}</h2>
+                    </div>
                     <button onClick={()=>setIsFullScreen(true)}
                         className="p-2 text-slate-400 hover:text-slate-600 transition-colors"
                         title="ملء الشاشة">
                         <Maximize2 size={20}/>
                     </button>
-                )}
-            </div>
+                </div>
+            )}
             {/* Table */}
             {isGeneral ? renderGeneralTable() : renderIndividualTable()}
         </div>
