@@ -704,36 +704,38 @@ const Step4Classes: React.FC<Props> = ({ classes, setClasses, subjects, gradeSub
               </div>
 
               {/* Global Actions Toolbar */}
-              <div className="flex flex-wrap items-center gap-3 p-2">
-                 <button
-                    onClick={() => setShowGlobalRenameModal(true)}
-                    className="flex-1 md:flex-none flex items-center justify-center gap-2 px-5 py-3 bg-white border border-slate-200 text-slate-600 rounded-xl text-xs font-black hover:border-[#655ac1] hover:text-[#655ac1] transition-all shadow-sm"
-                 >
-                    <Pencil size={16} /> تعديل مسمى الكل
-                 </button>
-                 
-                 <button
-                    onClick={() => setShowGlobalPeriodsModal(true)}
-                    className="flex-1 md:flex-none flex items-center justify-center gap-2 px-5 py-3 bg-white border border-slate-200 text-slate-600 rounded-xl text-xs font-black hover:border-[#655ac1] hover:text-[#655ac1] transition-all shadow-sm"
-                 >
-                    <Clock size={16} /> تخصيص حصص الكل
-                 </button>
+              <div className="flex flex-wrap items-center justify-between gap-3 p-2">
+                {/* Right group: edit actions */}
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                     onClick={() => setShowGlobalRenameModal(true)}
+                     className="flex items-center gap-2 px-4 py-2.5 bg-white border border-slate-200 text-slate-600 rounded-xl text-xs font-black hover:border-[#655ac1] hover:text-[#655ac1] transition-all shadow-sm"
+                  >
+                     <Pencil size={15} /> تعديل مسمى الكل
+                  </button>
+                  <button
+                     onClick={() => setShowGlobalPeriodsModal(true)}
+                     className="flex items-center gap-2 px-4 py-2.5 bg-white border border-slate-200 text-slate-600 rounded-xl text-xs font-black hover:border-[#655ac1] hover:text-[#655ac1] transition-all shadow-sm"
+                  >
+                     <Clock size={15} /> تخصيص حصص الكل
+                  </button>
+                </div>
 
-                 <div className="w-px h-8 bg-slate-200 hidden md:block mx-2"></div>
-
-                 <button
-                    onClick={handlePrint}
-                    className="flex-1 md:flex-none flex items-center justify-center gap-2 px-5 py-3 bg-[#e5e1fe] text-[#655ac1] border border-[#655ac1]/20 rounded-xl text-xs font-black hover:bg-[#655ac1] hover:text-white transition-all shadow-sm"
-                 >
-                    <Printer size={16} /> طباعة الفصول
-                 </button>
-
-                 <button
-                    onClick={() => setShowDeleteAllConfirm(true)}
-                    className="flex-1 md:flex-none flex items-center justify-center gap-2 px-5 py-3 bg-rose-50 text-rose-600 border border-rose-200 rounded-xl text-xs font-black hover:bg-rose-100 transition-all shadow-sm"
-                 >
-                    <Trash size={16} /> حذف الكل
-                 </button>
+                {/* Left group: print & delete */}
+                <div className="flex items-center gap-2">
+                  <button
+                     onClick={handlePrint}
+                     className="flex items-center gap-2 px-4 py-2.5 bg-white border border-slate-200 text-slate-600 rounded-xl text-xs font-black hover:bg-[#655ac1] hover:text-white hover:border-[#655ac1] transition-all shadow-sm"
+                  >
+                     <Printer size={15} className="text-[#655ac1]" /> طباعة الفصول
+                  </button>
+                  <button
+                     onClick={() => setShowDeleteAllConfirm(true)}
+                     className="flex items-center gap-2 px-4 py-2.5 bg-white border border-rose-200 text-rose-500 rounded-xl text-xs font-black hover:bg-rose-500 hover:text-white transition-all shadow-sm"
+                  >
+                     <Trash size={15} /> حذف الكل
+                  </button>
+                </div>
               </div>
           </div>
 
@@ -773,13 +775,23 @@ const Step4Classes: React.FC<Props> = ({ classes, setClasses, subjects, gradeSub
           {/* ── Table Results ── */}
           <div className="bg-white rounded-[2rem] border border-slate-100 shadow-xl shadow-indigo-50/20">
             <table className="w-full text-right border-collapse">
-              <thead className="bg-[#f8f7ff] border-b border-slate-100">
-                <tr>
-                  <th className="px-6 py-4 w-12 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">#</th>
-                  <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">اسم الفصل</th>
-                  <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">المواد المحددة</th>
-                  <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">عدد الحصص الأسبوعية</th>
-                  <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">الإجراءات</th>
+              <thead>
+                <tr className="bg-gradient-to-l from-[#f0eeff] to-[#f8f7ff] border-b-2 border-[#e5e1fe]">
+                  <th className="px-6 py-5 w-12 text-center">
+                    <span className="text-xs font-black text-[#655ac1]/60 uppercase tracking-wider">#</span>
+                  </th>
+                  <th className="px-6 py-5">
+                    <span className="text-sm font-black text-slate-700">اسم الفصل</span>
+                  </th>
+                  <th className="px-6 py-5 text-center">
+                    <span className="text-sm font-black text-slate-700">المواد المحددة</span>
+                  </th>
+                  <th className="px-6 py-5 text-center">
+                    <span className="text-sm font-black text-slate-700">عدد الحصص الأسبوعية</span>
+                  </th>
+                  <th className="px-6 py-5 text-center">
+                    <span className="text-sm font-black text-slate-700">الخيارات</span>
+                  </th>
                 </tr>
               </thead>
               <tbody>
@@ -814,7 +826,7 @@ const Step4Classes: React.FC<Props> = ({ classes, setClasses, subjects, gradeSub
                                    onClick={() => setGradeMenuOpenId(gradeMenuOpenId === grade ? null : grade)}
                                    className="flex items-center gap-1.5 px-4 py-2 bg-[#f8f7ff] border border-[#e5e1fe] rounded-xl text-xs font-black text-[#655ac1] hover:bg-[#655ac1] hover:text-white transition-all shadow-sm"
                                  >
-                                   الإجراء <ChevronDown size={13} className={`transition-transform duration-200 ${gradeMenuOpenId === grade ? 'rotate-180' : ''}`} />
+                                   خيارات الصف <ChevronDown size={13} className={`transition-transform duration-200 ${gradeMenuOpenId === grade ? 'rotate-180' : ''}`} />
                                  </button>
                                  {gradeMenuOpenId === grade && (
                                    <div className="absolute top-full left-0 mt-2 w-52 bg-white border border-slate-100 rounded-2xl shadow-xl z-50 overflow-hidden animate-in zoom-in-95 duration-150">
@@ -987,14 +999,14 @@ const Step4Classes: React.FC<Props> = ({ classes, setClasses, subjects, gradeSub
                                  </div>
                                )}
                             </td>
-                            <td className="px-6 py-4">
-                               <div className="flex items-center gap-1.5">
-                                  <span className="text-xs font-black text-[#655ac1] bg-[#e5e1fe] px-2 py-1 rounded-lg">{(c.subjectIds || []).length}</span>
-                                  <span className="text-[10px] font-bold text-slate-400">مادة</span>
+                            <td className="px-6 py-4 text-center">
+                               <div className="flex items-center justify-center gap-1.5">
+                                  <span className="text-sm font-black text-slate-700">{(c.subjectIds || []).length}</span>
+                                  <span className="text-xs font-bold text-slate-400">مادة</span>
                                </div>
                             </td>
-                             <td className="px-6 py-4">
-                                <div className="flex items-center gap-2">
+                             <td className="px-6 py-4 text-center">
+                                <div className="flex items-center justify-center gap-2">
                                   <span className="text-xs font-bold text-slate-500">
                                     {hasCustomPeriods ? 'مخصص' : (currentTiming?.periodCounts?.['sunday'] ?? 7)} حصص
                                   </span>
@@ -1008,7 +1020,7 @@ const Step4Classes: React.FC<Props> = ({ classes, setClasses, subjects, gradeSub
                                        onClick={() => setClassMenuOpenId(classMenuOpenId === c.id ? null : c.id)}
                                        className="flex items-center gap-1.5 px-3 py-2 bg-[#f8f7ff] border border-[#e5e1fe] rounded-xl text-xs font-black text-[#655ac1] hover:bg-[#655ac1] hover:text-white transition-all shadow-sm"
                                      >
-                                       الإجراء <ChevronDown size={13} className={`transition-transform duration-200 ${classMenuOpenId === c.id ? 'rotate-180' : ''}`} />
+                                       خيارات الفصل <ChevronDown size={13} className={`transition-transform duration-200 ${classMenuOpenId === c.id ? 'rotate-180' : ''}`} />
                                      </button>
                                      {classMenuOpenId === c.id && (
                                        <div className="absolute top-full left-0 mt-2 w-52 bg-white border border-slate-100 rounded-2xl shadow-xl z-50 overflow-hidden animate-in zoom-in-95 duration-150">

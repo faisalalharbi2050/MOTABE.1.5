@@ -560,7 +560,7 @@ export default function TeacherConstraintsModal({
                     <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
 
                       {/* ── شرح آلية النظام ── */}
-                      <div className="px-5 pt-4 pb-4 border-b border-slate-100 bg-slate-50/60 space-y-2.5">
+                      <div className="px-5 pt-4 pb-4 border-b border-slate-100 bg-slate-50/60 space-y-3">
                         <div className="flex items-start gap-2.5">
                           <div className="w-5 h-5 rounded-full bg-[#e5e1fe] text-[#655ac1] flex items-center justify-center shrink-0 mt-0.5 font-black text-[10px]">١</div>
                           <p className="text-[11px] text-slate-600 leading-relaxed font-medium">
@@ -569,15 +569,23 @@ export default function TeacherConstraintsModal({
                         </div>
                         <div className="flex items-start gap-2.5">
                           <div className="w-5 h-5 rounded-full bg-[#e5e1fe] text-[#655ac1] flex items-center justify-center shrink-0 mt-0.5 font-black text-[10px]">٢</div>
-                          <p className="text-[11px] text-slate-600 leading-relaxed font-medium">
-                            <span className="font-black text-slate-700">التخصيص اليدوي:</span> يمكنك تعديل نصيب أي معلم بحرية. تتبّع شريط التغطية أدناه لمعرفة حالة التوزيع، وفي حال وجود نقص يظهر تنبيه تلقائي.
-                          </p>
-                        </div>
-                        <div className="flex items-start gap-2.5">
-                          <div className="w-5 h-5 rounded-full bg-[#e5e1fe] text-[#655ac1] flex items-center justify-center shrink-0 mt-0.5 font-black text-[10px]">٣</div>
-                          <p className="text-[11px] text-slate-600 leading-relaxed font-medium">
-                            <span className="font-black text-slate-700">التخصيص اليدوي:</span> يمكنك تعديل نصيب أي معلم يدوياً من الجدول أدناه، وسيتكيّف النظام تلقائياً مع تعديلاتك. إذا رغبت في <span className="font-black text-[#655ac1]">العودة للتوزيع العادل التلقائي</span> استخدم زر الإعادة.
-                          </p>
+                          <div className="space-y-1.5">
+                            <p className="text-[11px] text-slate-700 font-black">التخصيص اليدوي:</p>
+                            <ul className="space-y-1">
+                              <li className="flex items-start gap-1.5 text-[11px] text-slate-600 font-medium leading-relaxed">
+                                <span className="mt-1.5 w-1 h-1 rounded-full bg-[#655ac1] shrink-0"></span>
+                                يمكنك تعديل نصيب أي معلم يدوياً من الجدول أدناه، وسيتكيّف النظام تلقائياً مع تعديلاتك.
+                              </li>
+                              <li className="flex items-start gap-1.5 text-[11px] text-slate-600 font-medium leading-relaxed">
+                                <span className="mt-1.5 w-1 h-1 rounded-full bg-[#655ac1] shrink-0"></span>
+                                تتبّع شريط التغطية أدناه لمعرفة حالة التوزيع، وفي حال وجود نقص سيظهر لك تنبيه تلقائي.
+                              </li>
+                              <li className="flex items-start gap-1.5 text-[11px] text-slate-600 font-medium leading-relaxed">
+                                <span className="mt-1.5 w-1 h-1 rounded-full bg-[#655ac1] shrink-0"></span>
+                                إذا رغبت في العودة للتوزيع العادل التلقائي استخدم <span className="font-black text-[#655ac1]">زر الإعادة</span>.
+                              </li>
+                            </ul>
+                          </div>
                         </div>
                       </div>
 
