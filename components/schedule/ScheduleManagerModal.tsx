@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Save, Copy, Trash2, CheckCircle2, RotateCcw, AlertCircle, Clock, History } from 'lucide-react';
+import { X, Save, Copy, Trash2, CheckCircle2, RotateCcw, AlertCircle, Clock, History, Pencil, Check } from 'lucide-react';
 import { ScheduleSettingsData, SavedSchedule, TimetableData } from '../../types';
 
 interface ScheduleManagerModalProps {
@@ -19,6 +19,9 @@ const ScheduleManagerModal: React.FC<ScheduleManagerModalProps> = ({
 }) => {
     const [newScheduleName, setNewScheduleName] = useState('');
     const [isSaving, setIsSaving] = useState(false);
+    const [showDeleteCurrentConfirm, setShowDeleteCurrentConfirm] = useState(false);
+    const [editingScheduleId, setEditingScheduleId] = useState<string | null>(null);
+    const [editingScheduleName, setEditingScheduleName] = useState('');
     
     // Safely get the saved schedules
     const savedSchedules = settings.savedSchedules || [];
@@ -76,6 +79,26 @@ const ScheduleManagerModal: React.FC<ScheduleManagerModalProps> = ({
                 savedSchedules: updatedSchedules
             });
         }
+    };
+
+    const handleRenameStart = (schedule: SavedSchedule) => {
+        setEditingScheduleId(schedule.id);
+        setEditingScheduleName(schedule.name);
+    };
+
+    const handleRenameSave = () => {
+        if (!editingScheduleId || !editingScheduleName.trim()) return;
+        const updatedSchedules = savedSchedules.map(s =>
+            s.id === editingScheduleId ? { ...s, name: editingScheduleName.trim() } : s
+        );
+        onUpdateSettings({ ...settings, savedSchedules: updatedSchedules });
+        setEditingScheduleId(null);
+        setEditingScheduleName('');
+    };
+
+    const handleDeleteCurrentTimetable = () => {
+        onUpdateSettings({ ...settings, timetable: {}, auditLogs: [] });
+        setShowDeleteCurrentConfirm(false);
     };
 
     const formatDate = (isoString: string) => {
@@ -168,6 +191,31 @@ const ScheduleManagerModal: React.FC<ScheduleManagerModalProps> = ({
                                 ></div>
                             </div>
                         </div>
+
+                        {/* Delete Current Timetable */}
+                        <div className="bg-white p-5 rounded-2xl border border-rose-100 shadow-sm">
+                            <h4 className="font-black text-slate-700 mb-3 flex items-center gap-2">
+                                <Trash2 size={16} className="text-rose-500" />
+                                حذف الجدول الحالي
+                            </h4>
+                            {!showDeleteCurrentConfirm ? (
+                                <button
+                                    onClick={() => setShowDeleteCurrentConfirm(true)}
+                                    disabled={!currentTimetable || Object.keys(currentTimetable).length === 0}
+                                    className="w-full py-2.5 bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 rounded-xl font-bold text-sm transition-all disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                                >
+                                    <Trash2 size={16} /> حذف الجدول الحالي
+                                </button>
+                            ) : (
+                                <div className="space-y-2 animate-in zoom-in-95 duration-150">
+                                    <p className="text-xs font-bold text-rose-600 text-center">هل أنت متأكد؟ لا يمكن التراجع.</p>
+                                    <div className="flex gap-2">
+                                        <button onClick={handleDeleteCurrentTimetable} className="flex-1 py-2 bg-rose-500 hover:bg-rose-600 text-white rounded-xl font-bold text-xs transition-all">نعم، احذف</button>
+                                        <button onClick={() => setShowDeleteCurrentConfirm(false)} className="flex-1 py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl font-bold text-xs transition-all">إلغاء</button>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
                     </div>
 
                     {/* Right/Bottom Panel: List of Saved Schedules */}
@@ -186,34 +234,56 @@ const ScheduleManagerModal: React.FC<ScheduleManagerModalProps> = ({
                         ) : (
                             <div className="space-y-3 pr-2" style={{ maxHeight: '50vh', overflowY: 'auto' }}>
                                 {savedSchedules.map((schedule) => (
-                                    <div key={schedule.id} className="bg-white border border-slate-200 p-4 rounded-2xl hover:border-[#655ac1]/50 hover:shadow-md transition-all group flex flex-col sm:flex-row gap-4 justify-between items-start sm:items-center">
-                                        <div>
-                                            <h5 className="font-black text-slate-800 text-lg mb-1 flex items-center gap-2">
-                                                {schedule.name}
-                                            </h5>
-                                            <p className="text-xs font-bold text-slate-400 flex items-center gap-1.5">
-                                                <Clock size={12} />
-                                                {formatDate(schedule.createdAt)}
-                                            </p>
-                                            <p className="text-xs text-slate-500 mt-2 bg-slate-50 px-2 py-1 rounded inline-block">
-                                                يحتوي على {Object.keys(schedule.timetable).length} حصة مسندة
-                                            </p>
+                                    <div key={schedule.id} className="bg-white border border-slate-200 p-4 rounded-2xl hover:border-[#655ac1]/50 hover:shadow-md transition-all group flex flex-col gap-3">
+                                        <div className="flex items-start justify-between gap-2">
+                                            <div className="flex-1 min-w-0">
+                                                {editingScheduleId === schedule.id ? (
+                                                    <div className="flex items-center gap-2">
+                                                        <input
+                                                            type="text"
+                                                            value={editingScheduleName}
+                                                            onChange={e => setEditingScheduleName(e.target.value)}
+                                                            autoFocus
+                                                            onKeyDown={e => { if (e.key === 'Enter') handleRenameSave(); if (e.key === 'Escape') { setEditingScheduleId(null); } }}
+                                                            className="flex-1 px-3 py-1.5 bg-slate-50 border border-[#655ac1] rounded-lg text-sm font-bold outline-none"
+                                                        />
+                                                        <button onClick={handleRenameSave} className="p-1.5 bg-[#655ac1] text-white rounded-lg hover:bg-[#5448a8] transition-colors"><Check size={14}/></button>
+                                                        <button onClick={() => setEditingScheduleId(null)} className="p-1.5 text-slate-400 hover:text-rose-500 rounded-lg transition-colors"><X size={14}/></button>
+                                                    </div>
+                                                ) : (
+                                                    <h5 className="font-black text-slate-800 text-base truncate">{schedule.name}</h5>
+                                                )}
+                                                <p className="text-xs font-bold text-slate-400 flex items-center gap-1.5 mt-1">
+                                                    <Clock size={12} />
+                                                    {formatDate(schedule.createdAt)}
+                                                </p>
+                                                <p className="text-xs text-slate-500 mt-1.5 bg-slate-50 px-2 py-1 rounded inline-block">
+                                                    يحتوي على {Object.keys(schedule.timetable).length} حصة مسندة
+                                                </p>
+                                            </div>
                                         </div>
-                                        
-                                        <div className="flex items-center gap-2 w-full sm:w-auto">
+
+                                        <div className="flex items-center gap-2">
                                             <button 
                                                 onClick={() => handleRestore(schedule)}
-                                                className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-4 py-2 bg-[#e5e1fe] text-[#655ac1] hover:bg-[#655ac1] hover:text-white rounded-xl font-bold transition-colors text-sm"
+                                                className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 bg-[#655ac1] text-white hover:bg-[#5448a8] rounded-xl font-bold transition-colors text-xs shadow-sm"
                                             >
-                                                <RotateCcw size={16} />
-                                                استرجاع
+                                                <CheckCircle2 size={14} />
+                                                اعتماد
+                                            </button>
+                                            <button 
+                                                onClick={() => handleRenameStart(schedule)}
+                                                className="flex items-center justify-center gap-1.5 px-3 py-2 bg-slate-50 border border-slate-200 text-slate-600 hover:text-[#655ac1] hover:border-[#655ac1] rounded-xl font-bold transition-colors text-xs"
+                                                title="تعديل الاسم"
+                                            >
+                                                <Pencil size={14} /> تعديل
                                             </button>
                                             <button 
                                                 onClick={() => handleDelete(schedule.id)}
                                                 className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-colors"
                                                 title="حذف هذه النسخة"
                                             >
-                                                <Trash2 size={20} />
+                                                <Trash2 size={16} />
                                             </button>
                                         </div>
                                     </div>
