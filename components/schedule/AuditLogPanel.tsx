@@ -35,8 +35,8 @@ const AuditLogPanel: React.FC<AuditLogPanelProps> = ({ logs, isOpen, onClose }) 
                             <History size={24} />
                         </div>
                         <div>
-                            <h3 className="font-black text-slate-800 text-xl">سجل التعديلات ومراقبة الحركات</h3>
-                            <p className="text-sm font-bold text-slate-500">حركات السحب والإفلات اليدوية الخاصة بهذا الجدول</p>
+                            <h3 className="font-black text-slate-800 text-xl">سجل تعديلات الجدول</h3>
+                            <p className="text-sm font-bold text-slate-500">سجل التعديلات اليدوية للجدول</p>
                         </div>
                     </div>
                     <button 

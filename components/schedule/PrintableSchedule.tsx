@@ -10,14 +10,20 @@ interface PrintableScheduleProps {
     targetId?: string;
     schoolInfo: SchoolInfo;
     onClose: () => void;
+    /** Base font size in px (8-16). Applies proportional zoom. Default: 11 */
+    fontSize?: number;
+    /** Render in black & white mode (no coloured backgrounds) */
+    blackAndWhite?: boolean;
 }
 
 const DAYS = ['الأحد', 'الإثنين', 'الثلاثاء', 'الأربعاء', 'الخميس'];
 const MAX_PERIODS = 7;
 
 const PrintableSchedule: React.FC<PrintableScheduleProps> = ({
-    type, settings, teachers, classes, subjects, targetId, schoolInfo
+    type, settings, teachers, classes, subjects, targetId, schoolInfo,
+    fontSize = 11, blackAndWhite = false
 }) => {
+    const zoomFactor = fontSize / 11;
     const subjectName  = (id: string) => settings.subjectAbbreviations?.[id] || subjects.find(s => s.id === id)?.name || '';
     const teacherName  = (id: string) => teachers.find(t => t.id === id)?.name || '';
     const className    = (id: string) => { const c = classes.find(cl => cl.id === id); return c ? (c.name || `${c.grade}/${c.section}`) : ''; };
@@ -146,7 +152,7 @@ const PrintableSchedule: React.FC<PrintableScheduleProps> = ({
         const c   = !isT ? classes.find(c => c.id === row.id) : null;
 
         return (
-            <div className="w-full flex flex-col bg-white" style={{direction:'rtl', border:'2px solid '+C_DAY_SEP, borderRadius:'12px', overflow:'hidden'}}>
+            <div className="w-full flex flex-col bg-white" style={{direction:'rtl', border:'2px solid '+C_DAY_SEP, borderRadius:'12px', overflow:'hidden', zoom: `${zoomFactor}`}}>
 
                 {/* ── School header ── */}
                 <div className="flex justify-between items-center px-5 py-3 border-b" style={{borderColor:C_BORDER}}>
@@ -319,7 +325,7 @@ const PrintableSchedule: React.FC<PrintableScheduleProps> = ({
     };
 
     return (
-        <div className="bg-white text-black font-sans" style={{ direction: 'rtl' }}>
+        <div className="bg-white text-black font-sans" style={{ direction: 'rtl', zoom: `${zoomFactor}` }}>
 
             {/* ── Page Header ── */}
             <div className="text-center mb-4 pb-3 border-b-2 border-gray-400">
@@ -338,8 +344,8 @@ const PrintableSchedule: React.FC<PrintableScheduleProps> = ({
 
             {/* ── Table ── */}
             <div className="overflow-x-auto">
-                <table className="w-full border-collapse text-sm table-fixed" style={{border:'2px solid '+C_DAY_SEP}}>
-                    <thead>
+                <table className="w-full border-collapse text-sm" style={{border:'2px solid '+C_DAY_SEP, tableLayout:'fixed'}}>
+                    <thead style={{ display: 'table-header-group' }}>
                         <tr>
                             <th className="p-2 w-32 font-bold max-w-[120px] text-white"
                                 style={{background:C_BG, border:'1px solid '+C_BORDER}}>
@@ -374,7 +380,7 @@ const PrintableSchedule: React.FC<PrintableScheduleProps> = ({
                     </thead>
                     <tbody>
                         {rowsToRender.map(row => (
-                            <tr key={row.id} style={{borderBottom:'1px solid '+C_BORDER}}>
+                            <tr key={row.id} style={{borderBottom:'1px solid '+C_BORDER, breakInside:'avoid', pageBreakInside:'avoid'}}>
                                 <td
                                     className={`p-2 font-bold truncate ${isIndividual ? 'text-sm' : 'text-[11px] w-32'} max-w-[120px]`}
                                     style={{background:'#fff', border:'1px solid '+C_BORDER}}

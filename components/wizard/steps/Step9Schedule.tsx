@@ -33,7 +33,10 @@ import {
   Minus,
   Plus,
   Search,
-  Check
+  Check,
+  CheckCircle,
+  AlertCircle,
+  Info
 } from 'lucide-react';
 import { SchoolInfo, ScheduleSettingsData, Teacher, Subject, ClassInfo, Admin, Assignment } from '../../../types';
 import { validateAllConstraints, ValidationWarning } from '../../../utils/scheduleConstraints';
@@ -105,6 +108,12 @@ const Step9Schedule: React.FC<Step9Props> = ({
   const [showPrintOptions, setShowPrintOptions] = useState(false);
   const [showSendSchedule, setShowSendSchedule] = useState(false);
   const [showEditMenu, setShowEditMenu] = useState(false);
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
+
+  const showToast = (message: string, type: 'success' | 'error' | 'info' = 'success') => {
+    setToast({ message, type });
+    setTimeout(() => setToast(null), 4000);
+  };
 
   // NEW: Display View State
   type DisplayViewType = 'general_teachers' | 'general_classes' | 'general_waiting' | 'individual_teacher' | 'individual_class';
@@ -287,30 +296,39 @@ const Step9Schedule: React.FC<Step9Props> = ({
   };
 
   const handleDistributeWaiting = (config: SubstitutionConfig) => {
-    // Save config first
-    const newSettings = { ...scheduleSettings, substitution: config };
-    // updateSettingsWithHistory(newSettings); // Wait, better to batch update
-    setShowWaitingModal(false);
+    try {
+        // Save config first
+        const newSettings = { ...scheduleSettings, substitution: config };
+        // updateSettingsWithHistory(newSettings); // Wait, better to batch update
+        setShowWaitingModal(false);
 
-    if (!newSettings.timetable) return;
-
-    // Run distribution
-    const timing = getTimingConfig();
-    const periodCountsValues = Object.values(timing.periodCounts || {}) as number[];
-    const periodsPerDay = Math.max(...periodCountsValues);
-
-    const newTimetable = distributeWaiting(
-        newSettings.timetable,
-        teachers,
-        admins,
-        newSettings,
-        {
-            activeDays: timing.activeDays,
-            periodsPerDay
+        if (!newSettings.timetable) {
+            showToast("لا يوجد جدول حصص لتوزيع الانتظار عليه", "error");
+            return;
         }
-    );
 
-    setScheduleSettings({ ...newSettings, timetable: newTimetable });
+        // Run distribution
+        const timing = getTimingConfig();
+        const periodCountsValues = Object.values(timing.periodCounts || {}) as number[];
+        const periodsPerDay = Math.max(...periodCountsValues);
+
+        const newTimetable = distributeWaiting(
+            newSettings.timetable,
+            teachers,
+            admins,
+            newSettings,
+            {
+                activeDays: timing.activeDays,
+                periodsPerDay
+            }
+        );
+
+        setScheduleSettings({ ...newSettings, timetable: newTimetable });
+        showToast("تم إنشاء وتوزيع حصص الانتظار بنجاح", "success");
+    } catch (error) {
+        console.error("Error distributing waiting:", error);
+        showToast("حدث خطأ أثناء إنشاء حصص الانتظار", "error");
+    }
   };
 
   const handleXMLExport = () => {
@@ -481,7 +499,7 @@ const Step9Schedule: React.FC<Step9Props> = ({
                    handleDistributeWaiting(scheduleSettings.substitution);
                }}
                title="إنشاء الانتظار"
-               className="flex items-center gap-2 bg-[#655ac1] hover:bg-[#5046a0] text-white px-6 py-3 rounded-xl font-bold shadow-lg shadow-[#655ac1]/20 transition-all hover:scale-105 active:scale-95"
+               className="flex items-center gap-2 bg-[#8779fb] hover:bg-[#7668ea] text-white px-6 py-3 rounded-xl font-bold shadow-lg shadow-[#8779fb]/20 transition-all hover:scale-105 active:scale-95"
              >
                <CalendarClock size={18} />
                <span className="hidden md:inline">إنشاء الانتظار</span>
@@ -539,7 +557,7 @@ const Step9Schedule: React.FC<Step9Props> = ({
                     className="flex items-center gap-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 px-4 py-2.5 rounded-xl font-bold transition-all hover:border-[#8779fb]"
                  >
                    <Printer size={18} className="text-cyan-600" />
-                   <span>معاينة وطباعة</span>
+                   <span>طباعة</span>
                  </button>
 
                  <button
@@ -562,11 +580,11 @@ const Step9Schedule: React.FC<Step9Props> = ({
           title: string;
           icon: React.ReactNode;
         }> = [
-          { id: 'general_teachers', title: 'الجدول العام للمعلمين', icon: <Users size={20} /> },
-          { id: 'general_classes',  title: 'الجدول العام للفصول',  icon: <LayoutGrid size={20} /> },
-          { id: 'general_waiting',  title: 'الجدول العام للانتظار', icon: <CalendarClock size={20} /> },
-          { id: 'individual_teacher', title: 'جدول معلم', icon: <User size={20} /> },
-          { id: 'individual_class',   title: 'جدول فصل',  icon: <BookOpen size={20} /> },
+          { id: 'general_teachers',  title: 'الجدول العام للمعلمين',  icon: <Users size={20} /> },
+          { id: 'general_waiting',   title: 'الجدول العام للانتظار',  icon: <CalendarClock size={20} /> },
+          { id: 'individual_teacher', title: 'جدول معلم',               icon: <User size={20} /> },
+          { id: 'general_classes',   title: 'الجدول العام للفصول',    icon: <LayoutGrid size={20} /> },
+          { id: 'individual_class',   title: 'جدول فصل',               icon: <BookOpen size={20} /> },
         ];
 
         return (
@@ -832,9 +850,9 @@ const Step9Schedule: React.FC<Step9Props> = ({
               // For individual views — render one table per selected id stacked
               if (needsId) {
                 return (
-                  <div className="p-4 space-y-10">
+                  <div className="p-4 space-y-6">
                     {selectedDisplayIds.map((id, idx) => (
-                      <div key={id}>
+                      <div key={id} style={{ zoom: 0.8 }}>
                         {idx > 0 && (
                           <div className="flex items-center gap-3 mb-8">
                             <div className="h-px flex-1 bg-gradient-to-r from-transparent via-[#a59bf0] to-transparent opacity-40"/>
@@ -1219,6 +1237,22 @@ const Step9Schedule: React.FC<Step9Props> = ({
             teachers={teachers}
             classes={classes}
         />
+
+        {/* ══════ Toast Notification ══════ */}
+        {toast && (
+            <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-[100] animate-in fade-in slide-in-from-bottom-4">
+                <div className={`flex items-center gap-3 px-6 py-4 rounded-2xl shadow-xl font-bold text-sm ${
+                    toast.type === 'success' ? 'bg-emerald-500 text-white' :
+                    toast.type === 'error' ? 'bg-rose-500 text-white' :
+                    'bg-blue-500 text-white'
+                }`}>
+                    {toast.type === 'success' ? <CheckCircle size={20} /> :
+                     toast.type === 'error' ? <AlertCircle size={20} /> :
+                     <Info size={20} />}
+                    {toast.message}
+                </div>
+            </div>
+        )}
 
       </div>
     );

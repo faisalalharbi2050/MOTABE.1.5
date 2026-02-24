@@ -64,6 +64,10 @@ const Step4Classes: React.FC<Props> = ({ classes, setClasses, subjects, gradeSub
   const [bulkRenamePattern, setBulkRenamePattern] = useState<string>('');
   const [bulkPeriodCounts, setBulkPeriodCounts] = useState<Record<string, number>>({});
   const [tempClassNames, setTempClassNames] = useState<Record<string, string>>({});
+
+  // ─── Dropdown Menu State ───
+  const [gradeMenuOpenId, setGradeMenuOpenId] = useState<number | null>(null);
+  const [classMenuOpenId, setClassMenuOpenId] = useState<string | null>(null);
   
   // Custom/Other Classes
   const [showGlobalRenameModal, setShowGlobalRenameModal] = useState(false);
@@ -796,63 +800,62 @@ const Step4Classes: React.FC<Props> = ({ classes, setClasses, subjects, gradeSub
                                     {allSelected && <Check size={12} className="text-white" />}
                                   </div>
                                 </label>
-                                <div className="w-8 h-8 bg-[#e5e1fe] rounded-lg flex items-center justify-center text-[#655ac1] font-black text-xs">
+                                <div className="w-9 h-9 bg-[#e5e1fe] rounded-lg flex items-center justify-center text-[#655ac1] font-black text-sm">
                                   {grade}
                                 </div>
-                                <span className="font-black text-[#655ac1] text-sm">{getGradeLabel(grade)}</span>
-                                <span className="text-[10px] bg-white border border-slate-200 text-slate-400 px-2 py-0.5 rounded-full font-bold">
+                                <span className="font-black text-[#655ac1] text-base">{getGradeLabel(grade)}</span>
+                                <span className="text-xs bg-white border border-slate-200 text-slate-400 px-2 py-0.5 rounded-full font-bold">
                                   {gradeClasses.length} فصل
                                 </span>
                               </div>
 
-                               <div className="flex items-center gap-2">
-                                <button
-                                  onClick={() => handleManualAdd(grade)}
-                                  className="flex items-center gap-1.5 px-3 py-1.5 bg-[#f8f7ff] border border-[#e5e1fe] rounded-lg text-[10px] font-black text-[#655ac1] hover:bg-[#655ac1] hover:text-white transition-all shadow-sm"
-                                >
-                                  <Plus size={14} /> إضافة فصل
-                                </button>
-                               <button
-                                 onClick={() => setEditingSubjectsGrade(editingSubjectsGrade === grade ? null : grade)}
-                                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-black transition-all shadow-sm ${
-                                   editingSubjectsGrade === grade
-                                     ? 'bg-[#655ac1] text-white'
-                                     : 'bg-white border border-slate-200 text-slate-500 hover:border-[#655ac1] hover:text-[#655ac1]'
-                                 }`}
-                               >
-                                 <BookOpen size={14} /> تخصيص المواد
-                               </button>
-                               <button
-                                 onClick={() => setBulkEditingPeriodsGrade(bulkEditingPeriodsGrade === grade ? null : grade)}
-                                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-black transition-all shadow-sm ${
-                                   bulkEditingPeriodsGrade === grade
-                                     ? 'bg-[#655ac1] text-white shadow-lg shadow-indigo-200'
-                                     : 'bg-white border border-slate-200 text-slate-500 hover:border-[#655ac1] hover:text-[#655ac1]'
-                                 }`}
-                               >
-                                 <Clock size={14} /> تخصيص الحصص
-                               </button>
-                               <button
-                                 onClick={() => {
-                                   if (bulkEditingRenameGrade === grade) {
-                                     setBulkEditingRenameGrade(null);
-                                     setTempClassNames({});
-                                   } else {
-                                     setBulkEditingRenameGrade(grade);
-                                     const initials: Record<string, string> = {};
-                                     gradeClasses.forEach(c => initials[c.id] = c.name || getClassroomDisplayName(c));
-                                     setTempClassNames(initials);
-                                   }
-                                 }}
-                                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-black transition-all shadow-sm ${
-                                   bulkEditingRenameGrade === grade
-                                     ? 'bg-[#655ac1] text-white shadow-lg shadow-indigo-200'
-                                     : 'bg-white border border-slate-200 text-slate-500 hover:border-[#655ac1] hover:text-[#655ac1]'
-                                 }`}
-                               >
-                                 <Pencil size={14} /> تعديل المسميات
-                               </button>
-                             </div>
+                               <div className="relative flex items-center gap-2">
+                                 <button
+                                   onClick={() => setGradeMenuOpenId(gradeMenuOpenId === grade ? null : grade)}
+                                   className="flex items-center gap-1.5 px-4 py-2 bg-[#f8f7ff] border border-[#e5e1fe] rounded-xl text-xs font-black text-[#655ac1] hover:bg-[#655ac1] hover:text-white transition-all shadow-sm"
+                                 >
+                                   الإجراء <ChevronDown size={13} className={`transition-transform duration-200 ${gradeMenuOpenId === grade ? 'rotate-180' : ''}`} />
+                                 </button>
+                                 {gradeMenuOpenId === grade && (
+                                   <div className="absolute top-full left-0 mt-2 w-52 bg-white border border-slate-100 rounded-2xl shadow-xl z-50 overflow-hidden animate-in zoom-in-95 duration-150">
+                                     <button
+                                       onClick={() => { handleManualAdd(grade); setGradeMenuOpenId(null); }}
+                                       className="w-full flex items-center gap-3 px-4 py-3 text-xs font-bold text-slate-600 hover:bg-[#f8f7ff] hover:text-[#655ac1] transition-colors"
+                                     >
+                                       <Plus size={14} /> إضافة فصل
+                                     </button>
+                                     <button
+                                       onClick={() => { setEditingSubjectsGrade(editingSubjectsGrade === grade ? null : grade); setGradeMenuOpenId(null); }}
+                                       className={`w-full flex items-center gap-3 px-4 py-3 text-xs font-bold transition-colors ${editingSubjectsGrade === grade ? 'bg-[#e5e1fe] text-[#655ac1]' : 'text-slate-600 hover:bg-[#f8f7ff] hover:text-[#655ac1]'}`}
+                                     >
+                                       <BookOpen size={14} /> تخصيص المواد
+                                     </button>
+                                     <button
+                                       onClick={() => { setBulkEditingPeriodsGrade(bulkEditingPeriodsGrade === grade ? null : grade); setGradeMenuOpenId(null); }}
+                                       className={`w-full flex items-center gap-3 px-4 py-3 text-xs font-bold transition-colors ${bulkEditingPeriodsGrade === grade ? 'bg-[#e5e1fe] text-[#655ac1]' : 'text-slate-600 hover:bg-[#f8f7ff] hover:text-[#655ac1]'}`}
+                                     >
+                                       <Clock size={14} /> تخصيص الحصص
+                                     </button>
+                                     <button
+                                       onClick={() => {
+                                         if (bulkEditingRenameGrade === grade) {
+                                           setBulkEditingRenameGrade(null);
+                                           setTempClassNames({});
+                                         } else {
+                                           setBulkEditingRenameGrade(grade);
+                                           const initials: Record<string, string> = {};
+                                           gradeClasses.forEach(c => initials[c.id] = c.name || getClassroomDisplayName(c));
+                                           setTempClassNames(initials);
+                                         }
+                                         setGradeMenuOpenId(null);
+                                       }}
+                                       className={`w-full flex items-center gap-3 px-4 py-3 text-xs font-bold transition-colors ${bulkEditingRenameGrade === grade ? 'bg-[#e5e1fe] text-[#655ac1]' : 'text-slate-600 hover:bg-[#f8f7ff] hover:text-[#655ac1]'}`}
+                                     >
+                                       <Pencil size={14} /> تعديل المسميات
+                                     </button>
+                                   </div>
+                                 )}
+                               </div>
                            </div>
 
                              {/* Bulk Subject Editor - Removed Inline, now handled by Modal at bottom */ }
@@ -998,28 +1001,45 @@ const Step4Classes: React.FC<Props> = ({ classes, setClasses, subjects, gradeSub
                                 </div>
                              </td>
                              <td className="px-6 py-4">
-                                 <div className="flex items-center justify-center gap-1 relative">
-                                   <button
-                                     onClick={() => { 
-                                       setEditingSubjectsClassId(editingSubjectsClassId === c.id ? null : c.id); 
-                                       setCustomPeriodClassId(null); 
-                                     }}
-                                     className={`p-2 rounded-lg transition-all ${(c.subjectIds && c.subjectIds.length > 0) ? 'bg-[#f8f7ff] text-[#655ac1] border border-[#e5e1fe]' : 'text-slate-400 hover:text-[#655ac1] hover:bg-[#e5e1fe]'}`}
-                                     title="تخصيص المواد"
-                                   >
-                                     <BookOpen size={14} />
-                                   </button>
-
-                                   <button
-                                     onClick={() => { 
-                                       setCustomPeriodClassId(customPeriodClassId === c.id ? null : c.id); 
-                                       setEditingSubjectsClassId(null); 
-                                     }}
-                                     className={`p-2 rounded-lg transition-all ${hasCustomPeriods ? 'bg-[#f8f7ff] text-[#655ac1] border border-[#e5e1fe]' : 'text-slate-400 hover:text-[#655ac1] hover:bg-[#e5e1fe]'}`}
-                                     title="تخصيص الحصص"
-                                   >
-                                     <Clock size={14} />
-                                   </button>
+                                 <div className="flex items-center justify-center gap-2 relative">
+                                   {/* Actions Dropdown */}
+                                   <div className="relative">
+                                     <button
+                                       onClick={() => setClassMenuOpenId(classMenuOpenId === c.id ? null : c.id)}
+                                       className="flex items-center gap-1.5 px-3 py-2 bg-[#f8f7ff] border border-[#e5e1fe] rounded-xl text-xs font-black text-[#655ac1] hover:bg-[#655ac1] hover:text-white transition-all shadow-sm"
+                                     >
+                                       الإجراء <ChevronDown size={13} className={`transition-transform duration-200 ${classMenuOpenId === c.id ? 'rotate-180' : ''}`} />
+                                     </button>
+                                     {classMenuOpenId === c.id && (
+                                       <div className="absolute top-full left-0 mt-2 w-52 bg-white border border-slate-100 rounded-2xl shadow-xl z-50 overflow-hidden animate-in zoom-in-95 duration-150">
+                                         <button
+                                           onClick={() => { setEditingSubjectsClassId(editingSubjectsClassId === c.id ? null : c.id); setCustomPeriodClassId(null); setClassMenuOpenId(null); }}
+                                           className={`w-full flex items-center gap-3 px-4 py-3 text-xs font-bold transition-colors ${(c.subjectIds && c.subjectIds.length > 0) ? 'bg-[#f8f7ff] text-[#655ac1]' : 'text-slate-600 hover:bg-[#f8f7ff] hover:text-[#655ac1]'}`}
+                                         >
+                                           <BookOpen size={14} /> تخصيص المواد
+                                         </button>
+                                         <button
+                                           onClick={() => { setCustomPeriodClassId(customPeriodClassId === c.id ? null : c.id); setEditingSubjectsClassId(null); setClassMenuOpenId(null); }}
+                                           className={`w-full flex items-center gap-3 px-4 py-3 text-xs font-bold transition-colors ${hasCustomPeriods ? 'bg-[#f8f7ff] text-[#655ac1]' : 'text-slate-600 hover:bg-[#f8f7ff] hover:text-[#655ac1]'}`}
+                                         >
+                                           <Clock size={14} /> تخصيص الحصص
+                                         </button>
+                                         <button
+                                           onClick={() => { handleStartEdit(c); setClassMenuOpenId(null); }}
+                                           className="w-full flex items-center gap-3 px-4 py-3 text-xs font-bold text-slate-600 hover:bg-[#f8f7ff] hover:text-[#655ac1] transition-colors"
+                                         >
+                                           <Pencil size={14} /> تعديل الاسم
+                                         </button>
+                                         <div className="border-t border-slate-100 mx-3" />
+                                         <button
+                                           onClick={() => { handleDeleteOne(c.id); setClassMenuOpenId(null); }}
+                                           className="w-full flex items-center gap-3 px-4 py-3 text-xs font-bold text-rose-500 hover:bg-rose-50 transition-colors"
+                                         >
+                                           <Trash2 size={14} /> حذف الفصل
+                                         </button>
+                                       </div>
+                                     )}
+                                   </div>
                                    
                                    {/* Inline Custom Period Panel */}
                                    {customPeriodClassId === c.id && (
@@ -1076,12 +1096,8 @@ const Step4Classes: React.FC<Props> = ({ classes, setClasses, subjects, gradeSub
                                      </div>
                                    )}
                                    
-                                   <div className="w-px h-5 bg-slate-100 mx-1"></div>
-
-                                   <button onClick={() => handleStartEdit(c)} className="p-2 text-slate-400 hover:text-[#655ac1] hover:bg-[#e5e1fe] rounded-lg transition-all" title="تعديل اسم الفصل"><Pencil size={14}/></button>
                                    <button onClick={() => handleReorder(c.id, 'up')} disabled={idx === 0} className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg disabled:opacity-30 transition-all" title="تحريك لأعلى"><ChevronUp size={14}/></button>
                                    <button onClick={() => handleReorder(c.id, 'down')} disabled={idx === gradeClasses.length - 1} className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg disabled:opacity-30 transition-all" title="تحريك لأسفل"><ChevronDown size={14}/></button>
-                                   <button onClick={() => handleDeleteOne(c.id)} className="p-2 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-all" title="حذف الفصل"><Trash2 size={14}/></button>
                                  </div>
                              </td>
                           </tr>

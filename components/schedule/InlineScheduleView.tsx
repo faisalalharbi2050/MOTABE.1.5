@@ -1,7 +1,6 @@
 ﻿import React, { useState, useMemo } from 'react';
 import { ScheduleSettingsData, Teacher, ClassInfo, Subject } from '../../types';
 import { Maximize2, Minimize2 } from 'lucide-react';
-import { mockTeachers, mockClasses, mockSubjects, mockSettings, mockSpecNames } from './mockScheduleData';
 
 export type TeacherSortMode = 'alpha' | 'specialization' | 'custom';
 
@@ -59,13 +58,11 @@ const InlineScheduleView: React.FC<InlineScheduleViewProps> = ({
 }) => {
     const [isFullScreen, setIsFullScreen] = useState(false);
     const [showWaitingCounts, setShowWaitingCounts] = useState(true);
-    const [isPreviewMode, setIsPreviewMode] = useState(false);
-    // ── استخدام البيانات الوهمية عند الضغط على زر المعاينة ──
-    const settings          = isPreviewMode ? mockSettings        : _settings;
-    const teachers          = isPreviewMode ? mockTeachers        : _teachers;
-    const classes           = isPreviewMode ? mockClasses         : _classes;
-    const subjects          = isPreviewMode ? mockSubjects        : _subjects;
-    const specializationNames = isPreviewMode ? mockSpecNames     : _specNames;
+    const settings          = _settings;
+    const teachers          = _teachers;
+    const classes           = _classes;
+    const subjects          = _subjects;
+    const specializationNames = _specNames;
     const timetable = settings.timetable || {};
 
     /* ── look-up helpers ─────────────────────────────── */
@@ -97,6 +94,27 @@ const InlineScheduleView: React.FC<InlineScheduleViewProps> = ({
         Object.values(timetable).forEach(s => { if(s.classId && s.type==='lesson') m.set(s.classId,(m.get(s.classId)||0)+1); });
         return m;
     }, [timetable]);
+
+    /* ── pastel colors helper ────────────────────────── */
+    const getPastelColor = (subjectName: string) => {
+        const colors = [
+            { bg: '#f0fdf4', text: '#166534' }, // green
+            { bg: '#eff6ff', text: '#1d4ed8' }, // blue
+            { bg: '#fef2f2', text: '#b91c1c' }, // red
+            { bg: '#fdf4ff', text: '#be185d' }, // pink
+            { bg: '#fefce8', text: '#a16207' }, // yellow
+            { bg: '#faf5ff', text: '#86198f' }, // fuchsia
+            { bg: '#f5f3ff', text: '#6b21a8' }, // purple
+            { bg: '#f0fdfa', text: '#4338ca' }, // violet
+            { bg: '#ecfdf5', text: '#0f766e' }, // teal
+            { bg: '#fff7ed', text: '#c2410c' }, // orange
+        ];
+        let hash = 0;
+        for (let i = 0; i < subjectName.length; i++) {
+            hash = subjectName.charCodeAt(i) + ((hash << 5) - hash);
+        }
+        return colors[Math.abs(hash) % colors.length];
+    };
 
     /* ── class-keyed slot map (classId-day-period) ───── */
     const classSlotMap = useMemo(() => {
@@ -158,56 +176,63 @@ const InlineScheduleView: React.FC<InlineScheduleViewProps> = ({
     const isGeneral = type.startsWith('general_');
 
     /* ════════════════════════════════════════════════════
-       CELL renderers
+       CELL renderers  (individual table – unchanged)
     ════════════════════════════════════════════════════ */
     const renderTeacherCell = (teacherId: string, di: number, pi: number) => {
         const slot = timetable[teacherId+'-'+ENGLISH_DAYS[di]+'-'+(pi+1)];
-        if(!slot) return <div className="w-full h-full bg-slate-50/40"/>;
         if(type==='general_waiting'){
-            if(slot.type==='waiting'||slot.isSubstitution)
-                return (
-                    <div className="w-full h-full flex flex-col items-center justify-center gap-0.5 rounded"
-                         style={{background:'rgba(101,90,193,0.12)'}}>
-                        <span className="font-black text-sm leading-none" style={{color:C_BG}}>م</span>
-                        <span className="text-xs font-bold leading-none" style={{color:C_BG}}>انتظار</span>
-                    </div>
-                );
-            return <div className="w-full h-full bg-slate-50/40"/>;
+            if(!slot || (slot.type!=='waiting' && !slot.isSubstitution))
+                return null; // rendered by general table directly
+            return null;
         }
+        if(!slot) return null;
         const subj = subjDisplay(slot.subjectId||'');
         const cls  = cName(slot.classId||'');
+        const color = getPastelColor(subj);
         return (
-            <div className="w-full h-full flex flex-col items-center justify-center px-1 gap-0.5"
-                 title={`${subj}\n${cls}`}>
-                <span className="text-xs font-extrabold leading-tight text-center w-full"
-                      style={{color:C_BG, wordBreak:'break-word', overflowWrap:'anywhere'}}>{subj}</span>
-                <span className="text-[11px] font-medium leading-tight text-center w-full text-slate-500"
-                      style={{wordBreak:'break-word', overflowWrap:'anywhere'}}>{cls}</span>
+            <div className="group/cell relative w-full h-full flex flex-col items-center justify-center px-0.5 gap-0.5 transition-all duration-200 hover:scale-[1.04] hover:shadow-sm rounded-md"
+                 style={{background: color.bg, border: `1px solid ${color.text}30`, minHeight:'52px'}}>
+                <span className="text-[10px] font-bold leading-tight text-center w-full px-0.5"
+                      style={{color: color.text, wordBreak:'break-word', overflowWrap:'anywhere'}}>{cls}</span>
+                <span className="text-[9px] font-medium leading-tight text-center w-full px-0.5 opacity-75"
+                      style={{color: color.text, wordBreak:'break-word', overflowWrap:'anywhere'}}>{subj}</span>
+                {/* Tooltip */}
+                <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 w-max max-w-[140px] bg-slate-800 text-white text-xs rounded-lg py-1.5 px-2.5 opacity-0 invisible group-hover/cell:opacity-100 group-hover/cell:visible transition-all duration-200 shadow-xl z-50 pointer-events-none print:hidden">
+                    <div className="font-bold text-center text-[11px]">{subj}</div>
+                    <div className="text-slate-300 text-center text-[10px]">{cls}</div>
+                    <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-slate-800"></div>
+                </div>
             </div>
         );
     };
 
     const renderClassCell = (classId: string, di: number, pi: number) => {
         const slot = classSlotMap.get(classId+'-'+ENGLISH_DAYS[di]+'-'+(pi+1));
-        if(!slot) return <div className="w-full h-full bg-slate-50/40"/>;
+        if(!slot) return null;
         const subj    = subjDisplay(slot.subjectId||'');
         const teacher = tName(slot.teacherId);
+        const color   = getPastelColor(subj);
         return (
-            <div className="w-full h-full flex flex-col items-center justify-center px-1 gap-0.5"
-                 title={`${subj}\n${teacher}`}>
-                <span className="text-xs font-extrabold leading-tight text-center w-full"
-                      style={{color:C_BG, wordBreak:'break-word', overflowWrap:'anywhere'}}>{subj}</span>
-                <span className="text-[11px] font-medium leading-tight text-center w-full text-slate-500"
-                      style={{wordBreak:'break-word', overflowWrap:'anywhere'}}>{teacher}</span>
+            <div className="group/cell relative w-full h-full flex flex-col items-center justify-center px-0.5 gap-0.5 transition-all duration-200 hover:scale-[1.04] hover:shadow-sm rounded-md"
+                 style={{background: color.bg, border: `1px solid ${color.text}30`, minHeight:'52px'}}>
+                <span className="text-[10px] font-bold leading-tight text-center w-full px-0.5"
+                      style={{color: color.text, wordBreak:'break-word', overflowWrap:'anywhere'}}>{subj}</span>
+                <span className="text-[9px] font-medium leading-tight text-center w-full px-0.5 opacity-75"
+                      style={{color: color.text, wordBreak:'break-word', overflowWrap:'anywhere'}}>{teacher}</span>
+                {/* Tooltip */}
+                <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 w-max max-w-[140px] bg-slate-800 text-white text-xs rounded-lg py-1.5 px-2.5 opacity-0 invisible group-hover/cell:opacity-100 group-hover/cell:visible transition-all duration-200 shadow-xl z-50 pointer-events-none print:hidden">
+                    <div className="font-bold text-center text-[11px]">{subj}</div>
+                    <div className="text-slate-300 text-center text-[10px]">{teacher}</div>
+                    <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-slate-800"></div>
+                </div>
             </div>
         );
     };
 
     /* ════════════════════════════════════════════════════
-       GENERAL TABLE
+       GENERAL TABLE  — Card-based modern redesign
     ════════════════════════════════════════════════════ */
     const renderGeneralTable = () => {
-
         const isWaiting  = type==='general_waiting';
         const isClasses  = type==='general_classes';
         const isTeachers = type==='general_teachers';
@@ -221,196 +246,274 @@ const InlineScheduleView: React.FC<InlineScheduleViewProps> = ({
             list.forEach((t,i)=>rows.push({serial:i+1,id:t.id,name:t.name,spec:getAbbrSpec(t.specializationId),quota1:isWaiting?tWQ(t):tLQ(t),quota2:isTeachers?tWQ(t):undefined}));
         }
 
-        /* Calculate waiting counts per period (for header) */
-        const periodWaitingCounts: number[][] = Array.from({length:ENGLISH_DAYS.length}, () => Array(MAX_PERIODS).fill(0));
+        /* waiting badge counts per period */
+        const periodWaitingCounts: number[][] = Array.from({length:ENGLISH_DAYS.length}, ()=>Array(MAX_PERIODS).fill(0));
         if((isTeachers || isWaiting) && showWaitingCounts){
-            teachers.forEach(t => {
-                ENGLISH_DAYS.forEach((d, di) => {
-                    for(let p=1; p<=MAX_PERIODS; p++){
-                         const s = timetable[`${t.id}-${d}-${p}`];
-                         if(s && (s.type === 'waiting' || (isWaiting && s.isSubstitution))) {
-                             periodWaitingCounts[di][p-1]++;
-                         }
+            teachers.forEach(t=>{
+                ENGLISH_DAYS.forEach((d,di)=>{
+                    for(let p=1;p<=MAX_PERIODS;p++){
+                        const s=timetable[`${t.id}-${d}-${p}`];
+                        if(s&&(s.type==='waiting'||(isWaiting&&s.isSubstitution))) periodWaitingCounts[di][p-1]++;
                     }
                 });
             });
         }
 
-        const ROW_H  = 60; // px per data row
+        /* gap background — shown as td background, inner div is the card */
+        const GAP_BG   = '#eef0f6';
+        const ROW_H    = 64;
+        const CELL_PAD = '2px'; // td padding → creates the visual gap
 
-        const thBase  = "border-b font-bold select-none";
-        const tdStick = "sticky bg-white font-medium text-sm";
-        
-        // White cells – strong dark separator after each day's last period
-        const periodStyle = (di:number, pi:number) => {
-             const isLastPeriod = pi === MAX_PERIODS - 1;
-             const hasSeparator = isLastPeriod && di < ENGLISH_DAYS.length - 1;
-             return {
-                 background: '#ffffff',
-                 borderTop:    '1px solid '+C_BORDER,
-                 borderBottom: '1px solid '+C_BORDER,
-                 borderLeft:  hasSeparator ? '3px solid '+C_DAY_SEP : '1px solid '+C_BORDER,
-                 borderRight: '1px solid '+C_BORDER,
-             };
+        /* ── period cell content ── */
+        const renderPeriodCell = (rowId: string, di: number, pi: number) => {
+            if(isClasses) {
+                const slot = classSlotMap.get(rowId+'-'+ENGLISH_DAYS[di]+'-'+(pi+1));
+                if(!slot) return (
+                    <div className="w-full h-full rounded-md flex items-center justify-center"
+                         style={{border:'1px dashed #dde1ea', background:'#f8f9fc', minHeight:'52px'}}>
+                        <span style={{color:'#c8cdd8', fontSize:'9px', fontWeight:700}}>—</span>
+                    </div>
+                );
+                return renderClassCell(rowId, di, pi);
+            } else {
+                const slot = timetable[rowId+'-'+ENGLISH_DAYS[di]+'-'+(pi+1)];
+                if(!slot) return (
+                    <div className="w-full h-full rounded-md flex items-center justify-center"
+                         style={{border:'1px dashed #dde1ea', background: isWaiting ? '#f8fafc' : '#f8f9fc', minHeight:'52px'}}>
+                        <span style={{color:'#c8cdd8', fontSize:'9px', fontWeight:700}}>—</span>
+                    </div>
+                );
+                if(isWaiting) {
+                    if(slot.type==='waiting'||slot.isSubstitution)
+                        return (
+                            <div className="w-full h-full rounded-md flex flex-col items-center justify-center gap-0.5 transition-all duration-200 hover:shadow-sm"
+                                 style={{background:'#fef3e8', border:'1px solid #fbd28a', minHeight:'52px'}}>
+                                <span className="rounded-full px-1.5 py-0.5 font-black"
+                                      style={{background:'#fef3c7', color:'#b45309', border:'1px solid #fcd34d', fontSize:'8px'}}>انتظار</span>
+                            </div>
+                        );
+                    return (
+                        <div className="w-full h-full rounded-md flex items-center justify-center"
+                             style={{border:'1px dashed #dde1ea', background:'#f8fafc', minHeight:'52px'}}>
+                            <span style={{color:'#c8cdd8', fontSize:'9px', fontWeight:700}}>—</span>
+                        </div>
+                    );
+                }
+                return renderTeacherCell(rowId, di, pi);
+            }
+        };
+
+        /* Design constants */
+        const DAY_DIVIDER = '#94a3b8'; // slate-400 gray — between days
+
+        /* th base style for info headers */
+        const thInfo: React.CSSProperties = {
+            background: C_BG,
+            color: '#fff',
+            fontWeight: 800,
+            fontSize: '13px',
+            textAlign: 'center',
+            verticalAlign: 'middle',
+            padding: '10px 6px',
+            position: 'sticky',
+            top: 0,
+            zIndex: 25,
+            borderBottom: `3px solid ${DAY_DIVIDER}`,
+            borderLeft: `1px solid rgba(0,0,0,0.12)`,
+        };
+        const thDay: React.CSSProperties = {
+            background: C_BG,
+            color: '#fff',
+            fontWeight: 900,
+            fontSize: '14px',
+            textAlign: 'center',
+            verticalAlign: 'middle',
+            padding: '10px 4px',
+            position: 'sticky',
+            top: 0,
+            zIndex: 20,
+            borderBottom: 0,
+            borderLeft: `3px solid ${DAY_DIVIDER}`,
+        };
+        const thPeriod: React.CSSProperties = {
+            background: C_BG_SOFT,
+            color: '#64748b',
+            fontWeight: 700,
+            fontSize: '12px',
+            textAlign: 'center',
+            verticalAlign: 'middle',
+            padding: '6px 2px',
+            position: 'sticky',
+            top: '41px',
+            zIndex: 20,
+            borderBottom: `3px solid ${DAY_DIVIDER}`,
+            borderLeft: `1px solid #dde1ea`,
         };
 
         return (
             <div className="w-full relative">
-                <div className="flex justify-end mb-2 gap-2 p-1">
-                     {(isTeachers || isWaiting) && (
-                        <button onClick={()=>setShowWaitingCounts(!showWaitingCounts)} 
-                            className="text-xs px-2 py-1 rounded bg-slate-100 hover:bg-slate-200 text-slate-600 transition-colors flex items-center gap-2">
-                             <div className={`w-3 h-3 rounded-full ${showWaitingCounts?'bg-[#8e85d6]':'bg-slate-300'}`}></div>
-                             {showWaitingCounts ? 'إخفاء عدد حصص الانتظار' : 'إظهار عدد حصص الانتظار'}
+                {/* Toolbar */}
+                <div className="flex justify-end mb-2 gap-2 px-1">
+                    {(isTeachers || isWaiting) && (
+                        <button onClick={()=>setShowWaitingCounts(!showWaitingCounts)}
+                            className="text-xs px-3 py-1.5 rounded-lg border transition-colors flex items-center gap-2 font-semibold"
+                            style={{background: showWaitingCounts ? '#f4f2ff' : '#f8fafc', color:'#655ac1', borderColor: showWaitingCounts ? '#c4bfee' : '#e2e8f0'}}>
+                            <div className={`w-2.5 h-2.5 rounded-full ${showWaitingCounts?'bg-[#8e85d6]':'bg-slate-300'}`}/>
+                            {showWaitingCounts ? 'إخفاء أعداد الانتظار' : 'إظهار أعداد الانتظار'}
                         </button>
-                     )}
-                </div>
-            <div style={{
-                border: '2px solid '+C_DAY_SEP,
-                borderRadius: '16px',
-                overflow: 'hidden',
-                boxShadow: '0 6px 28px rgba(165,155,240,0.22)'
-            }}>
-            <div className="w-full">
-              <table className="border-collapse" style={{borderSpacing:0, width:'100%', tableLayout:'fixed'}}>
-                <colgroup>
-                    <col style={{width:'3%'}}/>             {/* م */}
-                    <col style={{width:'10%'}}/>             {/* name */}
-                    {!isClasses && <col style={{width:'7%'}}/>}    {/* spec */}
-                    <col style={{width:'4%'}}/>             {/* quota1 */}
-                    {isTeachers && <col style={{width:'4%'}}/>}   {/* quota2 */}
-                    {ENGLISH_DAYS.flatMap((_,di)=>
-                        Array.from({length:MAX_PERIODS}).map((_,pi)=>(
-                            <col key={di+'-'+pi}/>
-                        ))
                     )}
-                </colgroup>
+                </div>
 
-                {/* ─── THEAD ─── */}
-                <thead>
-                    {/* Row 1: info cols + day names */}
-                    <tr>
-                        <th rowSpan={2} className={thBase} style={{background:C_BG,color:'#fff',borderRight:'1px solid '+C_BORDER,borderBottom:'2px solid '+C_DAY_SEP}}>م</th>
-                        <th rowSpan={2} className={thBase+" text-right pr-2"} style={{background:C_BG,color:'#fff',borderRight:'1px solid '+C_BORDER,borderBottom:'2px solid '+C_DAY_SEP}}>
-                            {isClasses?'اسم الفصل':'اسم المعلم'}
-                        </th>
-                        {!isClasses && (
-                            <th rowSpan={2} className={thBase} style={{background:C_BG,color:'#fff',borderRight:'1px solid '+C_BORDER,borderBottom:'2px solid '+C_DAY_SEP}}>التخصص</th>
-                        )}
-                        <th rowSpan={2} className={thBase+" text-xs leading-tight"}
-                            style={{background:C_BG,color:'#fff',borderRight:'2px solid '+C_DAY_SEP,borderBottom:'2px solid '+C_DAY_SEP}}>
-                            {isClasses?'الحصص':(isWaiting?'نصاب الانتظار':'نصاب الحصص')}
-                        </th>
-                        {isTeachers && (
-                            <th rowSpan={2} className={thBase+" text-xs leading-tight"} style={{background:C_BG,color:'#fff',borderRight:'1px solid '+C_BORDER,borderBottom:'2px solid '+C_DAY_SEP}}>نصاب الانتظار</th>
-                        )}
-                        {ARABIC_DAYS.map((day,di)=>(
-                            <th key={day} colSpan={MAX_PERIODS} className={thBase+" text-base py-2 text-center"}
-                                style={{
-                                    background: C_BG,
-                                    color: '#ffffff',
-                                    borderBottom: '0',
-                                    borderLeft:  di < ARABIC_DAYS.length-1 ? '3px solid '+C_DAY_SEP : '1px solid '+C_BORDER,
-                                    borderRight: '1px solid '+C_BORDER,
-                                }}>
-                                {day}
-                            </th>
-                        ))}
-                    </tr>
-                    {/* Row 2: period numbers */}
-                    <tr>
+                {/* Table wrapper */}
+                <div style={{borderRadius:'16px', overflow:'hidden', boxShadow:'0 4px 16px rgba(0,0,0,0.06)', background: GAP_BG}}>
+                <div className="overflow-x-auto">
+                <table style={{borderCollapse:'collapse', borderSpacing:0, width:'100%', tableLayout:'fixed'}}>
+                    <colgroup>
+                        <col style={{width:'3%'}}/>
+                        <col style={{width: isClasses ? '11%' : '10%'}}/>
+                        {!isClasses && <col style={{width:'7%'}}/>}
+                        <col style={{width:'4%'}}/>
+                        {isTeachers && <col style={{width:'4%'}}/>}
                         {ENGLISH_DAYS.flatMap((_,di)=>
                             Array.from({length:MAX_PERIODS}).map((_,pi)=>(
-                                <th key={di+'-'+pi}
-                                    className="text-center font-bold text-xs py-1 relative group"
-                                    style={{
-                                        background: C_BG_SOFT,
-                                        color: '#64748b',
-                                        borderBottom: '2px solid '+C_DAY_SEP,
-                                        borderTop: '1px solid '+C_BORDER,
-                                        borderLeft:  (pi===MAX_PERIODS-1 && di < ENGLISH_DAYS.length-1) ? '3px solid '+C_DAY_SEP : '1px solid '+C_BORDER,
-                                        borderRight: '1px solid '+C_BORDER,
-                                    }}>
-                                    <span>{pi+1}</span>
-                                    {showWaitingCounts && (isTeachers || isWaiting) && periodWaitingCounts[di][pi] > 0 && (
-                                        <div className="absolute top-0 right-0 -mt-2 -mr-1 bg-red-500 text-white text-[9px] rounded-full w-4 h-4 flex items-center justify-center shadow-sm z-10 border border-white">
-                                            {periodWaitingCounts[di][pi]}
-                                        </div>
-                                    )}
-                                </th>
+                                <col key={`c-${di}-${pi}`} style={{width: isTeachers?'2.06%': isWaiting?'2.17%':'2.37%'}}/>
                             ))
                         )}
-                    </tr>
-                </thead>
+                    </colgroup>
 
-                {/* ─── TBODY ─── */}
-                <tbody>
-                    {rows.length===0 ? (
-                        <tr><td colSpan={999} className="text-center p-10 text-slate-400 text-base font-medium">
-                            لا توجد بيانات — قم بإنشاء الجدول أولاً
-                        </td></tr>
-                    ) : rows.map((row,idx)=>{
-                        const rowBg = '#ffffff';
-                        return (
-                            <tr key={row.id} style={{minHeight:ROW_H+'px',background:rowBg}}>
-                                {/* serial */}
-                                <td className="text-center text-slate-500 text-xs font-bold"
-                                    style={{background:rowBg,borderTop:'1px solid '+C_BORDER,borderBottom:'1px solid '+C_BORDER,borderRight:'1px solid '+C_BORDER}}>
-                                    {row.serial}
+                    {/* ── THEAD ── */}
+                    <thead>
+                        {/* Row 1: info labels + day names */}
+                        <tr>
+                            <th rowSpan={2} style={thInfo}>م</th>
+                            <th rowSpan={2} style={{...thInfo, textAlign:'right', paddingRight:'10px'}}>
+                                {isClasses ? 'اسم الفصل' : 'اسم المعلم'}
+                            </th>
+                            {!isClasses && <th rowSpan={2} style={thInfo}>التخصص</th>}
+                            <th rowSpan={2} style={{...thInfo, lineHeight:'1.4'}}>
+                                <div>نصاب</div>
+                                <div style={{fontSize:'11px', opacity:0.85}}>{isClasses ? 'الحصص' : isWaiting ? 'الانتظار' : 'الحصص'}</div>
+                            </th>
+                            {isTeachers && <th rowSpan={2} style={{...thInfo, borderLeft:`3px solid ${DAY_DIVIDER}`, lineHeight:'1.4'}}>
+                                <div>نصاب</div>
+                                <div style={{fontSize:'11px', opacity:0.85}}>الانتظار</div>
+                            </th>}
+                            {ARABIC_DAYS.map((day,di)=>(
+                                <th key={day} colSpan={MAX_PERIODS} style={{...thDay, borderLeft: di===0 ? `1px solid rgba(0,0,0,0.12)` : `3px solid ${DAY_DIVIDER}`}}>
+                                    {day}
+                                </th>
+                            ))}
+                        </tr>
+                        {/* Row 2: period numbers */}
+                        <tr>
+                            {ENGLISH_DAYS.flatMap((_,di)=>
+                                Array.from({length:MAX_PERIODS}).map((_,pi)=>(
+                                    <th key={`h-${di}-${pi}`} style={{
+                                        ...thPeriod,
+                                        borderLeft: (pi===MAX_PERIODS-1 && di<ENGLISH_DAYS.length-1) ? `3px solid ${DAY_DIVIDER}` : `1px solid #dde1ea`,
+                                    }}>
+                                        <span className="relative inline-flex items-center justify-center font-black text-xs"
+                                              style={{color: C_BG}}>
+                                            {pi+1}
+                                            {showWaitingCounts && (isTeachers||isWaiting) && periodWaitingCounts[di][pi] > 0 && (
+                                                <span className="absolute -top-1.5 -right-1.5 bg-red-500 text-white rounded-full flex items-center justify-center border border-white"
+                                                      style={{fontSize:'8px', width:'14px', height:'14px', lineHeight:1}}>
+                                                    {periodWaitingCounts[di][pi]}
+                                                </span>
+                                            )}
+                                        </span>
+                                    </th>
+                                ))
+                            )}
+                        </tr>
+                    </thead>
+
+                    {/* ── TBODY ── */}
+                    <tbody style={{background: GAP_BG}}>
+                        {rows.length===0 ? (
+                            <tr>
+                                <td colSpan={999} style={{textAlign:'center', padding:'40px', color:'#94a3b8', fontSize:'15px', fontWeight:600, background:'#fff'}}>
+                                    لا توجد بيانات — قم بإنشاء الجدول أولاً
                                 </td>
-                                {/* name */}
-                                <td className="text-right pr-2 text-slate-800 font-bold"
-                                    style={{background:rowBg,borderTop:'1px solid '+C_BORDER,borderBottom:'1px solid '+C_BORDER,borderRight:'1px solid '+C_BORDER}}
-                                    title={row.name}>
-                                    <span className="block truncate text-sm" dir={isClasses ? 'ltr' : 'auto'}>{row.name}</span>
-                                </td>
-                                {/* spec */}
-                                {!isClasses && (
-                                    <td className="text-center text-slate-600 text-xs"
-                                        style={{background:rowBg,borderTop:'1px solid '+C_BORDER,borderBottom:'1px solid '+C_BORDER,borderRight:'1px solid '+C_BORDER}}
-                                        title={row.spec}>
-                                        <span className="block truncate px-1">{row.spec}</span>
-                                    </td>
-                                )}
-                                {/* quota1 */}
-                                <td className="text-center font-bold text-sm"
-                                    style={{color:'#64748b',background:rowBg,
-                                        borderTop:'1px solid '+C_BORDER,borderBottom:'1px solid '+C_BORDER,borderRight:'2px solid '+C_DAY_SEP}}>
-                                    {row.quota1}
-                                </td>
-                                {/* quota2 (teachers only) */}
-                                {isTeachers && (
-                                    <td className="text-center font-bold text-sm"
-                                        style={{color:'#64748b',background:rowBg,
-                                            borderTop:'1px solid '+C_BORDER,borderBottom:'1px solid '+C_BORDER,borderRight:'1px solid '+C_BORDER}}>
-                                        {row.quota2}
-                                    </td>
-                                )}
-                                {/* period cells */}
-                                {ENGLISH_DAYS.flatMap((_,di)=>
-                                    Array.from({length:MAX_PERIODS}).map((_,pi)=>(
-                                        <td key={di+'-'+pi}
-                                            className="relative"
-                                            style={{
-                                                height:ROW_H+'px',
-                                                padding:'4px 2px',
-                                                verticalAlign:'middle',
-                                                borderTop:'1px solid #e2e8f0',
-                                                borderBottom:'1px solid #e2e8f0',
-                                                ...periodStyle(di, pi)
-                                            }}>
-                                            {isClasses ? renderClassCell(row.id,di,pi) : renderTeacherCell(row.id,di,pi)}
-                                        </td>
-                                    ))
-                                )}
                             </tr>
-                        );
-                    })}
-                </tbody>
-              </table>
+                        ) : rows.map((row)=>{
+                            /* info card shared style */
+                            const infoCardBase: React.CSSProperties = {
+                                borderRadius:'8px',
+                                background:'#fff',
+                                border:'1px solid #e8eaf2',
+                                padding:'4px 6px',
+                                height: `${ROW_H - 6}px`,
+                                display:'flex',
+                                alignItems:'center',
+                                justifyContent:'center',
+                                transition:'background 0.2s, border-color 0.2s',
+                                boxShadow:'0 1px 3px rgba(0,0,0,0.04)',
+                            };
+                            return (
+                                <tr key={row.id} className="group/row">
+                                    {/* serial */}
+                                    <td style={{padding:CELL_PAD, background: GAP_BG, verticalAlign:'middle'}}>
+                                        <div className="group-hover/row:bg-indigo-50 group-hover/row:border-indigo-200 transition-all duration-200"
+                                             style={{...infoCardBase, justifyContent:'center'}}>
+                                            <span style={{color:'#94a3b8', fontSize:'11px', fontWeight:700}}>{row.serial}</span>
+                                        </div>
+                                    </td>
+                                    {/* name */}
+                                    <td style={{padding:CELL_PAD, background: GAP_BG, verticalAlign:'middle'}}>
+                                        <div className="group-hover/row:bg-indigo-50 group-hover/row:border-indigo-200 transition-all duration-200"
+                                             style={{...infoCardBase, justifyContent:'flex-start', paddingRight:'8px', paddingLeft:'4px'}} title={row.name}>
+                                            <span style={{color:'#1e293b', fontSize:'12px', fontWeight:800, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', direction:'rtl', textAlign:'right', width:'100%'}}>{row.name}</span>
+                                        </div>
+                                    </td>
+                                    {/* spec */}
+                                    {!isClasses && (
+                                        <td style={{padding:CELL_PAD, background: GAP_BG, verticalAlign:'middle'}}>
+                                            <div className="group-hover/row:bg-indigo-50 group-hover/row:border-indigo-200 transition-all duration-200"
+                                                 style={{...infoCardBase}} title={row.spec}>
+                                                <span style={{color:'#64748b', fontSize:'10px', fontWeight:600, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>{row.spec}</span>
+                                            </div>
+                                        </td>
+                                    )}
+                                    {/* quota1 */}
+                                    <td style={{padding:CELL_PAD, background: GAP_BG, verticalAlign:'middle'}}>
+                                        <div className="group-hover/row:bg-indigo-50 group-hover/row:border-indigo-200 transition-all duration-200"
+                                             style={{...infoCardBase}}>
+                                            <span style={{color: C_BG, fontSize:'14px', fontWeight:900}}>{row.quota1}</span>
+                                        </div>
+                                    </td>
+                                    {/* quota2 teachers only */}
+                                    {isTeachers && (
+                                        <td style={{padding:CELL_PAD, background: GAP_BG, verticalAlign:'middle'}}>
+                                            <div className="group-hover/row:bg-amber-50 group-hover/row:border-amber-200 transition-all duration-200"
+                                                 style={{...infoCardBase, borderColor:'#fde68a', background:'#fffbeb'}}>
+                                                <span style={{color:'#b45309', fontSize:'14px', fontWeight:900}}>{row.quota2}</span>
+                                            </div>
+                                        </td>
+                                    )}
+                                    {/* period cells */}
+                                    {ENGLISH_DAYS.flatMap((_,di)=>
+                                        Array.from({length:MAX_PERIODS}).map((_,pi)=>(
+                                            <td key={`${di}-${pi}`}
+                                                style={{
+                                                    padding: CELL_PAD,
+                                                    background: GAP_BG,
+                                                    verticalAlign:'middle',
+                                                    height:`${ROW_H}px`,
+                                                    borderLeft: (pi===MAX_PERIODS-1 && di<ENGLISH_DAYS.length-1) ? `3px solid ${DAY_DIVIDER}` : undefined,
+                                                }}>
+                                                {renderPeriodCell(row.id, di, pi)}
+                                            </td>
+                                        ))
+                                    )}
+                                </tr>
+                            );
+                        })}
+                    </tbody>
+                </table>
+                </div>
+                </div>
             </div>
-            </div>
-          </div>
         );
     };
 
@@ -428,7 +531,7 @@ const InlineScheduleView: React.FC<InlineScheduleViewProps> = ({
                 {/* ── Info Card Header ── */}
                 <div className="rounded-2xl p-5 mb-5 relative overflow-hidden"
                     style={{
-                        background:'linear-gradient(135deg, #5b50b8 0%, #7c6dd6 60%, #655ac1 100%)',
+                        background: C_BG,
                         boxShadow:'0 10px 30px rgba(101,90,193,0.35)'
                     }}>
                     <div className="relative flex items-center gap-5 flex-wrap">
@@ -437,7 +540,7 @@ const InlineScheduleView: React.FC<InlineScheduleViewProps> = ({
                             <div className="text-white/70 text-xs font-semibold mb-0.5">
                                 {isTeacher ? 'المعلم' : 'الفصل'}
                             </div>
-                            <div className="text-white font-black text-xl leading-tight truncate" dir="ltr" style={{textAlign:'right'}}>
+                            <div className="text-white font-black text-2xl leading-tight truncate" dir="ltr" style={{textAlign:'right'}}>
                                 {isTeacher ? (teacher?.name||'—') : (cls?.name || (cls ? `${cls.grade}/${cls.section}` : '—'))}
                             </div>
                             {isTeacher && teacher && (
@@ -453,14 +556,14 @@ const InlineScheduleView: React.FC<InlineScheduleViewProps> = ({
                                 <span className="text-white/60 text-[10px] font-semibold leading-none mb-1">
                                     {isTeacher ? 'نصاب الحصص' : 'عدد الحصص'}
                                 </span>
-                                <span className="text-white font-black text-xl leading-none">
+                                <span className="text-white font-black text-2xl leading-none">
                                     {isTeacher ? (teacher ? tLQ(teacher) : 0) : (classLessonCount.get(targetId||'')||0)}
                                 </span>
                             </div>
                             {isTeacher && (
                                 <div className="flex flex-col items-center px-4 py-2 rounded-xl bg-white/15 border border-white/20 backdrop-blur-sm min-w-[68px]">
                                     <span className="text-white/60 text-[10px] font-semibold leading-none mb-1">نصاب الانتظار</span>
-                                    <span className="text-white font-black text-xl leading-none">{teacher ? tWQ(teacher) : 0}</span>
+                                    <span className="text-white font-black text-2xl leading-none">{teacher ? tWQ(teacher) : 0}</span>
                                 </div>
                             )}
                         </div>
@@ -475,28 +578,28 @@ const InlineScheduleView: React.FC<InlineScheduleViewProps> = ({
                         <thead>
                             <tr>
                                 {/* Day column header */}
-                                <th className="py-3 px-4 font-black text-sm text-center sticky right-0 z-10"
+                                <th className="py-3 px-4 font-black text-base text-center"
                                     style={{
                                         minWidth:'90px',
-                                        background:'linear-gradient(135deg,#655ac1,#7c6dd6)',
+                                        background:C_BG,
                                         color:'#fff',
-                                        borderBottom:'2px solid #5b50b8',
-                                        borderLeft:'2px solid #5b50b8'
+                                        borderBottom:'2px solid '+C_DAY_SEP,
+                                        borderLeft:'2px solid '+C_DAY_SEP
                                     }}>
                                     اليوم
                                 </th>
                                 {/* Period number headers */}
                                 {Array.from({length:MAX_PERIODS}).map((_,i)=>(
-                                    <th key={i} className="py-3 px-2 font-bold text-sm text-center"
+                                    <th key={i} className="py-3 px-2 font-bold text-base text-center"
                                         style={{
                                             minWidth:'110px',
-                                            background:'#f4f2ff',
-                                            color:'#655ac1',
-                                            borderBottom:'2px solid #5b50b8',
-                                            borderLeft:'1px solid #e0dcfb'
+                                            background:C_BG_SOFT,
+                                            color:'#64748b',
+                                            borderBottom:'2px solid '+C_DAY_SEP,
+                                            borderLeft:'1px solid '+C_BORDER
                                         }}>
-                                        <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-white border-2 font-black text-sm shadow-sm"
-                                              style={{borderColor:'#a59bf0', color:'#655ac1'}}>
+                                        <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-white border-2 font-black text-base shadow-sm"
+                                              style={{borderColor:C_DAY_SEP, color:'#64748b'}}>
                                             {i+1}
                                         </span>
                                     </th>
@@ -509,14 +612,14 @@ const InlineScheduleView: React.FC<InlineScheduleViewProps> = ({
                                 return (
                                 <tr key={day}>
                                     {/* Day label cell */}
-                                    <td className="py-3 px-3 font-black text-sm text-center sticky right-0 z-10"
+                                    <td className="py-3 px-3 font-black text-base text-center sticky right-0 z-10 shadow-[inset_1px_0_0_rgba(148,163,184,1)]"
                                         style={{
                                             minWidth:'90px',
                                             height:'76px',
-                                            background: isEvenRow ? '#f4f2ff' : '#ece9ff',
-                                            color:'#655ac1',
-                                            borderLeft:'2px solid #c4bcf7',
-                                            borderBottom:'1px solid #e0dcfb'
+                                            background: isEvenRow ? '#f8fafc' : '#f1f5f9',
+                                            color:'#475569',
+                                            borderLeft:'2px solid '+C_DAY_SEP,
+                                            borderBottom:'1px solid '+C_BORDER
                                         }}>
                                         {day}
                                     </td>
@@ -526,62 +629,74 @@ const InlineScheduleView: React.FC<InlineScheduleViewProps> = ({
                                             ? timetable[targetId+'-'+ENGLISH_DAYS[di]+'-'+(pi+1)]
                                             : classSlotMap.get(targetId+'-'+ENGLISH_DAYS[di]+'-'+(pi+1));
                                         const isWaiting = isTeacher && slot && (slot.type==='waiting'||slot.isSubstitution);
+                                        
+                                        let cellContent = null;
+                                        if (!slot) {
+                                            cellContent = (
+                                                <div className="w-full h-full rounded-xl border-2 border-dashed flex items-center justify-center"
+                                                     style={{borderColor:'#e2e8f0', background:'transparent', minHeight:'56px'}}>
+                                                    <span className="text-[10px] font-bold" style={{color:'#cbd5e1'}}>—</span>
+                                                </div>
+                                            );
+                                        } else if (isWaiting) {
+                                            cellContent = (
+                                                <div className="w-full h-full rounded-xl border flex flex-col items-center justify-center px-2 gap-1"
+                                                     style={{background:'#fff8ee', borderColor:'#fbd28a', minHeight:'56px'}}>
+                                                    <span className="px-2 py-0.5 rounded-full text-[9px] font-black"
+                                                          style={{background:'#fef3c7', color:'#b45309', border:'1px solid #fcd34d'}}>
+                                                        انتظار
+                                                    </span>
+                                                    <span className="font-black text-sm leading-tight text-center" style={{color:'#92400e'}}>
+                                                        {cName(slot.classId||'')}
+                                                    </span>
+                                                    {slot.subjectId && (
+                                                        <span className="text-xs font-medium leading-tight text-center" style={{color:'#b45309'}}>
+                                                            {subjName(slot.subjectId)}
+                                                        </span>
+                                                    )}
+                                                </div>
+                                            );
+                                        } else {
+                                            const subj = subjDisplay(slot.subjectId||'');
+                                            const color = getPastelColor(subj);
+                                            cellContent = (
+                                                <div className="w-full h-full rounded-xl border flex flex-col items-center justify-center px-2 gap-1 transition-all duration-300 hover:scale-105 hover:shadow-md group"
+                                                     style={{background: color.bg, borderColor: color.text + '40', minHeight:'56px', cursor:'default'}}>
+                                                    {isTeacher ? (<>
+                                                        <span className="font-black text-base leading-tight text-center w-full truncate"
+                                                              style={{color: color.text}} title={cName(slot.classId||'')}>
+                                                            {cName(slot.classId||'')}
+                                                        </span>
+                                                        <span className="text-[13px] font-semibold leading-tight text-center w-full truncate opacity-80"
+                                                              style={{color: color.text}} title={subjName(slot.subjectId||'')}>
+                                                            {subj}
+                                                        </span>
+                                                    </>) : (<>
+                                                        <span className="font-black text-base leading-tight text-center w-full truncate"
+                                                              style={{color: color.text}} title={subjName(slot.subjectId||'')}>
+                                                            {subj}
+                                                        </span>
+                                                        <span className="text-[13px] font-semibold leading-tight text-center w-full truncate opacity-80"
+                                                              style={{color: color.text}} title={tName(slot.teacherId)}>
+                                                            {tName(slot.teacherId)}
+                                                        </span>
+                                                    </>)}
+                                                </div>
+                                            );
+                                        }
+
                                         return (
                                             <td key={pi}
                                                 style={{
                                                     height:'76px',
                                                     minWidth:'110px',
-                                                    background: isEvenRow ? '#fafafe' : '#f7f6ff',
-                                                    borderLeft:'1px solid #e0dcfb',
-                                                    borderBottom:'1px solid #e0dcfb',
+                                                    background: isEvenRow ? '#ffffff' : '#f8fafc',
+                                                    borderLeft:'1px solid '+C_BORDER,
+                                                    borderBottom:'1px solid '+C_BORDER,
                                                     padding:'6px 5px',
                                                     verticalAlign:'middle'
                                                 }}>
-                                                {!slot ? (
-                                                    <div className="w-full h-full rounded-xl border-2 border-dashed flex items-center justify-center"
-                                                         style={{borderColor:'#d1cdf4', background:'transparent', minHeight:'56px'}}>
-                                                        <span className="text-[10px] font-bold" style={{color:'#c4bcf7'}}>—</span>
-                                                    </div>
-                                                ) : isWaiting ? (
-                                                    <div className="w-full h-full rounded-xl border flex flex-col items-center justify-center px-2 gap-1"
-                                                         style={{background:'#fff8ee', borderColor:'#fbd28a', minHeight:'56px'}}>
-                                                        <span className="px-2 py-0.5 rounded-full text-[9px] font-black"
-                                                              style={{background:'#fef3c7', color:'#b45309', border:'1px solid #fcd34d'}}>
-                                                            انتظار
-                                                        </span>
-                                                        <span className="font-black text-xs leading-tight text-center" style={{color:'#92400e'}}>
-                                                            {cName(slot.classId||'')}
-                                                        </span>
-                                                        {slot.subjectId && (
-                                                            <span className="text-[10px] font-medium leading-tight text-center" style={{color:'#b45309'}}>
-                                                                {subjName(slot.subjectId)}
-                                                            </span>
-                                                        )}
-                                                    </div>
-                                                ) : (
-                                                    <div className="w-full h-full rounded-xl border flex flex-col items-center justify-center px-2 gap-1 transition-shadow hover:shadow-md group"
-                                                         style={{background:'#f0edff', borderColor:'#c4bcf7', minHeight:'56px', cursor:'default'}}>
-                                                        {isTeacher ? (<>
-                                                            <span className="font-black text-sm leading-tight text-center w-full truncate"
-                                                                  style={{color:'#4f46e5'}} title={cName(slot.classId||'')}>
-                                                                {cName(slot.classId||'')}
-                                                            </span>
-                                                            <span className="text-[11px] font-semibold leading-tight text-center w-full truncate"
-                                                                  style={{color:'#7c6dd6'}} title={subjName(slot.subjectId||'')}>
-                                                                {subjDisplay(slot.subjectId||'')}
-                                                            </span>
-                                                        </>) : (<>
-                                                            <span className="font-black text-sm leading-tight text-center w-full truncate"
-                                                                  style={{color:'#4f46e5'}} title={subjName(slot.subjectId||'')}>
-                                                                {subjDisplay(slot.subjectId||'')}
-                                                            </span>
-                                                            <span className="text-[11px] font-semibold leading-tight text-center w-full truncate"
-                                                                  style={{color:'#7c6dd6'}} title={tName(slot.teacherId)}>
-                                                                {tName(slot.teacherId)}
-                                                            </span>
-                                                        </>)}
-                                                    </div>
-                                                )}
+                                                {cellContent}
                                             </td>
                                         );
                                     })}
@@ -599,67 +714,59 @@ const InlineScheduleView: React.FC<InlineScheduleViewProps> = ({
     /* ════════════════════════════════════════════════════
        WRAPPER
     ════════════════════════════════════════════════════ */
-    // Helper to close full screen
     const handleCloseFullScreen = () => setIsFullScreen(false);
 
-    // If full screen, we render slightly differently to accommodate the "Back" button nicely
     if (isFullScreen && isGeneral) {
         return (
-             <div className="fixed inset-0 z-[200] bg-slate-100 items-start justify-center overflow-auto p-4" style={{direction:'rtl'}}>
-                <div className="bg-white rounded-xl shadow-2xl min-h-full p-4 relative">
-                    {/* Full Screen Header */}
-                    <div className="flex items-center justify-between mb-6 border-b border-slate-100 pb-4">
-                        <h2 className="text-2xl font-black text-slate-800">{titleMap[type]}</h2>
-                        <button 
-                            onClick={handleCloseFullScreen}
-                            className="flex items-center gap-2 px-4 py-2 bg-red-50 text-red-600 hover:bg-red-100 rounded-lg font-bold transition-colors">
-                            <Minimize2 size={18}/>
+            <div className="fixed inset-0 z-[200] bg-slate-100 flex flex-col overflow-hidden" style={{direction:'rtl'}}>
+                {/* Top bar */}
+                <div className="bg-white shadow-md px-5 py-3 flex items-center justify-between shrink-0 z-50 print:hidden">
+                    <h2 className="text-xl font-black text-slate-800">{titleMap[type]}</h2>
+                    <div className="flex items-center gap-3">
+                        {/* Print button — available for all general views in fullscreen */}
+                        <button onClick={()=>window.print()}
+                            className="flex items-center gap-2 px-4 py-2 rounded-lg font-bold text-sm border transition-all"
+                            style={{background:'#f0fdf4', color:'#15803d', borderColor:'#bbf7d0'}}>
+                            🖨 طباعة
+                        </button>
+                        <button onClick={handleCloseFullScreen}
+                            className="flex items-center gap-2 px-4 py-2 bg-red-50 text-red-600 hover:bg-red-100 rounded-lg font-bold text-sm border border-red-100 transition-colors">
+                            <Minimize2 size={16}/>
                             <span>رجوع</span>
                         </button>
                     </div>
-                    
-                    {/* Render Table */}
-                    {renderGeneralTable()}
                 </div>
-             </div>
+                <div className="flex-1 overflow-auto p-4">
+                    <div className="bg-white rounded-xl shadow-xl min-h-full p-4">
+                        {renderGeneralTable()}
+                    </div>
+                </div>
+            </div>
         );
     }
 
     return (
         <div className="bg-white font-sans w-full relative p-2" style={{direction:'rtl'}}>
-            {/* Preview mode controls */}
-            <div className="mb-3 flex items-center gap-2 flex-wrap">
-                {!isPreviewMode && (
-                    <button onClick={()=>setIsPreviewMode(true)}
-                        className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold transition-all hover:scale-105"
-                        style={{background:'#f4f2ff', color:C_BG, border:'1.5px dashed '+C_BG}}>
-                        <span style={{fontSize:'16px'}}>👁</span>
-                        معاينة التصميم ببيانات تجريبية
-                    </button>
-                )}
-                {isPreviewMode && (
-                    <div className="flex items-center gap-3 px-4 py-2 rounded-xl text-sm font-bold"
-                         style={{background:'#fef9c3', color:'#92400e', border:'1.5px dashed #fbbf24'}}>
-                        <span style={{fontSize:'16px'}}>👁</span>
-                        <span>بيانات تجريبية — للمعاينة فقط</span>
-                        <button onClick={()=>setIsPreviewMode(false)}
-                            className="mr-2 px-2 py-0.5 rounded-lg text-xs font-bold bg-amber-200 hover:bg-amber-300 text-amber-900 transition-colors">
-                            إخفاء
+            {/* Inline Header — general views only */}
+            {isGeneral && (
+                <div className="flex items-center justify-between mb-4 bg-slate-50 p-4 rounded-xl border border-slate-200 print:hidden">
+                    <div className="text-right flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-lg bg-[#e5e1fe] text-[#655ac1] flex items-center justify-center">
+                            <span className="font-black text-lg">ج</span>
+                        </div>
+                        <div>
+                            <h2 className="text-lg font-black text-slate-800">{titleMap[type]}</h2>
+                            <p className="text-xs text-slate-500 font-bold mt-0.5">عرض وتعديل الجدول العام</p>
+                        </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                        <button onClick={()=>setIsFullScreen(true)}
+                            className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 hover:text-[#655ac1] hover:border-[#655ac1] rounded-lg font-bold text-sm transition-all shadow-sm"
+                            title="تكبير الشاشة">
+                            <Maximize2 size={16}/>
+                            <span>تكبير الشاشة</span>
                         </button>
                     </div>
-                )}
-            </div>
-            {/* Inline Header — only for general views; individual has its own card */}
-            {isGeneral && (
-                <div className="flex items-center justify-between mb-4">
-                    <div className="text-right">
-                        <h2 className="text-lg font-black text-slate-800">{titleMap[type]}</h2>
-                    </div>
-                    <button onClick={()=>setIsFullScreen(true)}
-                        className="p-2 text-slate-400 hover:text-slate-600 transition-colors"
-                        title="ملء الشاشة">
-                        <Maximize2 size={20}/>
-                    </button>
                 </div>
             )}
             {/* Table */}
