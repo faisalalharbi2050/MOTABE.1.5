@@ -153,10 +153,16 @@ const GeneralSettingsWizard: React.FC<WizardProps> = ({
            
            <div className="flex items-center gap-4">
                 {/* Auto-save Indicator Removed */}
-                {/* <div className="flex items-center gap-2 px-4 py-2 bg-emerald-50 text-emerald-600 rounded-xl border border-emerald-100">
-                    <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
-                    <span className="text-xs font-bold">يتم الحفظ تلقائياً</span>
-                </div> */}
+
+               {schoolInfo.isWizardCompleted && (
+                   <button
+                       onClick={() => setSchoolInfo(prev => ({ ...prev, isWizardCompleted: false }))}
+                       className="flex items-center gap-2 px-3 py-2 bg-rose-50 hover:bg-rose-500 text-rose-500 hover:text-white border border-rose-200 hover:border-rose-500 rounded-xl text-xs font-black transition-all group shadow-sm"
+                   >
+                       <RotateCcw size={15} className="group-hover:rotate-180 transition-transform duration-500" />
+                       إعادة الضبط
+                   </button>
+               )}
 
                <div className="bg-slate-50 px-5 py-2.5 rounded-2xl border border-slate-100 flex items-center gap-3">
                    <div className="text-xs font-bold text-slate-500">نسبة الإكمال</div>
@@ -178,18 +184,6 @@ const GeneralSettingsWizard: React.FC<WizardProps> = ({
             ></div>
 
             <div className="relative z-10 flex justify-between items-center w-full gap-4">
-                {schoolInfo.isWizardCompleted && (
-                    <button 
-                        onClick={() => setSchoolInfo(prev => ({ ...prev, isWizardCompleted: false }))}
-                        className="flex flex-col items-center gap-2 group transition-all -mr-4"
-                    >
-                        <div className="w-12 h-12 rounded-2xl flex items-center justify-center bg-rose-50 text-rose-500 border border-rose-100 group-hover:bg-rose-500 group-hover:text-white transition-all shadow-md">
-                            <RotateCcw size={20} />
-                        </div>
-                        <span className="text-[10px] font-bold text-rose-500 group-hover:text-rose-600">إعادة الضبط</span>
-                    </button>
-                )}
-
                 {steps.map((step) => {
                     const isActive = step.id === currentStep;
                     const isCompleted = step.id < currentStep || schoolInfo.isWizardCompleted;
