@@ -1,8 +1,5 @@
 import { Phase, Specialization, Subject } from "./types";
-import { excel_elementary_general_grade1 } from './excel_templates';
-import { GENERATED_TEMPLATES } from "./generated_templates_final";
-import { EXCEL_1447_HIGH_TEMPLATES } from './excel_templates_high_school';
-import { MISSING_TEMPLATES } from './study_plan_data_missing';
+import { STUDY_PLANS } from './study_plans';
 
 export const INITIAL_SPECIALIZATIONS: Specialization[] = [
   { id: "1", name: "الدراسات الإسلامية" },
@@ -33,8 +30,7 @@ export const INITIAL_SPECIALIZATIONS: Specialization[] = [
 ];
 
 export const DETAILED_TEMPLATES: Record<string, Subject[]> = {
-  ...GENERATED_TEMPLATES,
-  ...MISSING_TEMPLATES,
+  ...STUDY_PLANS,
 };
 
 // دالة مساعدة لجمع جميع المواد من DETAILED_TEMPLATES

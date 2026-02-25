@@ -192,7 +192,7 @@ export interface Subject {
   periodsPerClass: number;
   phases: Phase[];
   targetGrades?: number[]; // مخصص للمرحلة الثانوية والصفوف المحددة (1, 2, 3...)
-  department?: 'عام' | 'تحفيظ' | 'آخر' | 'مشترك' | 'حاسب وهندسة' | 'صحة وحياة' | 'إدارة أعمال' | 'شرعي' | 'custom'; // القسم التابع له المادة
+  department?: 'عام' | 'تحفيظ' | 'آخر' | 'مشترك' | 'حاسب وهندسة' | 'صحة وحياة' | 'إدارة أعمال' | 'شرعي' | 'custom' | string; // القسم التابع له المادة
   customPhaseName?: string; // اسم المرحلة المخصصة (عند اختيار "أخرى")
   customDepartmentName?: string; // اسم القسم المخصص (عند اختيار "أخرى" أو "آخر")
   customPlanName?: string; // اسم الخطة المخصصة (للمواد المضافة يدوياً كخطة)

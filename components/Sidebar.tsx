@@ -19,7 +19,7 @@ import {
   School,
   BookOpen,
   LayoutGrid,
-  Users
+  Users,
 } from "lucide-react";
 
 interface SidebarProps {

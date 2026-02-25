@@ -101,21 +101,25 @@ const Step3Subjects: React.FC<Props> = ({ subjects, setSubjects, schoolInfo, gra
 // ... (rest of helper functions)
 
   const getGradesForPhase = (phase: Phase) => {
+      if (phase === Phase.KINDERGARTEN) return [1, 2];
       if (phase === Phase.ELEMENTARY) return [1, 2, 3, 4, 5, 6];
       if (phase === Phase.MIDDLE) return [1, 2, 3];
       if (phase === Phase.HIGH) return [1, 2, 3];
-      if (phase === Phase.OTHER) return [1]; 
+      if (phase === Phase.OTHER) return [1];
       return [];
   };
 
   const getGradeName = (phase: Phase, grade: number) => {
+      if (phase === Phase.KINDERGARTEN) {
+          return grade === 1 ? 'الحضانة - المستوى الأول' : 'رياض أطفال - المستوى الثاني';
+      }
       const names = ['الأول', 'الثاني', 'الثالث', 'الرابع', 'الخامس', 'السادس'];
       return `الصف ${names[grade - 1] || grade}`;
   };
 
   // --- Actions ---
 
-  const handleApprovePlan = (phase: Phase, departmentId: string, planKeys: string[]) => {
+  const handleApprovePlan = (phase: Phase, departmentId: string, planKeys: string[], periodsOverride?: Record<string, number>) => {
       const newSubjects: Subject[] = [];
       const newMapUpdates: Record<string, string[]> = {};
 
@@ -123,24 +127,43 @@ const Step3Subjects: React.FC<Props> = ({ subjects, setSubjects, schoolInfo, gra
           const templates = DETAILED_TEMPLATES[key] || [];
           // Add subjects
           templates.forEach(t => {
+             const subject = periodsOverride?.[t.id] !== undefined
+               ? { ...t, periodsPerClass: periodsOverride[t.id] }
+               : t;
              // Check if subject exists (by ID) to avoid duplicates
              if (!subjects.find(s => s.id === t.id) && !newSubjects.find(s => s.id === t.id)) {
-                 newSubjects.push(t);
+                 newSubjects.push(subject);
              }
           });
 
-          // Update Map
+          // Update Map – detect grade from plan key
           let grade = 0;
-          if (key.includes('grade_1') || key.includes('الصف_الأول')) grade = 1;
-          else if (key.includes('grade_2') || key.includes('الصف_الثاني')) grade = 2;
-          else if (key.includes('grade_3') || key.includes('الصف_الثالث')) grade = 3;
-          else if (key.includes('grade_4') || key.includes('الصف_الرابع')) grade = 4;
-          else if (key.includes('grade_5') || key.includes('الصف_الخامس')) grade = 5;
-          else if (key.includes('grade_6') || key.includes('الصف_السادس')) grade = 6;
-          
+          const gradeAR: Record<string, number> = { 'الأول': 1, 'الثاني': 2, 'الثالث': 3, 'الرابع': 4, 'الخامس': 5, 'السادس': 6 };
+
+          // HS: _الأول|الثاني|الثالث_الثانوي
+          const hsM = key.match(/_(الأول|الثاني|الثالث)_الثانوي/);
+          if (hsM) {
+            grade = gradeAR[hsM[1]] ?? 0;
+          } else {
+            // Middle: _الأول|الثاني|الثالث_المتوسط
+            const midM = key.match(/_(الأول|الثاني|الثالث)_المتوسط/);
+            if (midM) {
+              grade = gradeAR[midM[1]] ?? 0;
+            } else {
+              // Elementary / other: search grade words from largest to smallest
+              const gradeOrder: [string, number][] = [
+                ['السادس', 6], ['الخامس', 5], ['الرابع', 4],
+                ['الثالث', 3], ['الثاني', 2], ['الأول', 1]
+              ];
+              for (const [word, num] of gradeOrder) {
+                if (key.includes(word)) { grade = num; break; }
+              }
+            }
+          }
+          // Numeric fallback
           if (grade === 0) {
-             const match = key.match(/grade_(\d+)/) || key.match(/_(\d+)/);
-             if (match) grade = parseInt(match[1]);
+            const nm = key.match(/grade_(\d+)/);
+            if (nm) grade = parseInt(nm[1]);
           }
 
           if (grade > 0) {

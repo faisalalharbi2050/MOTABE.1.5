@@ -215,7 +215,6 @@ const App: React.FC = () => {
       case 'permissions': return <Permissions />;
       case 'subscription': return <Subscription />;
       case 'support': return <Support />;
-
       default: return (
         <GeneralSettingsWizard 
             schoolInfo={schoolInfo} 
