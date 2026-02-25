@@ -1,11 +1,11 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState } from 'react';
 import { Phase, Subject } from '../../../types';
-import { X, Plus, Edit2, Check, Copy, Trash2, BookOpen } from 'lucide-react';
+import { X, Plus, Edit2, Check, Trash2, BookOpen, RotateCcw, AlertTriangle } from 'lucide-react';
 
 interface GradeDetailsModalProps {
-  gradeKey: string; // Format: "phase-gradeNumber" e.g., "الابتدائية-1"
-  gradeName: string; // Display name e.g., "الصف الأول"
-  department: string; // "عام" or "تحفيظ"
+  gradeKey: string;
+  gradeName: string;
+  department: string;
   phase: Phase;
   subjects: Subject[];
   allSubjects: Subject[];
@@ -34,8 +34,9 @@ export const GradeDetailsModal: React.FC<GradeDetailsModalProps> = ({
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editValue, setEditValue] = useState('');
   const [showAddForm, setShowAddForm] = useState(false);
-  const [copyingSubject, setCopyingSubject] = useState<Subject | null>(null);
-  const [selectedGrades, setSelectedGrades] = useState<string[]>([]);
+  // Delete confirmation & trash bin
+  const [deleteConfirmSubject, setDeleteConfirmSubject] = useState<Subject | null>(null);
+  const [deletedSubjects, setDeletedSubjects] = useState<Subject[]>([]);
   
   // Add subject form state
   const [newSubject, setNewSubject] = useState({
@@ -83,77 +84,75 @@ export const GradeDetailsModal: React.FC<GradeDetailsModalProps> = ({
     setShowAddForm(false);
   };
 
-  const handleCopySubject = () => {
-    if (copyingSubject && selectedGrades.length > 0) {
-      onCopySubjectToGrades(copyingSubject.id, selectedGrades);
-      setCopyingSubject(null);
-      setSelectedGrades([]);
-    }
+  const handleConfirmDelete = () => {
+    if (!deleteConfirmSubject) return;
+    setDeletedSubjects(prev => [deleteConfirmSubject, ...prev]);
+    onDeleteSubject(deleteConfirmSubject.id);
+    setDeleteConfirmSubject(null);
   };
 
-  const handleToggleGrade = (gradeKey: string) => {
-    setSelectedGrades(prev => 
-      prev.includes(gradeKey) 
-        ? prev.filter(k => k !== gradeKey)
-        : [...prev, gradeKey]
-    );
-  };
-
-  const handleSelectAll = () => {
-    if (selectedGrades.length === availableGradesForCopy.length) {
-      setSelectedGrades([]);
-    } else {
-      setSelectedGrades(availableGradesForCopy.map(g => g.key));
-    }
+  const handleRestore = (subject: Subject) => {
+    setDeletedSubjects(prev => prev.filter(s => s.id !== subject.id));
+    onAddSubject(subject);
   };
 
   return (
     <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[200] flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col">
+      <div className="bg-white rounded-[2rem] shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden">
+
         {/* Header */}
-        <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-gradient-to-r from-emerald-50 to-teal-50">
-          <div>
-            <h2 className="text-2xl font-bold text-slate-800">{gradeName}</h2>
-            <p className="text-sm text-slate-600 mt-1">
-              القسم: <span className="font-semibold">{department}</span> • المرحلة: <span className="font-semibold">{phase}</span>
-            </p>
+        <div className="px-8 py-5 border-b border-slate-100 flex items-center justify-between bg-gradient-to-l from-[#f8f7ff] to-white">
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 bg-[#e5e1fe] rounded-2xl flex items-center justify-center text-[#655ac1]">
+              <BookOpen size={24} />
+            </div>
+            <div>
+              <h2 className="text-xl font-black text-slate-800">{gradeName}</h2>
+              <p className="text-xs text-slate-400 font-bold mt-0.5">
+                القسم: <span className="text-[#655ac1]">{department}</span> · المرحلة: <span className="text-[#655ac1]">{phase}</span>
+              </p>
+            </div>
           </div>
-          <button
-            onClick={onClose}
-            className="p-2 hover:bg-white rounded-xl transition-colors"
-          >
-            <X size={24} className="text-slate-600" />
+          <button onClick={onClose} className="p-2 hover:bg-slate-100 rounded-xl transition-colors text-slate-400 hover:text-slate-600">
+            <X size={22} />
           </button>
         </div>
 
-        {/* Actions bar */}
-        <div className="px-6 py-4 border-b border-slate-200">
+        {/* Toolbar */}
+        <div className="px-8 py-4 border-b border-slate-100 flex items-center gap-3">
           <button
             onClick={() => setShowAddForm(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg font-semibold transition-colors"
+            className="flex items-center gap-2 px-5 py-2.5 bg-[#655ac1] hover:bg-[#5046a0] text-white rounded-xl font-bold text-sm transition-all shadow-md shadow-[#655ac1]/20 hover:scale-105 active:scale-95"
           >
-            <Plus size={18} />
-            إضافة مادة
+            <Plus size={18} /> إضافة مادة
           </button>
+          {deletedSubjects.length > 0 && (
+            <div className="flex items-center gap-2 px-3 py-2 bg-amber-50 border border-amber-200 rounded-xl text-xs font-bold text-amber-700">
+              <Trash2 size={14} />
+              سلة المحذوفات ({deletedSubjects.length})
+            </div>
+          )}
         </div>
 
-        {/* Subjects list */}
-        <div className="flex-1 overflow-y-auto p-6">
+        {/* Content */}
+        <div className="flex-1 overflow-y-auto p-8 space-y-6 custom-scrollbar">
+
+          {/* Active subjects */}
           {subjects.length === 0 ? (
-            <div className="text-center py-12 text-slate-500">
+            <div className="text-center py-12 text-slate-300 border-2 border-dashed border-slate-100 rounded-3xl">
               <BookOpen size={48} className="mx-auto mb-4 opacity-30" />
-              <p className="text-lg">لا توجد مواد مضافة لهذا الصف</p>
-              <p className="text-sm mt-2">انقر على "إضافة مادة" للبدء</p>
+              <p className="text-lg font-bold text-slate-400">لا توجد مواد مضافة لهذا الصف</p>
+              <p className="text-sm mt-1 text-slate-400">انقر على "إضافة مادة" للبدء</p>
             </div>
           ) : (
             <div className="space-y-2">
               {subjects.map((subject) => (
                 <div
                   key={subject.id}
-                  className="flex items-center gap-4 p-4 bg-slate-50 hover:bg-slate-100 rounded-xl transition-colors"
+                  className="flex items-center gap-4 p-4 bg-slate-50 hover:bg-[#f8f7ff] rounded-2xl transition-colors border border-transparent hover:border-[#e5e1fe] group"
                 >
                   <div className="flex-1">
-                    <h3 className="font-bold text-slate-800">{subject.name}</h3>
+                    <h3 className="font-black text-slate-800 text-base">{subject.name}</h3>
                   </div>
 
                   <div className="flex items-center gap-3">
@@ -163,58 +162,40 @@ export const GradeDetailsModal: React.FC<GradeDetailsModalProps> = ({
                           type="number"
                           value={editValue}
                           onChange={(e) => setEditValue(e.target.value)}
-                          className="w-20 px-3 py-2 border border-slate-300 rounded-lg text-center"
+                          className="w-20 px-3 py-2 border border-[#655ac1] bg-white rounded-xl text-center font-bold outline-none focus:ring-2 focus:ring-[#655ac1]/20"
                           min="1"
                           autoFocus
                         />
-                        <button
-                          onClick={handleSaveEdit}
-                          className="p-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg transition-colors"
-                        >
-                          <Check size={18} />
+                        <button onClick={handleSaveEdit} className="p-2 bg-[#655ac1] hover:bg-[#5046a0] text-white rounded-xl transition-colors">
+                          <Check size={17} />
                         </button>
-                        <button
-                          onClick={handleCancelEdit}
-                          className="p-2 bg-slate-300 hover:bg-slate-400 text-slate-700 rounded-lg transition-colors"
-                        >
-                          <X size={18} />
+                        <button onClick={handleCancelEdit} className="p-2 bg-slate-200 hover:bg-slate-300 text-slate-600 rounded-xl transition-colors">
+                          <X size={17} />
                         </button>
                       </div>
                     ) : (
                       <>
-                        <div className="text-center min-w-[80px]">
-                          <p className="text-2xl font-bold text-emerald-600">{subject.periodsPerClass}</p>
-                          <p className="text-xs text-slate-500">حصة</p>
+                        <div className="text-center min-w-[72px] bg-white border border-slate-100 rounded-xl px-3 py-2 shadow-sm">
+                          <p className="text-xl font-black text-[#655ac1]">{subject.periodsPerClass}</p>
+                          <p className="text-[10px] font-bold text-slate-400">حصة</p>
                         </div>
-                        <button
-                          onClick={() => handleStartEdit(subject)}
-                          className="p-2 hover:bg-slate-200 rounded-lg transition-colors"
-                          title="تعديل عدد الحصص"
-                        >
-                          <Edit2 size={18} className="text-slate-600" />
-                        </button>
-                        <button
-                          onClick={() => {
-                            setCopyingSubject(subject);
-                            setSelectedGrades([]);
-                          }}
-                          disabled={availableGradesForCopy.length === 0}
-                          className="p-2 hover:bg-blue-100 rounded-lg transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
-                          title="نسخ إلى صفوف أخرى"
-                        >
-                          <Copy size={18} className="text-blue-600" />
-                        </button>
-                        <button
-                          onClick={() => {
-                            if (confirm(`هل أنت متأكد من حذف المادة "${subject.name}"؟`)) {
-                              onDeleteSubject(subject.id);
-                            }
-                          }}
-                          className="p-2 hover:bg-red-100 rounded-lg transition-colors"
-                          title="حذف المادة"
-                        >
-                          <Trash2 size={18} className="text-red-600" />
-                        </button>
+                        <div className="w-px h-9 bg-slate-200 rounded-full mx-1"></div>
+                        <div className="flex items-center gap-1">
+                          <button
+                            onClick={() => handleStartEdit(subject)}
+                            className="p-2.5 hover:bg-[#e5e1fe] rounded-xl transition-colors text-slate-400 hover:text-[#655ac1]"
+                            title="تعديل عدد الحصص"
+                          >
+                            <Edit2 size={17} />
+                          </button>
+                          <button
+                            onClick={() => setDeleteConfirmSubject(subject)}
+                            className="p-2.5 hover:bg-rose-50 rounded-xl transition-colors text-slate-300 hover:text-rose-500"
+                            title="حذف المادة"
+                          >
+                            <Trash2 size={17} />
+                          </button>
+                        </div>
                       </>
                     )}
                   </div>
@@ -222,142 +203,104 @@ export const GradeDetailsModal: React.FC<GradeDetailsModalProps> = ({
               ))}
             </div>
           )}
+
+          {/* Trash bin — recently deleted subjects */}
+          {deletedSubjects.length > 0 && (
+            <div className="bg-amber-50 border border-amber-200 rounded-2xl overflow-hidden">
+              <div className="flex items-center gap-2 px-5 py-3 bg-amber-100 border-b border-amber-200">
+                <Trash2 size={16} className="text-amber-600" />
+                <h4 className="text-sm font-black text-amber-700">سلة المحذوفات</h4>
+                <span className="text-xs bg-amber-200 text-amber-700 px-2 py-0.5 rounded-full font-bold">{deletedSubjects.length}</span>
+                <span className="text-xs text-amber-500 font-bold mr-auto">يمكنك استعادة أي مادة محذوفة</span>
+              </div>
+              <div className="divide-y divide-amber-100">
+                {deletedSubjects.map(sub => (
+                  <div key={sub.id} className="flex items-center gap-4 px-5 py-3 hover:bg-amber-100/50 transition-colors">
+                    <div className="flex-1">
+                      <span className="font-bold text-slate-600 text-sm line-through opacity-60">{sub.name}</span>
+                      <span className="text-xs text-slate-400 font-bold mr-2">· {sub.periodsPerClass} حصة</span>
+                    </div>
+                    <button
+                      onClick={() => handleRestore(sub)}
+                      className="flex items-center gap-1.5 px-4 py-2 bg-white border border-amber-300 text-amber-700 rounded-xl text-xs font-black hover:bg-amber-500 hover:text-white hover:border-amber-500 transition-all shadow-sm"
+                    >
+                      <RotateCcw size={14} /> استعادة
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div className="px-8 py-5 border-t border-slate-100 bg-slate-50/50 flex justify-end">
+          <button onClick={onClose} className="px-7 py-2.5 bg-[#655ac1] hover:bg-[#5046a0] text-white rounded-xl font-bold transition-all shadow-md shadow-[#655ac1]/20">
+            إغلاق
+          </button>
         </div>
       </div>
 
       {/* Add Subject Modal */}
       {showAddForm && (
-        <div className="absolute inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6">
-            <h3 className="text-xl font-bold text-slate-800 mb-4">إضافة مادة جديدة</h3>
+        <div className="absolute inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center p-4 z-10">
+          <div className="bg-white rounded-[2rem] shadow-2xl w-full max-w-md p-8 animate-in zoom-in-95 duration-200">
+            <h3 className="text-xl font-black text-slate-800 mb-6 flex items-center gap-3">
+              <div className="w-10 h-10 bg-[#e5e1fe] rounded-xl flex items-center justify-center text-[#655ac1]"><Plus size={20} /></div>
+              إضافة مادة جديدة
+            </h3>
             <form onSubmit={handleAddSubject} className="space-y-4">
               <div>
-                <label className="block text-sm font-semibold text-slate-700 mb-2">
-                  اسم المادة <span className="text-red-500">*</span>
-                </label>
+                <label className="block text-xs font-bold text-slate-500 mb-2">اسم المادة *</label>
                 <input
                   type="text"
                   value={newSubject.name}
                   onChange={(e) => setNewSubject({ ...newSubject, name: e.target.value })}
-                  className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl font-bold text-slate-800 focus:border-[#655ac1] outline-none transition-all"
                   placeholder="مثال: اللغة العربية"
                   required
                 />
               </div>
-
               <div>
-                <label className="block text-sm font-semibold text-slate-700 mb-2">
-                  عدد الحصص <span className="text-red-500">*</span>
-                </label>
+                <label className="block text-xs font-bold text-slate-500 mb-2">عدد الحصص *</label>
                 <input
                   type="number"
                   value={newSubject.periods}
                   onChange={(e) => setNewSubject({ ...newSubject, periods: e.target.value })}
-                  className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl font-bold text-center text-slate-800 focus:border-[#655ac1] outline-none transition-all"
                   min="1"
                   required
                 />
               </div>
-
-              <div className="flex gap-3 pt-4">
-                <button
-                  type="submit"
-                  className="flex-1 px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg font-semibold transition-colors"
-                >
-                  إضافة
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowAddForm(false);
-                    setNewSubject({ name: '', periods: '2' });
-                  }}
-                  className="flex-1 px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-lg font-semibold transition-colors"
-                >
-                  إلغاء
-                </button>
+              <div className="flex gap-3 pt-2">
+                <button type="submit" className="flex-1 px-4 py-3 bg-[#655ac1] hover:bg-[#5046a0] text-white rounded-xl font-bold transition-all">إضافة</button>
+                <button type="button" onClick={() => { setShowAddForm(false); setNewSubject({ name: '', periods: '2' }); }} className="flex-1 px-4 py-3 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl font-bold transition-all">إلغاء</button>
               </div>
             </form>
           </div>
         </div>
       )}
 
-      {/* Copy Subject to Multiple Grades Modal */}
-      {copyingSubject && (
-        <div className="absolute inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6">
-            <h3 className="text-xl font-bold text-slate-800 mb-4">نسخ المادة إلى صفوف أخرى</h3>
-            
-            <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-              <p className="text-sm text-blue-900">
-                <strong>المادة:</strong> {copyingSubject.name}
-              </p>
-              <p className="text-sm text-blue-700 mt-1">
-                عدد الحصص: {copyingSubject.periodsPerClass}
-              </p>
-            </div>
-
-            <div className="mb-4">
-              <div className="flex items-center justify-between mb-3">
-                <label className="text-sm font-semibold text-slate-700">
-                  الصفوف المستهدفة <span className="text-red-500">*</span>
-                </label>
-                <button
-                  onClick={handleSelectAll}
-                  className="text-xs font-semibold text-blue-600 hover:text-blue-700"
-                >
-                  {selectedGrades.length === availableGradesForCopy.length ? 'إلغاء التحديد' : 'تحديد الكل'}
-                </button>
+      {/* Delete Confirmation Modal */}
+      {deleteConfirmSubject && (
+        <div className="absolute inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4 z-10">
+          <div className="bg-white rounded-[2rem] shadow-2xl w-full max-w-sm overflow-hidden animate-in zoom-in-95 duration-200">
+            <div className="bg-gradient-to-br from-rose-50 to-pink-50 px-8 pt-8 pb-6 flex flex-col items-center text-center">
+              <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center shadow-md mb-4">
+                <AlertTriangle size={30} className="text-rose-500" />
               </div>
-              
-              {availableGradesForCopy.length === 0 ? (
-                <p className="text-sm text-slate-500 text-center py-4">
-                  لا توجد صفوف متاحة للنسخ
-                </p>
-              ) : (
-                <div className="space-y-2 max-h-60 overflow-y-auto">
-                  {availableGradesForCopy.map((grade) => (
-                    <label
-                      key={grade.key}
-                      className={`flex items-center gap-3 p-3 rounded-lg cursor-pointer transition-colors ${
-                        selectedGrades.includes(grade.key)
-                          ? 'bg-blue-50 border border-blue-200'
-                          : 'bg-slate-50 border border-slate-200 hover:bg-slate-100'
-                      }`}
-                    >
-                      <input
-                        type="checkbox"
-                        checked={selectedGrades.includes(grade.key)}
-                        onChange={() => handleToggleGrade(grade.key)}
-                        className="w-4 h-4 text-blue-600 rounded focus:ring-2 focus:ring-blue-500"
-                      />
-                      <span className="text-sm font-semibold text-slate-700">{grade.label}</span>
-                    </label>
-                  ))}
-                </div>
-              )}
-              
-              <p className="text-xs text-slate-500 mt-3">
-                ملاحظة: يمكن النسخ فقط للصفوف في نفس المرحلة والقسم
+              <h3 className="text-lg font-black text-slate-800 mb-2">حذف المادة</h3>
+              <p className="text-sm font-bold text-slate-500 leading-relaxed">
+                هل أنت متأكد من حذف مادة{' '}
+                <span className="text-slate-800 font-black">"{deleteConfirmSubject.name}"</span>؟
+                <br />
+                <span className="text-emerald-600 font-black text-xs mt-1 block">يمكنك استعادتها من سلة المحذوفات.</span>
               </p>
             </div>
-
-            <div className="flex gap-3">
-              <button
-                onClick={handleCopySubject}
-                disabled={selectedGrades.length === 0}
-                className="flex-1 px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg font-semibold transition-colors disabled:bg-slate-300 disabled:cursor-not-allowed"
-              >
-                نسخ المادة
-              </button>
-              <button
-                onClick={() => {
-                  setCopyingSubject(null);
-                  setSelectedGrades([]);
-                }}
-                className="flex-1 px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-lg font-semibold transition-colors"
-              >
-                إلغاء
+            <div className="px-8 py-5 flex gap-3">
+              <button onClick={() => setDeleteConfirmSubject(null)} className="flex-1 px-4 py-3 bg-slate-100 text-slate-600 font-bold rounded-xl hover:bg-slate-200 transition-all">إلغاء</button>
+              <button onClick={handleConfirmDelete} className="flex-1 px-4 py-3 bg-rose-500 text-white font-bold rounded-xl hover:bg-rose-600 transition-all shadow-lg shadow-rose-200 flex items-center justify-center gap-2">
+                <Trash2 size={16} /> نعم، احذف
               </button>
             </div>
           </div>

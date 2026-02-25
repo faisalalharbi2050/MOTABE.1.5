@@ -68,6 +68,7 @@ const Step4Classes: React.FC<Props> = ({ classes, setClasses, subjects, gradeSub
   // ─── Dropdown Menu State ───
   const [gradeMenuOpenId, setGradeMenuOpenId] = useState<number | null>(null);
   const [classMenuOpenId, setClassMenuOpenId] = useState<string | null>(null);
+  const [deleteConfirmClassId, setDeleteConfirmClassId] = useState<string | null>(null);
   
   // Custom/Other Classes
   const [showGlobalRenameModal, setShowGlobalRenameModal] = useState(false);
@@ -824,7 +825,7 @@ const Step4Classes: React.FC<Props> = ({ classes, setClasses, subjects, gradeSub
                                <div className="relative flex items-center gap-2">
                                  <button
                                    onClick={() => setGradeMenuOpenId(gradeMenuOpenId === grade ? null : grade)}
-                                   className="flex items-center gap-1.5 px-4 py-2 bg-[#f8f7ff] border border-[#e5e1fe] rounded-xl text-xs font-black text-[#655ac1] hover:bg-[#655ac1] hover:text-white transition-all shadow-sm"
+                                   className="flex items-center gap-1.5 px-4 py-2 bg-gradient-to-l from-[#655ac1] to-[#8779fb] rounded-xl text-xs font-black text-white hover:from-[#5046a0] hover:to-[#655ac1] transition-all shadow-md shadow-indigo-200"
                                  >
                                    خيارات الصف <ChevronDown size={13} className={`transition-transform duration-200 ${gradeMenuOpenId === grade ? 'rotate-180' : ''}`} />
                                  </button>
@@ -1018,7 +1019,7 @@ const Step4Classes: React.FC<Props> = ({ classes, setClasses, subjects, gradeSub
                                    <div className="relative">
                                      <button
                                        onClick={() => setClassMenuOpenId(classMenuOpenId === c.id ? null : c.id)}
-                                       className="flex items-center gap-1.5 px-3 py-2 bg-[#f8f7ff] border border-[#e5e1fe] rounded-xl text-xs font-black text-[#655ac1] hover:bg-[#655ac1] hover:text-white transition-all shadow-sm"
+                                       className="flex items-center gap-1.5 px-3 py-2 bg-white border-2 border-[#655ac1] rounded-xl text-xs font-black text-[#655ac1] hover:bg-[#655ac1] hover:text-white transition-all shadow-sm"
                                      >
                                        خيارات الفصل <ChevronDown size={13} className={`transition-transform duration-200 ${classMenuOpenId === c.id ? 'rotate-180' : ''}`} />
                                      </button>
@@ -1044,7 +1045,7 @@ const Step4Classes: React.FC<Props> = ({ classes, setClasses, subjects, gradeSub
                                          </button>
                                          <div className="border-t border-slate-100 mx-3" />
                                          <button
-                                           onClick={() => { handleDeleteOne(c.id); setClassMenuOpenId(null); }}
+                                           onClick={() => { setDeleteConfirmClassId(c.id); setClassMenuOpenId(null); }}
                                            className="w-full flex items-center gap-3 px-4 py-3 text-xs font-bold text-rose-500 hover:bg-rose-50 transition-colors"
                                          >
                                            <Trash2 size={14} /> حذف الفصل
@@ -1108,8 +1109,24 @@ const Step4Classes: React.FC<Props> = ({ classes, setClasses, subjects, gradeSub
                                      </div>
                                    )}
                                    
-                                   <button onClick={() => handleReorder(c.id, 'up')} disabled={idx === 0} className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg disabled:opacity-30 transition-all" title="تحريك لأعلى"><ChevronUp size={14}/></button>
-                                   <button onClick={() => handleReorder(c.id, 'down')} disabled={idx === gradeClasses.length - 1} className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg disabled:opacity-30 transition-all" title="تحريك لأسفل"><ChevronDown size={14}/></button>
+                                   <div className="flex flex-col gap-0.5">
+                                     <button
+                                       onClick={() => handleReorder(c.id, 'up')}
+                                       disabled={idx === 0}
+                                       className="w-7 h-7 flex items-center justify-center bg-slate-50 border border-slate-200 rounded-t-lg text-slate-400 hover:bg-[#655ac1] hover:text-white hover:border-[#655ac1] disabled:opacity-25 disabled:cursor-not-allowed transition-all"
+                                       title="تحريك لأعلى"
+                                     >
+                                       <ChevronUp size={13}/>
+                                     </button>
+                                     <button
+                                       onClick={() => handleReorder(c.id, 'down')}
+                                       disabled={idx === gradeClasses.length - 1}
+                                       className="w-7 h-7 flex items-center justify-center bg-slate-50 border border-slate-200 rounded-b-lg text-slate-400 hover:bg-[#655ac1] hover:text-white hover:border-[#655ac1] disabled:opacity-25 disabled:cursor-not-allowed transition-all"
+                                       title="تحريك لأسفل"
+                                     >
+                                       <ChevronDown size={13}/>
+                                     </button>
+                                   </div>
                                  </div>
                              </td>
                           </tr>
@@ -1721,6 +1738,82 @@ const Step4Classes: React.FC<Props> = ({ classes, setClasses, subjects, gradeSub
           </div>
         </div>
       )}
+
+    {/* ═══ Delete All Confirmation Modal ═══ */}
+    {showDeleteAllConfirm && (
+      <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
+        <div className="bg-white rounded-[2rem] w-full max-w-md shadow-2xl animate-in zoom-in-95 duration-200 overflow-hidden">
+          <div className="bg-gradient-to-br from-rose-50 to-orange-50 px-8 pt-8 pb-6 flex flex-col items-center text-center">
+            <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center shadow-md mb-4">
+              <AlertTriangle size={32} className="text-orange-500" />
+            </div>
+            <h3 className="text-xl font-black text-slate-800 mb-2">حذف جميع الفصول</h3>
+            <p className="text-sm font-bold text-slate-500 leading-relaxed">
+              سيتم حذف جميع فصول مرحلة{' '}
+              <span className="text-orange-600 font-black">{activePhase}</span>{' '}
+              لمدرسة{' '}
+              <span className="text-slate-800 font-black">
+                "{activeSchoolId === 'main' ? schoolInfo.schoolName : schoolInfo.sharedSchools?.find(s => s.id === activeSchoolId)?.name}"
+              </span>.
+              <br />
+              <span className="text-rose-600">لا يمكن التراجع عن هذا الإجراء.</span>
+            </p>
+          </div>
+          <div className="px-8 py-6 flex gap-3 justify-center">
+            <button
+              onClick={() => setShowDeleteAllConfirm(false)}
+              className="flex-1 px-6 py-3 bg-slate-100 text-slate-600 font-bold rounded-xl hover:bg-slate-200 transition-all"
+            >
+              إلغاء
+            </button>
+            <button
+              onClick={() => { handleDeleteAll(); setShowDeleteAllConfirm(false); }}
+              className="flex-1 px-6 py-3 bg-rose-500 text-white font-bold rounded-xl hover:bg-rose-600 transition-all shadow-lg shadow-rose-200 flex items-center justify-center gap-2"
+            >
+              <Trash size={16} /> نعم، احذف الكل
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
+
+    {/* ═══ Delete Single Class Confirmation Modal ═══ */}
+    {deleteConfirmClassId && (() => {
+      const targetClass = classes.find(c => c.id === deleteConfirmClassId);
+      const displayName = targetClass ? getClassroomDisplayName(targetClass) : '';
+      return (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white rounded-[2rem] w-full max-w-md shadow-2xl animate-in zoom-in-95 duration-200 overflow-hidden">
+            <div className="bg-gradient-to-br from-rose-50 to-pink-50 px-8 pt-8 pb-6 flex flex-col items-center text-center">
+              <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center shadow-md mb-4">
+                <Trash2 size={30} className="text-rose-500" />
+              </div>
+              <h3 className="text-xl font-black text-slate-800 mb-2">حذف الفصل</h3>
+              <p className="text-sm font-bold text-slate-500 leading-relaxed">
+                هل أنت متأكد من حذف فصل{' '}
+                <span className="text-slate-800 font-black" dir="ltr">"{displayName}"</span>؟
+                <br />
+                <span className="text-rose-500">خطوة غير قابلة للتراجع.</span>
+              </p>
+            </div>
+            <div className="px-8 py-6 flex gap-3 justify-center">
+              <button
+                onClick={() => setDeleteConfirmClassId(null)}
+                className="flex-1 px-6 py-3 bg-slate-100 text-slate-600 font-bold rounded-xl hover:bg-slate-200 transition-all"
+              >
+                إلغاء
+              </button>
+              <button
+                onClick={() => { handleDeleteOne(deleteConfirmClassId); setDeleteConfirmClassId(null); }}
+                className="flex-1 px-6 py-3 bg-rose-500 text-white font-bold rounded-xl hover:bg-rose-600 transition-all shadow-lg shadow-rose-200 flex items-center justify-center gap-2"
+              >
+                <Trash2 size={16} /> نعم، احذف
+              </button>
+            </div>
+          </div>
+        </div>
+      );
+    })()}
 
     </div>
   );

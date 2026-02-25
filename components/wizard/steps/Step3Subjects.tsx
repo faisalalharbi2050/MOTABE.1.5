@@ -499,21 +499,21 @@ const Step3Subjects: React.FC<Props> = ({ subjects, setSubjects, schoolInfo, gra
                                       </span>
                                   )}
                               </h4>
-                             <div className="flex gap-2">
-                                  <button onClick={() => alert('تم اعتماد الخطة بنجاح')} className="group flex items-center gap-1.5 bg-emerald-50 text-emerald-600 border border-emerald-100 hover:bg-emerald-500 hover:text-white hover:border-emerald-500 px-4 py-2 rounded-xl text-xs font-black transition-all duration-200 shadow-sm">
-                                      <CheckCircle2 size={16} className="transition-transform group-hover:scale-110" /> 
+                             <div className="flex gap-3">
+                                  <button onClick={() => alert('تم اعتماد الخطة بنجاح')} className="group flex items-center gap-2 bg-gradient-to-l from-emerald-500 to-emerald-600 text-white px-5 py-2.5 rounded-xl text-sm font-black transition-all duration-200 shadow-md shadow-emerald-200 hover:shadow-lg hover:shadow-emerald-300 hover:-translate-y-0.5">
+                                      <CheckCircle2 size={18} className="transition-transform group-hover:scale-110" /> 
                                       اعتماد
                                   </button>
-                                  <button onClick={() => window.print()} className="group flex items-center gap-1.5 bg-slate-50 text-slate-600 border border-slate-200 hover:bg-slate-800 hover:text-white hover:border-slate-800 px-4 py-2 rounded-xl text-xs font-black transition-all duration-200 shadow-sm">
-                                      <Printer size={16} className="transition-transform group-hover:scale-110" /> 
+                                  <button onClick={() => window.print()} className="group flex items-center gap-2 bg-white text-slate-600 border border-slate-200 hover:bg-slate-800 hover:text-white hover:border-slate-800 px-5 py-2.5 rounded-xl text-sm font-black transition-all duration-200 shadow-sm hover:shadow-md">
+                                      <Printer size={18} className="transition-transform group-hover:scale-110" /> 
                                       طباعة
                                   </button>
                                   <button 
                                       onClick={() => handleDeletePlan(phase)}
-                                      className="group flex items-center gap-1.5 bg-rose-50 text-rose-500 border border-rose-100 hover:bg-rose-500 hover:text-white hover:border-rose-500 px-4 py-2 rounded-xl text-xs font-black transition-all duration-200 shadow-sm"
+                                      className="group flex items-center gap-2 bg-white text-rose-500 border border-rose-200 hover:bg-rose-500 hover:text-white hover:border-rose-500 px-5 py-2.5 rounded-xl text-sm font-black transition-all duration-200 shadow-sm hover:shadow-md hover:shadow-rose-200"
                                       title="حذف الخطة"
                                   >
-                                      <Trash2 size={16} className="transition-transform group-hover:scale-110" /> 
+                                      <Trash2 size={18} className="transition-transform group-hover:scale-110" /> 
                                       حذف
                                   </button>
                               </div>
@@ -727,21 +727,26 @@ const SubjectConstraintsModal: React.FC<SubjectConstraintsModalProps> = ({
 
   if (!isOpen) return null;
 
-  // 1. Group Subjects by Name for Dropdown (Distinct Names only)
+  // 1. Group Subjects by Name for Dropdown (Distinct Names only, from approved study plan)
   const uniqueSubjects = useMemo(() => {
-    // Get unique names
+    // Collect only subject IDs that appear in the approved gradeSubjectMap
+    const approvedIds = new Set<string>();
+    Object.values(gradeSubjectMap).forEach(ids => ids.forEach(id => approvedIds.add(id)));
+
     const seen = new Set<string>();
     const unique: { id: string; name: string; periodsPerClass: number }[] = [];
 
-    subjects.forEach(s => {
+    subjects
+      .filter(s => approvedIds.has(s.id))
+      .forEach(s => {
         if (!seen.has(s.name)) {
-            seen.add(s.name);
-            unique.push({ id: s.id, name: s.name, periodsPerClass: s.periodsPerClass });
+          seen.add(s.name);
+          unique.push({ id: s.id, name: s.name, periodsPerClass: s.periodsPerClass });
         }
-    });
+      });
 
-    return unique.sort((a,b) => a.name.localeCompare(b.name));
-  }, [subjects]);
+    return unique.sort((a, b) => a.name.localeCompare(b.name));
+  }, [subjects, gradeSubjectMap]);
 
 
   // Selected Subject Logic (By Name)
@@ -1020,12 +1025,19 @@ const SubjectConstraintsModal: React.FC<SubjectConstraintsModalProps> = ({
                 </div>
             </div>
             
-            <div className="p-6 border-t border-slate-100 bg-slate-50/50 flex justify-end">
+            <div className="p-6 border-t border-slate-100 bg-slate-50/50 flex justify-end gap-3">
                 <button 
                     onClick={onClose}
-                    className="px-8 py-3 bg-white border border-slate-200 text-slate-600 font-bold rounded-xl hover:bg-slate-50 transition-colors"
+                    className="px-6 py-3 bg-white border border-slate-200 text-slate-600 font-bold rounded-xl hover:bg-slate-50 transition-colors"
                 >
                     إغلاق
+                </button>
+                <button 
+                    onClick={onClose}
+                    className="px-8 py-3 bg-gradient-to-r from-[#8779fb] to-[#655ac1] text-white font-bold rounded-xl hover:shadow-lg hover:shadow-[#655ac1]/30 transition-all hover:-translate-y-0.5 flex items-center gap-2"
+                >
+                    <Check size={18} />
+                    حفظ
                 </button>
             </div>
         </div>

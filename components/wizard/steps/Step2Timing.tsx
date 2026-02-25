@@ -366,6 +366,64 @@ const Step2Timing: React.FC<Step2Props> = ({ schoolInfo, setSchoolInfo }) => {
       updateTiming({ breaks: [...(currentTiming.breaks || []), newBreak] });
   };
 
+  /**
+   * إضافة صف جديد (فعالية) مباشرةً أسفل الصف الحالي مع إعادة ترتيب التوقيت ذكياً.
+   * - يحدد afterPeriod للفعالية الجديدة بناءً على موضع الصف الحالي.
+   * - يدرج الفعالية في الموضع الصحيح داخل مصفوفة breaks.
+   * - يُزيح أوقات البداية المخصصة للصفوف التالية بمقدار مدة الفعالية الجديدة حتى لا يحدث تداخل.
+   */
+  const handleAddRowBelow = (item: ScheduleItem, currentIndex: number) => {
+      const newBreakId = Math.random().toString();
+      const newBreakDuration = 15;
+      const newAfterPeriod = item.relatedPeriodIndex;
+
+      const currentBreaks = [...(currentTiming.breaks || [])];
+
+      // تحديد موضع الإدراج في مصفوفة breaks
+      let insertIndex: number;
+
+      if (item.type === 'break' && item.originalIndex !== undefined) {
+          // أدرج مباشرة بعد هذه الفسحة في المصفوفة
+          insertIndex = item.originalIndex + 1;
+      } else {
+          // ابحث عن آخر فسحة ذات afterPeriod <= newAfterPeriod وأدرج بعدها
+          insertIndex = 0;
+          for (let i = currentBreaks.length - 1; i >= 0; i--) {
+              if (currentBreaks[i].afterPeriod <= newAfterPeriod) {
+                  insertIndex = i + 1;
+                  break;
+              }
+          }
+      }
+
+      const newBreak: BreakInfo = {
+          id: newBreakId,
+          name: 'فعالية جديدة',
+          duration: newBreakDuration,
+          afterPeriod: newAfterPeriod,
+      };
+
+      currentBreaks.splice(insertIndex, 0, newBreak);
+
+      // إزاحة أوقات البداية المخصصة للصفوف التي تأتي بعد الصف الحالي
+      // حتى يتناسب التوقيت مع الفعالية المضافة
+      const newCustomStartTimes = { ...currentTiming.customStartTimes };
+      const itemsAfter = schedule.slice(currentIndex + 1);
+      itemsAfter.forEach(afterItem => {
+          if (newCustomStartTimes[afterItem.id]) {
+              newCustomStartTimes[afterItem.id] = addMinutes(
+                  newCustomStartTimes[afterItem.id],
+                  newBreakDuration
+              );
+          }
+      });
+
+      updateTiming({
+          breaks: currentBreaks,
+          customStartTimes: newCustomStartTimes,
+      });
+  };
+
   const handleAddNewPrayer = (afterPeriod: number) => {
        const newPrayer: PrayerInfo = {
            id: Math.random().toString(),
@@ -1019,9 +1077,9 @@ const Step2Timing: React.FC<Step2Props> = ({ schoolInfo, setSchoolInfo }) => {
                                     <div className="flex items-center justify-center gap-2">
                                         {/* Add Below Button */}
                                          <button 
-                                            onClick={() => handleAddNewBreak(item.relatedPeriodIndex)} 
+                                            onClick={() => handleAddRowBelow(item, index)} 
                                             className="text-emerald-500 hover:text-emerald-600 p-1.5 rounded-lg hover:bg-emerald-50 transition-colors"
-                                            title="إضافة فعالية أسفل"
+                                            title="إضافة فعالية جديدة أسفل هذا الصف"
                                         >
                                             <Plus size={18} />
                                         </button>
