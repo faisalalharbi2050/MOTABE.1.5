@@ -89,9 +89,13 @@ const MiniPreview: React.FC<{
 
     if (!type) {
         return (
-            <div className="flex flex-col items-center justify-center h-40 text-slate-300 gap-2">
-                <FileText size={32} />
-                <span className="text-xs font-bold">اختر نوع الجدول لعرض المعاينة</span>
+            <div className="flex flex-col items-center justify-center h-40 gap-3"
+                 style={{ color: '#cbd5e1' }}>
+                <div className="w-14 h-14 rounded-2xl flex items-center justify-center"
+                     style={{ background: 'linear-gradient(135deg,#f1eeff,#ede9ff)' }}>
+                    <FileText size={26} style={{ color: '#a59bf0' }} />
+                </div>
+                <span className="text-xs font-semibold text-slate-400">اختر نوع الجدول لعرض المعاينة</span>
             </div>
         );
     }
@@ -108,8 +112,9 @@ const MiniPreview: React.FC<{
         : ['__all__'];
 
     return (
-        <div ref={containerRef} className="relative overflow-hidden bg-slate-100 rounded-xl border border-slate-200"
-             style={{ width: '100%', paddingBottom: `${(paperH / paperW) * 100}%` }}>
+        <div ref={containerRef} className="relative overflow-hidden rounded-2xl bg-slate-100"
+             style={{ width: '100%', paddingBottom: `${(paperH / paperW) * 100}%`,
+                      border: '1.5px solid #e2e8f0' }}>
             {/* dir=ltr forces physical left=0 regardless of parent RTL context */}
             <div className="absolute inset-0" dir="ltr">
                 <div style={{
@@ -143,7 +148,8 @@ const MiniPreview: React.FC<{
                     ))}
                 </div>
             </div>
-            <div className="absolute bottom-2 left-2 bg-[#655ac1]/80 text-white text-[10px] font-bold px-2 py-0.5 rounded-full backdrop-blur-sm">
+            <div className="absolute bottom-2 left-2 text-white text-[10px] font-semibold px-2.5 py-1 rounded-full backdrop-blur-sm"
+                 style={{ background: 'linear-gradient(135deg,#655ac1cc,#7c6dd6cc)', boxShadow: '0 2px 8px rgba(101,90,193,0.3)' }}>
                 {cols > 1 ? `${cols}×${rows} جدول` : 'جدول واحد'} • {paperSize} • {fontSize}px
             </div>
         </div>
@@ -176,22 +182,23 @@ const PrintPage: React.FC<{
 
     return (
         <div id="schedule-print-root" className="fixed inset-0 z-[120] bg-white overflow-auto print:overflow-hidden">
-            <div className="print-toolbar no-print sticky top-0 z-20 flex items-center gap-3 px-6 py-3 bg-white border-b border-slate-200 shadow-sm"
-                 style={{ fontFamily: "'Cairo', sans-serif", direction: 'rtl' }}>
+            <div className="print-toolbar no-print sticky top-0 z-20 flex items-center gap-3 px-6 py-3 bg-white border-b border-slate-100 shadow-sm"
+                 style={{ fontFamily: '"Tajawal", sans-serif', direction: 'rtl' }}>
                 <button onClick={onBack}
-                    className="flex items-center gap-2 px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-2xl font-bold text-sm">
+                    className="flex items-center gap-2 px-5 py-2.5 text-slate-600 rounded-2xl font-semibold text-sm transition-all hover:scale-[1.02]"
+                    style={{ background: '#f1f5f9', border: '1.5px solid #e2e8f0' }}>
                     <X size={16} /> رجوع
                 </button>
                 <button onClick={() => window.print()}
-                    className="flex items-center gap-2 px-6 py-2.5 text-white rounded-2xl font-bold text-sm"
-                    style={{ background: 'linear-gradient(135deg,#655ac1,#7c6dd6)', boxShadow: '0 4px 14px rgba(101,90,193,0.35)' }}>
+                    className="flex items-center gap-2 px-6 py-2.5 text-white rounded-2xl font-semibold text-sm transition-all hover:scale-[1.02]"
+                    style={{ background: 'linear-gradient(135deg,#655ac1,#7c6dd6)', boxShadow: '0 4px 16px rgba(101,90,193,0.4)' }}>
                     <Printer size={16} /> طباعة الآن
                 </button>
-                <span className="text-sm text-slate-500 font-bold">
+                <span className="text-sm text-slate-400 font-medium">
                     {printTypeName} — {paperSize} — {fontSize}px{blackAndWhite && ' — أبيض وأسود'}
                 </span>
             </div>
-            <div className="p-8 print:p-0" style={{ fontFamily: "'Cairo', sans-serif" }}>
+            <div className="p-8 print:p-0" style={{ fontFamily: '"Tajawal", sans-serif' }}>
                 {chunks.map((chunk, ci) => (
                     <div key={ci} className={`print-page-break bg-white ${ci < chunks.length - 1 ? 'mb-12' : ''}`}
                          style={{ minHeight: '210mm', padding: safeMargins ? '5mm 8mm' : '10mm',
@@ -253,29 +260,28 @@ const PrintOptionsModal: React.FC<PrintOptionsModalProps> = ({
     }
 
     return (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4"
-             style={{ background: 'rgba(15,10,40,0.55)', backdropFilter: 'blur(4px)' }} dir="rtl">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm animate-in fade-in" dir="rtl">
             <div className="bg-white w-full flex flex-col overflow-hidden"
-                 style={{ maxWidth: '980px', maxHeight: '92vh', borderRadius: '24px',
-                          boxShadow: '0 32px 80px rgba(101,90,193,0.22),0 8px 24px rgba(0,0,0,0.12)',
-                          fontFamily: "'Cairo', sans-serif" }}>
+                 style={{ maxWidth: '980px', maxHeight: '92vh', borderRadius: '28px',
+                          boxShadow: '0 40px 100px rgba(101,90,193,0.25),0 12px 32px rgba(0,0,0,0.14)',
+                          fontFamily: '"Tajawal", sans-serif' }}>
 
                 {/* Header */}
-                <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100"
-                     style={{ background: 'linear-gradient(135deg,#f7f6ff 0%,#ede9ff 100%)' }}>
-                    <div className="flex items-center gap-3">
-                        <div className="w-11 h-11 rounded-2xl flex items-center justify-center"
-                             style={{ background: 'linear-gradient(135deg,#655ac1,#7c6dd6)', boxShadow: '0 4px 12px rgba(101,90,193,0.35)' }}>
-                            <Printer size={20} className="text-white" />
+                <div className="flex items-center justify-between px-6 py-5 bg-slate-50 border-b border-slate-100">
+                    <div className="flex items-center gap-4">
+                        <div className="w-12 h-12 rounded-2xl flex items-center justify-center"
+                             style={{ background: 'linear-gradient(135deg,#655ac1,#7c6dd6)',
+                                      boxShadow: '0 6px 16px rgba(101,90,193,0.38), 0 1px 4px rgba(101,90,193,0.2)' }}>
+                            <Printer size={22} className="text-white" />
                         </div>
                         <div>
-                            <h3 className="font-black text-slate-800 text-base">معاينة وطباعة الجداول</h3>
-                            <p className="text-xs text-slate-500 font-semibold">خصّص إعدادات الطباعة بدقة قبل التنفيذ</p>
+                            <h3 className="font-black text-xl text-slate-800">معاينة وطباعة الجداول</h3>
+                            <p className="text-sm font-bold text-slate-500 mt-0.5">خصّص إعدادات الطباعة بدقة قبل التنفيذ</p>
                         </div>
                     </div>
                     <button onClick={onClose}
-                        className="w-9 h-9 flex items-center justify-center rounded-xl text-slate-400 hover:text-rose-500 hover:bg-rose-50 transition-colors">
-                        <X size={20} />
+                        className="w-9 h-9 flex items-center justify-center rounded-xl text-slate-400 hover:text-rose-500 hover:bg-rose-50 transition-all duration-200">
+                        <X size={18} />
                     </button>
                 </div>
 
@@ -285,49 +291,50 @@ const PrintOptionsModal: React.FC<PrintOptionsModalProps> = ({
 
                         {/* Left: Type Selection */}
                         <div className="p-5 space-y-2 border-l border-slate-100">
-                            <div className="flex items-center gap-2 mb-3">
-                                <div className="w-1.5 h-5 rounded-full" style={{ background: '#655ac1' }} />
-                                <span className="text-sm font-black text-slate-700">اختر نوع الجدول</span>
+                            <div className="flex items-center gap-2 mb-4">
+                                <div className="w-1 h-5 rounded-full" style={{ background: 'linear-gradient(180deg,#655ac1,#a59bf0)' }} />
+                                <span className="text-sm font-semibold text-slate-700">اختر نوع الجدول</span>
                             </div>
                             {PRINT_OPTIONS.map(opt => (
                                 <button key={opt.id} onClick={() => { setSelectedType(opt.id); setSelectedTeacherIds([]); setSelectedClassIds([]); }}
-                                    className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl border-2 font-bold text-sm transition-all duration-200 text-right ${
+                                    className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl border transition-all duration-200 text-right ${
                                         selectedType === opt.id
-                                            ? 'border-[#8779fb] bg-white text-[#655ac1] shadow-sm scale-[1.02]'
-                                            : 'border-slate-200 bg-slate-50 text-slate-600 hover:border-[#8779fb]/50 hover:bg-slate-100 hover:text-[#655ac1]'
-                                    }`}>
-                                    <span className="shrink-0 text-[#655ac1]">{opt.icon}</span>
-                                    <span className="flex-1 min-w-0 font-black text-sm text-right leading-tight">{opt.title}</span>
+                                            ? 'border-[#8779fb] bg-white text-[#655ac1] shadow-md'
+                                            : 'border-slate-200 bg-slate-50/70 text-slate-600 hover:border-[#8779fb]/40 hover:bg-white hover:text-[#655ac1] hover:shadow-sm'
+                                    }`}
+                                    style={selectedType === opt.id ? { boxShadow: '0 4px 12px rgba(101,90,193,0.15), inset 3px 0 0 #655ac1' } : {}}>
+                                    <span className="shrink-0" style={{ color: selectedType === opt.id ? '#655ac1' : '#94a3b8' }}>{opt.icon}</span>
+                                    <span className="flex-1 min-w-0 font-medium text-sm text-right leading-tight">{opt.title}</span>
                                 </button>
                             ))}
 
                             {needsTeachers && (
                                 <div className="p-3 rounded-2xl border border-slate-200 bg-slate-50 mt-2 animate-in fade-in slide-in-from-top-2">
                                     <div className="flex items-center justify-between mb-2">
-                                        <p className="text-xs font-black text-slate-500">اختر المعلم / المعلمين</p>
+                                        <p className="text-xs font-medium text-slate-500">اختر المعلم / المعلمين</p>
                                         <button
                                             onClick={() => setSelectedTeacherIds(
                                                 selectedTeacherIds.length === teachers.length ? [] : teachers.map(t => t.id)
                                             )}
-                                            className="text-[11px] font-black px-2.5 py-0.5 rounded-full transition-colors"
+                                            className="text-[11px] font-medium px-2.5 py-0.5 rounded-full transition-colors"
                                             style={{ background: selectedTeacherIds.length === teachers.length ? '#655ac1' : '#ede9ff',
                                                      color: selectedTeacherIds.length === teachers.length ? 'white' : '#655ac1' }}
                                         >
                                             {selectedTeacherIds.length === teachers.length ? '✓ إلغاء الكل' : 'تحديد الكل'}
                                         </button>
                                     </div>
-                                    <div className="space-y-1 max-h-44 overflow-y-auto">
+                                    <div className="space-y-0.5 max-h-44 overflow-y-auto">
                                         {teachers.map(t => (
-                                            <label key={t.id} className="flex items-center gap-3 p-2 rounded-xl hover:bg-white cursor-pointer">
+                                            <label key={t.id} className="flex items-center gap-3 p-2 rounded-xl hover:bg-white cursor-pointer transition-colors">
                                                 <input type="checkbox" checked={selectedTeacherIds.includes(t.id)}
                                                     onChange={() => toggleId(t.id, selectedTeacherIds, setSelectedTeacherIds)}
                                                     className="w-4 h-4 rounded accent-[#655ac1]" />
-                                                <span className="text-xs font-bold text-slate-700">{t.name}</span>
+                                                <span className="text-xs font-normal text-slate-700">{t.name}</span>
                                             </label>
                                         ))}
                                     </div>
                                     {selectedTeacherIds.length > 0 && (
-                                        <p className="text-xs font-bold mt-1.5" style={{ color: '#655ac1' }}>✓ تم اختيار {selectedTeacherIds.length} من {teachers.length} معلم</p>
+                                        <p className="text-xs font-medium mt-1.5" style={{ color: '#655ac1' }}>✓ تم اختيار {selectedTeacherIds.length} من {teachers.length} معلم</p>
                                     )}
                                 </div>
                             )}
@@ -335,30 +342,30 @@ const PrintOptionsModal: React.FC<PrintOptionsModalProps> = ({
                             {needsClasses && (
                                 <div className="p-3 rounded-2xl border border-slate-200 bg-slate-50 mt-2 animate-in fade-in slide-in-from-top-2">
                                     <div className="flex items-center justify-between mb-2">
-                                        <p className="text-xs font-black text-slate-500">اختر الفصل / الفصول</p>
+                                        <p className="text-xs font-medium text-slate-500">اختر الفصل / الفصول</p>
                                         <button
                                             onClick={() => setSelectedClassIds(
                                                 selectedClassIds.length === classes.length ? [] : classes.map(c => c.id)
                                             )}
-                                            className="text-[11px] font-black px-2.5 py-0.5 rounded-full transition-colors"
+                                            className="text-[11px] font-medium px-2.5 py-0.5 rounded-full transition-colors"
                                             style={{ background: selectedClassIds.length === classes.length ? '#655ac1' : '#ede9ff',
                                                      color: selectedClassIds.length === classes.length ? 'white' : '#655ac1' }}
                                         >
                                             {selectedClassIds.length === classes.length ? '✓ إلغاء الكل' : 'تحديد الكل'}
                                         </button>
                                     </div>
-                                    <div className="space-y-1 max-h-44 overflow-y-auto">
+                                    <div className="space-y-0.5 max-h-44 overflow-y-auto">
                                         {[...classes].sort((a,b) => a.grade !== b.grade ? a.grade-b.grade : (a.section||0)-(b.section||0)).map(c => (
-                                            <label key={c.id} className="flex items-center gap-3 p-2 rounded-xl hover:bg-white cursor-pointer">
+                                            <label key={c.id} className="flex items-center gap-3 p-2 rounded-xl hover:bg-white cursor-pointer transition-colors">
                                                 <input type="checkbox" checked={selectedClassIds.includes(c.id)}
                                                     onChange={() => toggleId(c.id, selectedClassIds, setSelectedClassIds)}
                                                     className="w-4 h-4 rounded accent-[#655ac1]" />
-                                                <span className="text-xs font-bold text-slate-700">{c.name || `${c.grade}/${c.section}`}</span>
+                                                <span className="text-xs font-normal text-slate-700">{c.name || `${c.grade}/${c.section}`}</span>
                                             </label>
                                         ))}
                                     </div>
                                     {selectedClassIds.length > 0 && (
-                                        <p className="text-xs font-bold mt-1.5" style={{ color: '#655ac1' }}>✓ تم اختيار {selectedClassIds.length} من {classes.length} فصل</p>
+                                        <p className="text-xs font-medium mt-1.5" style={{ color: '#655ac1' }}>✓ تم اختيار {selectedClassIds.length} من {classes.length} فصل</p>
                                     )}
                                 </div>
                             )}
@@ -367,31 +374,32 @@ const PrintOptionsModal: React.FC<PrintOptionsModalProps> = ({
                         {/* Right: Print Settings */}
                         <div className="p-5 space-y-5">
                             <div className="flex items-center gap-2 mb-1">
-                                <div className="w-1.5 h-5 rounded-full" style={{ background: '#7c6dd6' }} />
-                                <span className="text-sm font-black text-slate-700">إعدادات الطباعة</span>
+                                <div className="w-1 h-5 rounded-full" style={{ background: 'linear-gradient(180deg,#7c6dd6,#a59bf0)' }} />
+                                <span className="text-sm font-semibold text-slate-700">إعدادات الطباعة</span>
                             </div>
 
                             {/* Paper Size */}
                             <div className="space-y-2">
-                                <label className="text-xs font-black text-slate-500 flex items-center gap-1.5">
+                                <label className="text-xs font-medium text-slate-500 flex items-center gap-1.5">
                                     <FileText size={13} className="text-[#655ac1]" /> حجم الورق
                                 </label>
                                 <div className="grid grid-cols-2 gap-2">
                                     {(['A4','A3'] as PaperSize[]).map(size => (
                                         <button key={size} onClick={() => setPaperSize(size)}
-                                            className={`flex flex-col items-center gap-2 py-3 px-4 rounded-2xl border-2 transition-all duration-200 ${
+                                            className={`flex flex-col items-center gap-2 py-3 px-4 rounded-2xl border transition-all duration-200 ${
                                                 paperSize===size
-                                                    ? 'border-[#8779fb] bg-white text-[#655ac1] shadow-sm scale-[1.02]'
-                                                    : 'border-slate-200 bg-slate-50 text-slate-600 hover:border-[#8779fb]/50 hover:bg-slate-100 hover:text-[#655ac1]'
-                                            }`}>
-                                            <div className="border-2 flex items-center justify-center font-black text-xs"
+                                                    ? 'border-[#8779fb] bg-white text-[#655ac1]'
+                                                    : 'border-slate-200 bg-slate-50/70 text-slate-600 hover:border-[#8779fb]/40 hover:bg-white hover:text-[#655ac1]'
+                                            }`}
+                                            style={paperSize===size ? { boxShadow: '0 4px 12px rgba(101,90,193,0.15)' } : {}}>
+                                            <div className="border flex items-center justify-center font-semibold text-xs"
                                                  style={{ width:size==='A4'?36:48, height:size==='A4'?26:34,
-                                                          borderColor:paperSize===size?'#655ac1':'#94a3b8',
-                                                          borderRadius:4, color:paperSize===size?'#655ac1':'#94a3b8',
-                                                          background:paperSize===size?'white':'transparent' }}>
+                                                          borderColor:paperSize===size?'#655ac1':'#cbd5e1',
+                                                          borderRadius:6, color:paperSize===size?'#655ac1':'#94a3b8',
+                                                          background:paperSize===size?'#f3f0ff':'transparent' }}>
                                                 {size}
                                             </div>
-                                            <span className="text-xs font-black">
+                                            <span className="text-xs font-medium">
                                                 {size==='A4'?'210 × 297 mm':'297 × 420 mm'}
                                             </span>
                                         </button>
@@ -402,11 +410,12 @@ const PrintOptionsModal: React.FC<PrintOptionsModalProps> = ({
                             {/* Font Slider */}
                             <div className="space-y-2">
                                 <div className="flex items-center justify-between">
-                                    <label className="text-xs font-black text-slate-500 flex items-center gap-1.5">
+                                    <label className="text-xs font-medium text-slate-500 flex items-center gap-1.5">
                                         <SlidersHorizontal size={13} className="text-[#655ac1]"/> حجم خط الجدول
                                     </label>
-                                    <span className="text-xs font-black px-2.5 py-0.5 rounded-full text-white min-w-[44px] text-center"
-                                          style={{ background:'linear-gradient(135deg,#655ac1,#7c6dd6)' }}>
+                                    <span className="text-xs font-semibold px-3 py-0.5 rounded-full text-white min-w-[44px] text-center"
+                                          style={{ background:'linear-gradient(135deg,#655ac1,#7c6dd6)',
+                                                   boxShadow: '0 2px 6px rgba(101,90,193,0.3)' }}>
                                         {fontSize}px
                                     </span>
                                 </div>
@@ -428,19 +437,22 @@ const PrintOptionsModal: React.FC<PrintOptionsModalProps> = ({
                                     { key:'bw',      label:'أبيض وأسود', sub:'توفير الحبر',    val:blackAndWhite, set:setBlackAndWhite },
                                 ].map(item => (
                                     <button key={item.key} onClick={() => item.set(!item.val)}
-                                        className={`flex items-center gap-2.5 p-3 rounded-2xl border-2 transition-all duration-200 text-right ${
+                                        className={`flex items-center gap-2.5 p-3 rounded-2xl border transition-all duration-200 text-right ${
                                             item.val
-                                                ? 'border-[#8779fb] bg-white text-[#655ac1] shadow-sm scale-[1.02]'
-                                                : 'border-slate-200 bg-slate-50 text-slate-600 hover:border-[#8779fb]/50 hover:bg-slate-100 hover:text-[#655ac1]'
-                                        }`}>
+                                                ? 'border-[#8779fb] bg-white text-[#655ac1]'
+                                                : 'border-slate-200 bg-slate-50/70 text-slate-600 hover:border-[#8779fb]/40 hover:bg-white hover:text-[#655ac1]'
+                                        }`}
+                                        style={item.val ? { boxShadow: '0 4px 12px rgba(101,90,193,0.15)' } : {}}>
                                         <div className="w-10 h-6 rounded-full flex items-center transition-all shrink-0"
                                              style={{ background:item.val?'linear-gradient(135deg,#655ac1,#7c6dd6)':'#e2e8f0',
-                                                      padding:'2px', justifyContent:item.val?'flex-end':'flex-start' }}>
-                                            <div className="w-5 h-5 bg-white rounded-full shadow-sm"/>
+                                                      padding:'2px', justifyContent:item.val?'flex-end':'flex-start',
+                                                      boxShadow: item.val?'0 2px 6px rgba(101,90,193,0.3)':'none' }}>
+                                            <div className="w-5 h-5 bg-white rounded-full"
+                                                 style={{ boxShadow: '0 1px 4px rgba(0,0,0,0.15)'}}/>
                                         </div>
                                         <div className="min-w-0">
-                                            <div className="text-xs font-black">{item.label}</div>
-                                            <div className="text-[10px] font-medium opacity-60">{item.sub}</div>
+                                            <div className="text-xs font-medium">{item.label}</div>
+                                            <div className="text-[10px] font-normal opacity-55">{item.sub}</div>
                                         </div>
                                     </button>
                                 ))}
@@ -449,7 +461,7 @@ const PrintOptionsModal: React.FC<PrintOptionsModalProps> = ({
                             {/* Layout — only for individual schedules, placed after toggles */}
                             {selectedType?.startsWith('individual_') && (
                             <div className="space-y-2">
-                                <label className="text-xs font-black text-slate-500 flex items-center gap-1.5">
+                                <label className="text-xs font-medium text-slate-500 flex items-center gap-1.5">
                                     <AlignJustify size={13} className="text-[#655ac1]" /> توزيع الجداول في الصفحة
                                 </label>
                                 <div className="space-y-1.5">
@@ -459,26 +471,29 @@ const PrintOptionsModal: React.FC<PrintOptionsModalProps> = ({
                                         { id:'custom', label:'تخصيص يدوي',             icon:<Settings2 size={14}/> },
                                     ].map(opt => (
                                         <button key={opt.id} onClick={() => setLayoutMode(opt.id as LayoutMode)}
-                                            className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl border-2 font-bold text-sm transition-all duration-200 text-right ${
+                                            className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl border transition-all duration-200 text-right ${
                                                 layoutMode===opt.id
-                                                    ? 'border-[#8779fb] bg-white text-[#655ac1] shadow-sm scale-[1.02]'
-                                                    : 'border-slate-200 bg-slate-50 text-slate-600 hover:border-[#8779fb]/50 hover:bg-slate-100 hover:text-[#655ac1]'
-                                            }`}>
-                                            <span className="shrink-0 text-[#655ac1]">{opt.icon}</span>
-                                            <span className="flex-1 text-right font-black text-xs">{opt.label}</span>
+                                                    ? 'border-[#8779fb] bg-white text-[#655ac1]'
+                                                    : 'border-slate-200 bg-slate-50/70 text-slate-600 hover:border-[#8779fb]/40 hover:bg-white hover:text-[#655ac1]'
+                                            }`}
+                                            style={layoutMode===opt.id ? { boxShadow: '0 4px 12px rgba(101,90,193,0.15)', borderRightWidth: 3 } : {}}>
+                                            <span className="shrink-0" style={{ color: layoutMode===opt.id?'#655ac1':'#94a3b8' }}>{opt.icon}</span>
+                                            <span className="flex-1 text-right font-medium text-xs">{opt.label}</span>
                                         </button>
                                     ))}
                                     {layoutMode === 'custom' && (
-                                        <div className="flex items-center gap-3 px-4 py-2 bg-slate-50 rounded-xl border border-slate-200 animate-in fade-in">
-                                            <label className="text-xs font-bold text-slate-500">أعمدة</label>
+                                        <div className="flex items-center gap-3 px-4 py-2.5 rounded-xl border border-slate-200 bg-slate-50 animate-in fade-in">
+                                            <label className="text-xs font-medium text-slate-500">أعمدة</label>
                                             <input type="number" min={1} max={4} value={customCols}
                                                 onChange={e => setCustomCols(Math.max(1,Math.min(4,Number(e.target.value))))}
-                                                className="w-14 text-center text-sm font-black border border-slate-200 rounded-lg p-1 outline-none focus:border-[#655ac1]"/>
-                                            <span className="text-slate-300">×</span>
-                                            <label className="text-xs font-bold text-slate-500">صفوف</label>
+                                                className="w-14 text-center text-sm font-medium border border-slate-200 rounded-xl p-1 outline-none focus:border-[#655ac1]"
+                                                style={{ fontFamily: '"Tajawal", sans-serif' }}/>
+                                            <span className="text-slate-300 font-light">×</span>
+                                            <label className="text-xs font-medium text-slate-500">صفوف</label>
                                             <input type="number" min={1} max={4} value={customRows}
                                                 onChange={e => setCustomRows(Math.max(1,Math.min(4,Number(e.target.value))))}
-                                                className="w-14 text-center text-sm font-black border border-slate-200 rounded-lg p-1 outline-none focus:border-[#655ac1]"/>
+                                                className="w-14 text-center text-sm font-medium border border-slate-200 rounded-xl p-1 outline-none focus:border-[#655ac1]"
+                                                style={{ fontFamily: '"Tajawal", sans-serif' }}/>
                                         </div>
                                     )}
                                 </div>
@@ -488,11 +503,11 @@ const PrintOptionsModal: React.FC<PrintOptionsModalProps> = ({
                     </div>
 
                     {/* Live Preview */}
-                    <div className="px-5 pb-4 border-t border-slate-100 pt-4">
+                    <div className="px-5 pb-5 pt-4 bg-slate-50 border-t border-slate-100">
                         <div className="flex items-center gap-2 mb-3">
-                            <div className="w-1.5 h-5 rounded-full" style={{ background:'#a59bf0' }}/>
-                            <span className="text-sm font-black text-slate-700">معاينة مباشرة</span>
-                            <span className="text-[10px] text-slate-400 font-semibold mr-1">— سيتغيّر الجدول فور تعديل الإعدادات</span>
+                            <div className="w-1 h-5 rounded-full" style={{ background: 'linear-gradient(180deg,#a59bf0,#c4bcf8)' }}/>
+                            <span className="text-sm font-semibold text-slate-700">معاينة مباشرة</span>
+                            <span className="text-[10px] text-slate-400 font-normal mr-1">— سيتغيّر الجدول فور تعديل الإعدادات</span>
                         </div>
                         <MiniPreview type={selectedType} settings={settings} teachers={teachers} classes={classes}
                             subjects={subjects} schoolInfo={schoolInfo}
@@ -503,17 +518,16 @@ const PrintOptionsModal: React.FC<PrintOptionsModalProps> = ({
                 </div>
 
                 {/* Footer */}
-                <div className="flex items-center gap-3 px-6 py-4 border-t border-slate-100"
-                     style={{ background:'linear-gradient(135deg,#fafafe,#f7f6ff)' }}>
+                <div className="flex items-center gap-3 px-6 py-4 bg-slate-50 border-t border-slate-100">
                     <button onClick={onClose}
-                        className="px-6 py-3 rounded-2xl font-black text-sm text-slate-600 hover:bg-slate-200 transition-colors"
-                        style={{ background:'#f1f5f9', border:'2px solid #e2e8f0' }}>
+                        className="px-6 py-3 rounded-2xl font-medium text-sm text-slate-600 transition-all hover:scale-[1.02]"
+                        style={{ background:'#f1f5f9', border:'1.5px solid #e2e8f0' }}>
                         إلغاء
                     </button>
                     <button onClick={() => isReady && setShowPrintPage(true)} disabled={!isReady}
-                        className="flex-1 flex items-center justify-center gap-3 py-3 rounded-2xl font-black text-sm text-white transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                        className="flex-1 flex items-center justify-center gap-3 py-3 rounded-2xl font-semibold text-sm text-white transition-all disabled:opacity-40 disabled:cursor-not-allowed hover:scale-[1.01]"
                         style={{ background:isReady?'linear-gradient(135deg,#655ac1 0%,#7c6dd6 60%,#8779fb 100%)':'#c8c4e8',
-                                 boxShadow:isReady?'0 8px 24px rgba(101,90,193,0.35),0 2px 8px rgba(101,90,193,0.2)':'none' }}>
+                                 boxShadow:isReady?'0 8px 28px rgba(101,90,193,0.38),0 2px 8px rgba(101,90,193,0.2)':'none' }}>
                         <Printer size={18}/>
                         {isReady ? 'معاينة وطباعة' : 'اختر نوع الجدول أولاً'}
                     </button>

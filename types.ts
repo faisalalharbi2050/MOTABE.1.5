@@ -336,6 +336,7 @@ export interface SavedSchedule {
   id: string;
   name: string;
   createdAt: string; // ISO string
+  createdBy: string; // e.g. "النظام" or "المستخدم"
   timetable: TimetableData;
 }
 
@@ -348,6 +349,7 @@ export interface ScheduleSettingsData {
   auditLogs?: AuditLogEntry[];
   subjectAbbreviations?: Record<string, string>; // subjectId -> abbreviation
   savedSchedules?: SavedSchedule[];
+  activeScheduleId?: string; // ID of the currently adopted saved schedule
 }
 
 // ===== Audit Log Types =====

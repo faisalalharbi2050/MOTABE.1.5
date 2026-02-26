@@ -273,7 +273,27 @@ const Step9Schedule: React.FC<Step9Props> = ({
 
             // If merging timetable for separated schools, keep existing timetable for other schools
             const existingTimetable = sharedSchoolMode === 'separated' ? (scheduleSettings.timetable || {}) : {};
-            setScheduleSettings({ ...scheduleSettings, timetable: { ...existingTimetable, ...timetable } });
+            const mergedTimetable = { ...existingTimetable, ...timetable };
+
+            // Auto-save new schedule to savedSchedules
+            const prevSaved = scheduleSettings.savedSchedules || [];
+            const newId = `schedule-${Date.now()}`;
+            const autoScheduleNumber = prevSaved.length + 1;
+            const newSavedEntry = {
+                id: newId,
+                name: `جدول رقم ${autoScheduleNumber}`,
+                createdAt: new Date().toISOString(),
+                createdBy: 'النظام',
+                timetable: JSON.parse(JSON.stringify(mergedTimetable)),
+            };
+            const updatedSaved = [newSavedEntry, ...prevSaved].slice(0, 10);
+
+            setScheduleSettings({
+                ...scheduleSettings,
+                timetable: mergedTimetable,
+                savedSchedules: updatedSaved,
+                activeScheduleId: newId,
+            });
             setGenerationStatus('success');
             setGenerationProgress(100);
             

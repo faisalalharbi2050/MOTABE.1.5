@@ -1,5 +1,8 @@
-import React, { useState } from 'react';
-import { X, Save, Copy, Trash2, CheckCircle2, RotateCcw, AlertCircle, Clock, History, Pencil, Check } from 'lucide-react';
+﻿import React, { useState } from 'react';
+import {
+    X, Save, Trash2, CheckCircle2, Clock, History,
+    Pencil, Check, Star, CalendarDays, User2, BookOpenCheck, Plus, Shield
+} from 'lucide-react';
 import { ScheduleSettingsData, SavedSchedule, TimetableData } from '../../types';
 
 interface ScheduleManagerModalProps {
@@ -7,290 +10,434 @@ interface ScheduleManagerModalProps {
     onClose: () => void;
     settings: ScheduleSettingsData;
     onUpdateSettings: (newSettings: ScheduleSettingsData) => void;
-    currentTimetable?: TimetableData; // Pass current if we want to save it
+    currentTimetable?: TimetableData;
 }
 
-const ScheduleManagerModal: React.FC<ScheduleManagerModalProps> = ({ 
-    isOpen, 
-    onClose, 
-    settings, 
+const ScheduleManagerModal: React.FC<ScheduleManagerModalProps> = ({
+    isOpen,
+    onClose,
+    settings,
     onUpdateSettings,
-    currentTimetable
+    currentTimetable,
 }) => {
-    const [newScheduleName, setNewScheduleName] = useState('');
-    const [isSaving, setIsSaving] = useState(false);
-    const [showDeleteCurrentConfirm, setShowDeleteCurrentConfirm] = useState(false);
-    const [editingScheduleId, setEditingScheduleId] = useState<string | null>(null);
+    const [editingScheduleId, setEditingScheduleId]     = useState<string | null>(null);
     const [editingScheduleName, setEditingScheduleName] = useState('');
-    
-    // Safely get the saved schedules
-    const savedSchedules = settings.savedSchedules || [];
+    const [confirmDeleteId, setConfirmDeleteId]         = useState<string | null>(null);
+    const [showManualSave, setShowManualSave]           = useState(false);
+    const [manualSaveName, setManualSaveName]           = useState('');
+
+    const savedSchedules   = settings.savedSchedules  || [];
+    const activeScheduleId = settings.activeScheduleId;
 
     if (!isOpen) return null;
 
-    const handleSaveCurrent = () => {
-        if (!currentTimetable || Object.keys(currentTimetable).length === 0) {
-            alert('لا يوجد جدول حالي لحفظه.');
-            return;
-        }
-        if (!newScheduleName.trim()) {
-            alert('يرجى إدخال اسم للجدول.');
-            return;
-        }
-
-        if (savedSchedules.length >= 10) {
-            alert('لقد وصلت للحد الأقصى (10 جداول). يرجى حذف بعض الجداول القديمة أولاً.');
-            return;
-        }
-
-        const newSchedule: SavedSchedule = {
-            id: `schedule-${Date.now()}`,
-            name: newScheduleName.trim(),
-            createdAt: new Date().toISOString(),
-            timetable: JSON.parse(JSON.stringify(currentTimetable)) // Deep copy
-        };
-
-        const updatedSchedules = [newSchedule, ...savedSchedules];
-        
-        onUpdateSettings({
-            ...settings,
-            savedSchedules: updatedSchedules
-        });
-        
-        setNewScheduleName('');
-        setIsSaving(false);
+    const dayNames: Record<number, string> = {
+        0: 'الأحد', 1: 'الإثنين', 2: 'الثلاثاء',
+        3: 'الأربعاء', 4: 'الخميس', 5: 'الجمعة', 6: 'السبت',
     };
 
-    const handleRestore = (schedule: SavedSchedule) => {
-        if (window.confirm(`هل أنت متأكد من استعادة "${schedule.name}"؟ سيتم استبدال الجدول الحالي (إذا لم يكن محفوظاً سيتم فقدانه).`)) {
-            onUpdateSettings({
-                ...settings,
-                timetable: JSON.parse(JSON.stringify(schedule.timetable))
-            });
-            onClose();
-        }
+    const formatDateTime = (iso: string) => {
+        const d    = new Date(iso);
+        const day  = dayNames[d.getDay()];
+        const date = new Intl.DateTimeFormat('ar-SA-u-nu-latn', {
+            year: 'numeric', month: 'long', day: 'numeric',
+        }).format(d);
+        const time = new Intl.DateTimeFormat('ar-SA-u-nu-latn', {
+            hour: '2-digit', minute: '2-digit', hour12: true,
+        }).format(d);
+        return { day, date, time };
+    };
+
+    const handleAdopt = (schedule: SavedSchedule) => {
+        onUpdateSettings({
+            ...settings,
+            timetable:        JSON.parse(JSON.stringify(schedule.timetable)),
+            activeScheduleId: schedule.id,
+        });
+        onClose();
     };
 
     const handleDelete = (id: string) => {
-        if (window.confirm('هل أنت متأكد من حذف هذا الجدول من السجل؟')) {
-            const updatedSchedules = savedSchedules.filter(s => s.id !== id);
-            onUpdateSettings({
-                ...settings,
-                savedSchedules: updatedSchedules
-            });
-        }
-    };
-
-    const handleRenameStart = (schedule: SavedSchedule) => {
-        setEditingScheduleId(schedule.id);
-        setEditingScheduleName(schedule.name);
+        const updated     = savedSchedules.filter(s => s.id !== id);
+        const newActiveId = id === activeScheduleId
+            ? (updated[0]?.id ?? undefined)
+            : activeScheduleId;
+        onUpdateSettings({
+            ...settings,
+            savedSchedules:   updated,
+            activeScheduleId: newActiveId,
+            ...(id === activeScheduleId && updated[0]
+                ? { timetable: JSON.parse(JSON.stringify(updated[0].timetable)) }
+                : {}),
+        });
+        setConfirmDeleteId(null);
     };
 
     const handleRenameSave = () => {
         if (!editingScheduleId || !editingScheduleName.trim()) return;
-        const updatedSchedules = savedSchedules.map(s =>
+        const updated = savedSchedules.map(s =>
             s.id === editingScheduleId ? { ...s, name: editingScheduleName.trim() } : s
         );
-        onUpdateSettings({ ...settings, savedSchedules: updatedSchedules });
+        onUpdateSettings({ ...settings, savedSchedules: updated });
         setEditingScheduleId(null);
         setEditingScheduleName('');
     };
 
-    const handleDeleteCurrentTimetable = () => {
-        onUpdateSettings({ ...settings, timetable: {}, auditLogs: [] });
-        setShowDeleteCurrentConfirm(false);
+    const handleManualSave = () => {
+        if (!currentTimetable || Object.keys(currentTimetable).length === 0) return;
+        if (savedSchedules.length >= 10) return;
+        const newId = `schedule-${Date.now()}`;
+        const newEntry: SavedSchedule = {
+            id:        newId,
+            name:      manualSaveName.trim() || `لقطة يدوية ${savedSchedules.length + 1}`,
+            createdAt: new Date().toISOString(),
+            createdBy: 'المستخدم',
+            timetable: JSON.parse(JSON.stringify(currentTimetable)),
+        };
+        onUpdateSettings({
+            ...settings,
+            savedSchedules:   [newEntry, ...savedSchedules].slice(0, 10),
+            activeScheduleId: newId,
+        });
+        setManualSaveName('');
+        setShowManualSave(false);
     };
 
-    const formatDate = (isoString: string) => {
-        const date = new Date(isoString);
-        return new Intl.DateTimeFormat('ar-SA', {
-            year: 'numeric', month: 'long', day: 'numeric',
-            hour: '2-digit', minute: '2-digit'
-        }).format(date);
-    };
+    const activeSchedule = savedSchedules.find(s => s.id === activeScheduleId);
 
     return (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm animate-in fade-in">
-            <div className="bg-white rounded-3xl w-full max-w-4xl max-h-[85vh] shadow-2xl flex flex-col relative animate-in zoom-in-95 overflow-hidden">
+            <div
+                className="bg-white w-full flex flex-col overflow-hidden"
+                style={{
+                    maxWidth: '840px',
+                    maxHeight: '90vh',
+                    borderRadius: '28px',
+                    boxShadow: '0 40px 100px rgba(101,90,193,0.25),0 12px 32px rgba(0,0,0,0.14)',
+                    fontFamily: '"Tajawal", sans-serif',
+                }}
+                dir="rtl"
+            >
                 {/* Header */}
-                <div className="p-6 bg-slate-50 border-b border-slate-100 flex items-center justify-between">
+                <div className="flex items-center justify-between px-6 py-5 bg-slate-50 border-b border-slate-100">
                     <div className="flex items-center gap-4">
-                        <div className="w-12 h-12 rounded-2xl bg-[#e5e1fe] text-[#655ac1] flex items-center justify-center shadow-inner">
-                            <Save size={24} />
+                        <div
+                            className="w-12 h-12 rounded-2xl flex items-center justify-center"
+                            style={{
+                                background: 'linear-gradient(135deg,#655ac1,#7c6dd6)',
+                                boxShadow: '0 6px 16px rgba(101,90,193,0.38)',
+                            }}
+                        >
+                            <History size={22} className="text-white" />
                         </div>
                         <div>
-                            <h3 className="font-black text-slate-800 text-xl">إدارة الجداول المحفوظة</h3>
-                            <p className="text-sm font-bold text-slate-500">
-                                حفظ واسترجاع نسخ متعددة من الجداول (الحد الأقصى: 10)
+                            <h3 className="font-black text-xl text-slate-800">إدارة الجداول</h3>
+                            <p className="text-sm font-bold text-slate-500 mt-0.5">
+                                كل جدول يُحفظ تلقائياً عند الإنشاء — اعتمد أو احذف أو عدّل الاسم
                             </p>
                         </div>
                     </div>
-                    <button 
+                    <button
                         onClick={onClose}
-                        className="p-2 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-xl transition-colors"
+                        className="w-9 h-9 flex items-center justify-center rounded-xl text-slate-400 hover:text-rose-500 hover:bg-rose-50 transition-all"
                     >
-                        <X size={24} />
+                        <X size={18} />
                     </button>
                 </div>
 
-                <div className="flex-1 overflow-y-auto p-6 flex flex-col md:flex-row gap-6 bg-slate-50/50">
-                    {/* Left/Top Panel: Save New */}
-                    <div className="w-full md:w-1/3 space-y-4">
-                        <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
-                            <h4 className="font-black text-slate-700 mb-4 flex items-center gap-2">
-                                <Copy size={18} className="text-[#655ac1]" />
-                                حفظ الجدول الحالي
-                            </h4>
-                            
-                            {(!currentTimetable || Object.keys(currentTimetable).length === 0) ? (
-                                <div className="p-4 bg-orange-50 text-orange-600 rounded-xl text-sm font-bold flex gap-2 items-start">
-                                    <AlertCircle size={18} className="shrink-0 mt-0.5" />
-                                    <p>لا يوجد جدول مفعّل حالياً لحفظه. قم بإنشاء جدول أولاً.</p>
-                                </div>
-                            ) : savedSchedules.length >= 10 ? (
-                                <div className="p-4 bg-rose-50 text-rose-600 rounded-xl text-sm font-bold flex gap-2 items-start">
-                                    <AlertCircle size={18} className="shrink-0 mt-0.5" />
-                                    <p>لقد وصلت للحد الأقصى للمسودات (10). يرجى حذف جدول قديم لتتمكن من حفظ جدول جديد.</p>
-                                </div>
-                            ) : (
-                                <div className="space-y-4">
-                                    <div>
-                                        <label className="block text-sm font-bold text-slate-600 mb-2">اسم النسخة (اختياري/تلقائي)</label>
-                                        <input 
-                                            type="text" 
-                                            placeholder="مثال: جدول مبدئي، جدول بعد التعديل..."
-                                            value={newScheduleName}
-                                            onChange={(e) => setNewScheduleName(e.target.value)}
-                                            className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#655ac1]/20 focus:border-[#655ac1] transition-all font-medium text-slate-700"
-                                        />
-                                    </div>
-                                    <button 
-                                        onClick={handleSaveCurrent}
-                                        disabled={!newScheduleName.trim()}
-                                        className="w-full bg-[#655ac1] hover:bg-[#5448a8] text-white py-3 rounded-xl font-bold transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-lg shadow-[#655ac1]/20"
-                                    >
-                                        <Save size={18} />
-                                        حفظ كنسخة جديدة
-                                    </button>
-                                </div>
-                            )}
+                {/* Active banner */}
+                {activeSchedule && (
+                    <div
+                        className="mx-6 mt-5 px-4 py-3 rounded-2xl flex items-center gap-3 bg-slate-50 border border-slate-200"
+                    >
+                        <div
+                            className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0"
+                            style={{ background: 'linear-gradient(135deg,#655ac1,#7c6dd6)' }}
+                        >
+                            <Star size={14} className="text-white" />
                         </div>
-
-                        {/* Storage Indicator */}
-                        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
-                            <div className="flex justify-between items-center text-sm font-bold mb-2">
-                                <span className="text-slate-600">المساحة المستخدمة</span>
-                                <span className={savedSchedules.length >= 10 ? 'text-rose-500' : 'text-[#655ac1]'}>
-                                    {savedSchedules.length} / 10
-                                </span>
-                            </div>
-                            <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
-                                <div 
-                                    className={`h-full rounded-full transition-all ${savedSchedules.length >= 10 ? 'bg-rose-500' : 'bg-[#655ac1]'}`}
-                                    style={{ width: `${(savedSchedules.length / 10) * 100}%` }}
-                                ></div>
-                            </div>
+                        <div className="flex-1 min-w-0">
+                            <p className="text-xs text-[#655ac1] font-semibold">الجدول المعتمد حالياً</p>
+                            <p className="text-sm font-bold text-slate-800 truncate">{activeSchedule.name}</p>
                         </div>
+                        <span
+                            className="text-[10px] font-medium px-2.5 py-1 rounded-full text-[#655ac1]"
+                            style={{ background: 'rgba(101,90,193,0.1)' }}
+                        >
+                            {Object.keys(activeSchedule.timetable).length} حصة
+                        </span>
+                    </div>
+                )}
 
-                        {/* Delete Current Timetable */}
-                        <div className="bg-white p-5 rounded-2xl border border-rose-100 shadow-sm">
-                            <h4 className="font-black text-slate-700 mb-3 flex items-center gap-2">
-                                <Trash2 size={16} className="text-rose-500" />
-                                حذف الجدول الحالي
-                            </h4>
-                            {!showDeleteCurrentConfirm ? (
+                {/* Manual Save */}
+                {currentTimetable && Object.keys(currentTimetable).length > 0 && savedSchedules.length < 10 && (
+                    <div className="mx-6 mt-3">
+                        {!showManualSave ? (
+                            <button
+                                onClick={() => setShowManualSave(true)}
+                                className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-medium text-[#655ac1] transition-all hover:scale-[1.02] bg-slate-50 border border-slate-200 hover:bg-slate-100"
+                            >
+                                <Plus size={14} /> حفظ لقطة يدوية من الجدول الحالي
+                            </button>
+                        ) : (
+                            <div className="flex items-center gap-2">
+                                <input
+                                    type="text"
+                                    placeholder="اسم اللقطة (اختياري)"
+                                    value={manualSaveName}
+                                    onChange={e => setManualSaveName(e.target.value)}
+                                    onKeyDown={e => {
+                                        if (e.key === 'Enter') handleManualSave();
+                                        if (e.key === 'Escape') setShowManualSave(false);
+                                    }}
+                                    autoFocus
+                                    className="flex-1 px-3 py-2 text-sm rounded-xl border border-slate-200 outline-none focus:border-[#655ac1] bg-white"
+                                />
                                 <button
-                                    onClick={() => setShowDeleteCurrentConfirm(true)}
-                                    disabled={!currentTimetable || Object.keys(currentTimetable).length === 0}
-                                    className="w-full py-2.5 bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 rounded-xl font-bold text-sm transition-all disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                                    onClick={handleManualSave}
+                                    className="flex items-center gap-1.5 px-4 py-2 text-xs font-semibold text-white rounded-xl transition-all"
+                                    style={{ background: 'linear-gradient(135deg,#655ac1,#7c6dd6)' }}
                                 >
-                                    <Trash2 size={16} /> حذف الجدول الحالي
+                                    <Save size={13} /> حفظ
                                 </button>
-                            ) : (
-                                <div className="space-y-2 animate-in zoom-in-95 duration-150">
-                                    <p className="text-xs font-bold text-rose-600 text-center">هل أنت متأكد؟ لا يمكن التراجع.</p>
-                                    <div className="flex gap-2">
-                                        <button onClick={handleDeleteCurrentTimetable} className="flex-1 py-2 bg-rose-500 hover:bg-rose-600 text-white rounded-xl font-bold text-xs transition-all">نعم، احذف</button>
-                                        <button onClick={() => setShowDeleteCurrentConfirm(false)} className="flex-1 py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl font-bold text-xs transition-all">إلغاء</button>
-                                    </div>
-                                </div>
-                            )}
+                                <button
+                                    onClick={() => setShowManualSave(false)}
+                                    className="p-2 rounded-xl text-slate-400 hover:text-rose-500 hover:bg-rose-50 transition-colors"
+                                >
+                                    <X size={14} />
+                                </button>
+                            </div>
+                        )}
+                    </div>
+                )}
+
+                {/* List */}
+                <div className="flex-1 overflow-y-auto px-6 pt-4 pb-6 space-y-3">
+                    <div className="flex items-center justify-between text-xs font-medium text-slate-500 mb-1">
+                        <div className="flex items-center gap-1.5">
+                            <BookOpenCheck size={13} className="text-[#655ac1]" />
+                            الجداول المحفوظة ({savedSchedules.length} / 10)
+                        </div>
+                        <div className="w-28 h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                            <div
+                                className="h-full rounded-full transition-all"
+                                style={{
+                                    width: `${(savedSchedules.length / 10) * 100}%`,
+                                    background: savedSchedules.length >= 10 ? '#ef4444' : 'linear-gradient(90deg,#655ac1,#8779fb)',
+                                }}
+                            />
                         </div>
                     </div>
 
-                    {/* Right/Bottom Panel: List of Saved Schedules */}
-                    <div className="w-full md:w-2/3">
-                        <h4 className="font-black text-slate-700 mb-4 flex items-center gap-2">
-                            <History size={18} className="text-slate-500" />
-                            السجل والجداول المحفوظة ({savedSchedules.length})
-                        </h4>
-                        
-                        {savedSchedules.length === 0 ? (
-                            <div className="bg-white border border-slate-200 border-dashed rounded-2xl p-10 flex flex-col items-center justify-center text-slate-400 gap-4">
-                                <Save size={48} strokeWidth={1} />
-                                <p className="font-bold text-lg">لم تقم بحفظ أي جدول للآن</p>
-                                <p className="text-sm">يمكنك حفظ الجدول الحالي للرجوع إليه لاحقاً وتجربة تعديلات أخرى بكل أريحية.</p>
+                    {savedSchedules.length === 0 ? (
+                        <div className="flex flex-col items-center justify-center py-16 gap-4 text-slate-400">
+                            <div className="w-16 h-16 rounded-2xl flex items-center justify-center bg-slate-100">
+                                <History size={28} style={{ color: '#a59bf0' }} />
                             </div>
-                        ) : (
-                            <div className="space-y-3 pr-2" style={{ maxHeight: '50vh', overflowY: 'auto' }}>
-                                {savedSchedules.map((schedule) => (
-                                    <div key={schedule.id} className="bg-white border border-slate-200 p-4 rounded-2xl hover:border-[#655ac1]/50 hover:shadow-md transition-all group flex flex-col gap-3">
-                                        <div className="flex items-start justify-between gap-2">
+                            <div className="text-center">
+                                <p className="font-semibold text-slate-600 mb-1">لا توجد جداول محفوظة بعد</p>
+                                <p className="text-xs font-normal">
+                                    سيُحفظ الجدول تلقائياً عند إنشائه من زر «بناء الجدول»
+                                </p>
+                            </div>
+                        </div>
+                    ) : (
+                        savedSchedules.map((schedule, index) => {
+                            const isActive   = schedule.id === activeScheduleId;
+                            const isLatest   = index === 0;
+                            const { day, date, time } = formatDateTime(schedule.createdAt);
+                            const isSystem   = schedule.createdBy === 'النظام';
+                            const isEditing  = editingScheduleId === schedule.id;
+                            const isDeleting = confirmDeleteId === schedule.id;
+
+                            return (
+                                <div
+                                    key={schedule.id}
+                                    className="rounded-2xl overflow-hidden transition-all duration-200"
+                                    style={{
+                                        border: isActive ? '2px solid #8779fb' : '1.5px solid #e8e6f0',
+                                        background: isActive ? 'linear-gradient(135deg,#faf9ff,#f3f0ff)' : 'white',
+                                        boxShadow: isActive ? '0 4px 16px rgba(101,90,193,0.14)' : '0 1px 4px rgba(0,0,0,0.05)',
+                                    }}
+                                >
+                                    {isActive && (
+                                        <div
+                                            className="h-1 w-full"
+                                            style={{ background: 'linear-gradient(90deg,#655ac1,#8779fb)' }}
+                                        />
+                                    )}
+
+                                    <div className="p-4">
+                                        {/* Row 1 */}
+                                        <div className="flex items-start gap-3 mb-3">
+                                            <div
+                                                className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0 text-xs font-bold mt-0.5"
+                                                style={{
+                                                    background: isActive ? 'linear-gradient(135deg,#655ac1,#7c6dd6)' : '#f1f0f8',
+                                                    color: isActive ? 'white' : '#94a0b8',
+                                                }}
+                                            >
+                                                {savedSchedules.length - index}
+                                            </div>
                                             <div className="flex-1 min-w-0">
-                                                {editingScheduleId === schedule.id ? (
+                                                {isEditing ? (
                                                     <div className="flex items-center gap-2">
                                                         <input
                                                             type="text"
                                                             value={editingScheduleName}
                                                             onChange={e => setEditingScheduleName(e.target.value)}
                                                             autoFocus
-                                                            onKeyDown={e => { if (e.key === 'Enter') handleRenameSave(); if (e.key === 'Escape') { setEditingScheduleId(null); } }}
-                                                            className="flex-1 px-3 py-1.5 bg-slate-50 border border-[#655ac1] rounded-lg text-sm font-bold outline-none"
+                                                            onKeyDown={e => {
+                                                                if (e.key === 'Enter') handleRenameSave();
+                                                                if (e.key === 'Escape') setEditingScheduleId(null);
+                                                            }}
+                                                            className="flex-1 px-3 py-1.5 bg-white border border-[#655ac1] rounded-lg text-sm outline-none"
                                                         />
-                                                        <button onClick={handleRenameSave} className="p-1.5 bg-[#655ac1] text-white rounded-lg hover:bg-[#5448a8] transition-colors"><Check size={14}/></button>
-                                                        <button onClick={() => setEditingScheduleId(null)} className="p-1.5 text-slate-400 hover:text-rose-500 rounded-lg transition-colors"><X size={14}/></button>
+                                                        <button
+                                                            onClick={handleRenameSave}
+                                                            className="p-1.5 rounded-lg text-white transition-colors"
+                                                            style={{ background: '#655ac1' }}
+                                                        >
+                                                            <Check size={13} />
+                                                        </button>
+                                                        <button
+                                                            onClick={() => setEditingScheduleId(null)}
+                                                            className="p-1.5 rounded-lg text-slate-400 hover:text-rose-500 hover:bg-rose-50 transition-colors"
+                                                        >
+                                                            <X size={13} />
+                                                        </button>
                                                     </div>
                                                 ) : (
-                                                    <h5 className="font-black text-slate-800 text-base truncate">{schedule.name}</h5>
+                                                    <div className="flex items-center gap-2 flex-wrap">
+                                                        <span className="font-semibold text-slate-800 text-sm leading-tight">
+                                                            {schedule.name}
+                                                        </span>
+                                                        {isActive && (
+                                                            <span
+                                                                className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full text-[#655ac1]"
+                                                                style={{ background: 'rgba(101,90,193,0.12)' }}
+                                                            >
+                                                                <Star size={9} /> معتمد
+                                                            </span>
+                                                        )}
+                                                        {isLatest && !isActive && (
+                                                            <span
+                                                                className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full text-amber-600"
+                                                                style={{ background: '#fef9ec', border: '1px solid #fde68a' }}
+                                                            >
+                                                                الأحدث
+                                                            </span>
+                                                        )}
+                                                    </div>
                                                 )}
-                                                <p className="text-xs font-bold text-slate-400 flex items-center gap-1.5 mt-1">
-                                                    <Clock size={12} />
-                                                    {formatDate(schedule.createdAt)}
-                                                </p>
-                                                <p className="text-xs text-slate-500 mt-1.5 bg-slate-50 px-2 py-1 rounded inline-block">
-                                                    يحتوي على {Object.keys(schedule.timetable).length} حصة مسندة
-                                                </p>
                                             </div>
                                         </div>
 
-                                        <div className="flex items-center gap-2">
-                                            <button 
-                                                onClick={() => handleRestore(schedule)}
-                                                className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 bg-[#655ac1] text-white hover:bg-[#5448a8] rounded-xl font-bold transition-colors text-xs shadow-sm"
+                                        {/* Row 2 */}
+                                        <div className="grid grid-cols-3 gap-2 mb-3">
+                                            <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-slate-50 border border-slate-100">
+                                                <CalendarDays size={11} style={{ color: '#655ac1', flexShrink: 0 }} />
+                                                <div className="min-w-0">
+                                                    <p className="text-[9px] font-normal text-slate-400">{day}</p>
+                                                    <p className="text-[10px] font-semibold text-slate-700 leading-tight truncate">{date}</p>
+                                                </div>
+                                            </div>
+                                            <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-slate-50 border border-slate-100">
+                                                <Clock size={11} style={{ color: '#655ac1', flexShrink: 0 }} />
+                                                <div className="min-w-0">
+                                                    <p className="text-[9px] font-normal text-slate-400">الوقت</p>
+                                                    <p className="text-[10px] font-semibold text-slate-700 leading-tight">{time}</p>
+                                                </div>
+                                            </div>
+                                            <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-slate-50 border border-slate-100">
+                                                {isSystem
+                                                    ? <Shield size={11} style={{ color: '#655ac1', flexShrink: 0 }} />
+                                                    : <User2  size={11} style={{ color: '#655ac1', flexShrink: 0 }} />
+                                                }
+                                                <div className="min-w-0">
+                                                    <p className="text-[9px] font-normal text-slate-400">أنشئ بواسطة</p>
+                                                    <p className="text-[10px] font-semibold text-slate-700 leading-tight">{schedule.createdBy}</p>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        {/* Row 3 */}
+                                        <div className="flex items-center justify-between gap-2">
+                                            <span
+                                                className="text-[10px] font-normal text-slate-400 px-2 py-1 rounded-lg"
+                                                style={{ background: '#f1f5f9' }}
                                             >
-                                                <CheckCircle2 size={14} />
-                                                اعتماد
-                                            </button>
-                                            <button 
-                                                onClick={() => handleRenameStart(schedule)}
-                                                className="flex items-center justify-center gap-1.5 px-3 py-2 bg-slate-50 border border-slate-200 text-slate-600 hover:text-[#655ac1] hover:border-[#655ac1] rounded-xl font-bold transition-colors text-xs"
-                                                title="تعديل الاسم"
-                                            >
-                                                <Pencil size={14} /> تعديل
-                                            </button>
-                                            <button 
-                                                onClick={() => handleDelete(schedule.id)}
-                                                className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-colors"
-                                                title="حذف هذه النسخة"
-                                            >
-                                                <Trash2 size={16} />
-                                            </button>
+                                                {Object.keys(schedule.timetable).length} حصة مُسندة
+                                            </span>
+                                            {isDeleting ? (
+                                                <div className="flex items-center gap-2">
+                                                    <span className="text-xs font-medium text-rose-500">تأكيد الحذف؟</span>
+                                                    <button
+                                                        onClick={() => handleDelete(schedule.id)}
+                                                        className="px-3 py-1.5 text-xs font-semibold text-white bg-rose-500 hover:bg-rose-600 rounded-xl transition-colors"
+                                                    >
+                                                        نعم
+                                                    </button>
+                                                    <button
+                                                        onClick={() => setConfirmDeleteId(null)}
+                                                        className="px-3 py-1.5 text-xs font-semibold text-slate-600 rounded-xl transition-colors"
+                                                        style={{ background: '#f1f5f9' }}
+                                                    >
+                                                        إلغاء
+                                                    </button>
+                                                </div>
+                                            ) : (
+                                                <div className="flex items-center gap-2">
+                                                    {!isActive && (
+                                                        <button
+                                                            onClick={() => handleAdopt(schedule)}
+                                                            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-white rounded-xl transition-all hover:scale-[1.02]"
+                                                            style={{
+                                                                background: 'linear-gradient(135deg,#655ac1,#7c6dd6)',
+                                                                boxShadow: '0 3px 10px rgba(101,90,193,0.3)',
+                                                            }}
+                                                        >
+                                                            <CheckCircle2 size={12} /> اعتماد
+                                                        </button>
+                                                    )}
+                                                    <button
+                                                        onClick={() => {
+                                                            setEditingScheduleId(schedule.id);
+                                                            setEditingScheduleName(schedule.name);
+                                                        }}
+                                                        className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-slate-600 rounded-xl transition-all hover:text-[#655ac1]"
+                                                        style={{ background: '#f1f5f9', border: '1px solid #e2e8f0' }}
+                                                    >
+                                                        <Pencil size={12} /> تعديل الاسم
+                                                    </button>
+                                                    <button
+                                                        onClick={() => setConfirmDeleteId(schedule.id)}
+                                                        className="p-1.5 rounded-xl text-slate-400 hover:text-rose-500 hover:bg-rose-50 transition-colors"
+                                                    >
+                                                        <Trash2 size={15} />
+                                                    </button>
+                                                </div>
+                                            )}
                                         </div>
                                     </div>
-                                ))}
-                            </div>
-                        )}
-                    </div>
+                                </div>
+                            );
+                        })
+                    )}
+                </div>
+
+                {/* Footer */}
+                <div className="flex items-center justify-between px-6 py-4 bg-slate-50 border-t border-slate-100">
+                    <span className="text-xs text-slate-400 font-normal">
+                        يُحفظ الجدول تلقائياً عند كل إنشاء جديد
+                    </span>
+                    <button
+                        onClick={onClose}
+                        className="px-6 py-2.5 rounded-2xl font-medium text-sm text-slate-600 transition-all hover:scale-[1.02]"
+                        style={{ background: '#f1f5f9', border: '1.5px solid #e2e8f0' }}
+                    >
+                        إغلاق
+                    </button>
                 </div>
             </div>
         </div>
