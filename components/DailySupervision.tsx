@@ -243,14 +243,14 @@ const DailySupervision: React.FC<DailySupervisionProps> = ({
           <div className="flex flex-wrap items-center gap-2">
             <button
               onClick={() => setShowSettingsPage(true)}
-              className="flex items-center gap-2 bg-[#8779fb] hover:bg-[#6c61cd] text-white px-5 py-2.5 rounded-xl font-bold transition-all shadow-sm shadow-[#8779fb]/20 hover:scale-105 active:scale-95"
+              className="flex items-center gap-2 bg-[#8779fb] text-white px-5 py-2.5 rounded-xl font-bold transition-all shadow-sm shadow-[#8779fb]/20 hover:scale-105 active:scale-95"
             >
               <Settings size={18} className="text-white" />
               <span className="text-white">إعدادات الجدول</span>
             </button>
             <button
               onClick={() => setIsCreateScheduleOpen(true)}
-              className="flex items-center gap-2 bg-[#655ac1] hover:bg-[#8779fb] text-white px-5 py-2.5 rounded-xl font-bold shadow-md shadow-[#655ac1]/20 transition-all hover:scale-105 active:scale-95"
+              className="flex items-center gap-2 bg-[#655ac1] text-white px-5 py-2.5 rounded-xl font-bold shadow-md shadow-[#655ac1]/20 transition-all hover:scale-105 active:scale-95"
             >
               <Zap size={18} />
               <span>إنشاء الجدول</span>
