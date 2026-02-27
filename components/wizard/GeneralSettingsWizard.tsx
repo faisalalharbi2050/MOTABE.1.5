@@ -14,7 +14,7 @@ import {
   ShieldCheck,
   RotateCcw
 } from 'lucide-react';
-import { SchoolInfo, Subject, ClassInfo, Teacher, Admin, Student, Specialization, ScheduleSettingsData } from '../../types';
+import { SchoolInfo, Subject, ClassInfo, Teacher, Admin, Student, Specialization, ScheduleSettingsData, Assignment } from '../../types';
 
 import Step1General from './steps/Step1General';
 import Step2AcademicYear from './steps/Step2AcademicYear';
@@ -45,6 +45,7 @@ interface WizardProps {
   onComplete: () => void;
   scheduleSettings: ScheduleSettingsData;
   setScheduleSettings: React.Dispatch<React.SetStateAction<ScheduleSettingsData>>;
+  assignments: Assignment[];
 }
 
 const GeneralSettingsWizard: React.FC<WizardProps> = ({ 
@@ -56,7 +57,8 @@ const GeneralSettingsWizard: React.FC<WizardProps> = ({
     admins, setAdmins,
     gradeSubjectMap, setGradeSubjectMap,
     onComplete,
-    scheduleSettings, setScheduleSettings
+    scheduleSettings, setScheduleSettings,
+    assignments
 }) => {
   const [currentStep, setCurrentStep] = useState(1);
   const [isFinished, setIsFinished] = useState(false);
@@ -119,7 +121,7 @@ const GeneralSettingsWizard: React.FC<WizardProps> = ({
       case 6: return <Step5Students classes={classes} students={students} setStudents={setStudents} schoolInfo={schoolInfo} />;
       case 7: return <Step6Teachers teachers={teachers} setTeachers={setTeachers} specializations={specializations} schoolInfo={schoolInfo} setSchoolInfo={setSchoolInfo} scheduleSettings={scheduleSettings} setScheduleSettings={setScheduleSettings} classes={classes} />;
       case 8: return <Step7Admins admins={admins} setAdmins={setAdmins} />;
-      case 9: return <Step9Schedule schoolInfo={schoolInfo} scheduleSettings={scheduleSettings} setScheduleSettings={setScheduleSettings} teachers={teachers} subjects={subjects} classes={classes} admins={admins} />;
+      case 9: return <Step9Schedule schoolInfo={schoolInfo} scheduleSettings={scheduleSettings} setScheduleSettings={setScheduleSettings} teachers={teachers} subjects={subjects} classes={classes} admins={admins} assignments={assignments} specializations={specializations} />;
       default: return null;
     }
   };

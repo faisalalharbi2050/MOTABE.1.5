@@ -483,7 +483,7 @@ const Step3Subjects: React.FC<Props> = ({ subjects, setSubjects, schoolInfo, gra
                       : null;
                   
                   const activeSchoolName = activeSchoolId === 'main' 
-                      ? schoolInfo.name 
+                      ? schoolInfo.schoolName 
                       : schoolInfo.sharedSchools?.find(s => s.id === activeSchoolId)?.name;
 
                   return (

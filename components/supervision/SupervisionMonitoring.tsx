@@ -1,0 +1,414 @@
+import React, { useState, useMemo } from 'react';
+import {
+  Eye, UserCheck, UserX, Clock, Check, AlertTriangle,
+  CheckCircle, Calendar, ChevronLeft, ChevronRight, Save,
+  Bell, RefreshCw, Shield
+} from 'lucide-react';
+import {
+  SchoolInfo, SupervisionScheduleData, SupervisionAttendanceRecord,
+  SupervisionAttendanceStatus, SupervisionDayAssignment
+} from '../../types';
+import { Badge } from '../ui/Badge';
+import { DAYS, DAY_NAMES, getTimingConfig, getTodayAttendance, getAttendanceStats } from '../../utils/supervisionUtils';
+
+interface Props {
+  supervisionData: SupervisionScheduleData;
+  setSupervisionData: React.Dispatch<React.SetStateAction<SupervisionScheduleData>>;
+  schoolInfo: SchoolInfo;
+  showToast: (msg: string, type: 'success' | 'warning' | 'error') => void;
+}
+
+const STATUS_MAP: Record<SupervisionAttendanceStatus, { label: string; color: string; icon: React.ReactNode }> = {
+  present: { label: 'حاضر', color: 'bg-green-100 text-green-700 border-green-200', icon: <CheckCircle size={14} /> },
+  absent: { label: 'غائب', color: 'bg-red-100 text-red-700 border-red-200', icon: <UserX size={14} /> },
+  excused: { label: 'مستأذن', color: 'bg-blue-100 text-blue-700 border-blue-200', icon: <Clock size={14} /> },
+  withdrawn: { label: 'منسحب', color: 'bg-orange-100 text-orange-700 border-orange-200', icon: <AlertTriangle size={14} /> },
+  late: { label: 'متأخر', color: 'bg-amber-100 text-amber-700 border-amber-200', icon: <Clock size={14} /> },
+};
+
+const SupervisionMonitoring: React.FC<Props> = ({
+  supervisionData, setSupervisionData, schoolInfo, showToast
+}) => {
+  const [selectedDate, setSelectedDate] = useState(() => new Date().toISOString().split('T')[0]);
+  const [withdrawalTimes, setWithdrawalTimes] = useState<Record<string, string>>({});
+  const [lateTimes, setLateTimes] = useState<Record<string, string>>({});
+  const [notes, setNotes] = useState<Record<string, string>>({});
+
+  const timing = getTimingConfig(schoolInfo);
+
+  // Determine current day of week from selected date
+  const selectedDayOfWeek = useMemo(() => {
+    const date = new Date(selectedDate);
+    const dayIndex = date.getDay(); // 0=Sun, 1=Mon...
+    const dayMap: Record<number, string> = { 0: 'sunday', 1: 'monday', 2: 'tuesday', 3: 'wednesday', 4: 'thursday', 5: 'friday', 6: 'saturday' };
+    return dayMap[dayIndex] || 'sunday';
+  }, [selectedDate]);
+
+  // Get day assignment for current day
+  const currentDayAssignment = useMemo(() => {
+    return supervisionData.dayAssignments.find(da => da.day === selectedDayOfWeek);
+  }, [supervisionData.dayAssignments, selectedDayOfWeek]);
+
+  // Get existing attendance records for the selected date
+  const existingRecords = useMemo(() => {
+    return getTodayAttendance(supervisionData.attendanceRecords, selectedDate);
+  }, [supervisionData.attendanceRecords, selectedDate]);
+
+  // Build display list
+  const supervisorsList = useMemo(() => {
+    if (!currentDayAssignment) return [];
+    return currentDayAssignment.staffAssignments.map(sa => {
+      const existing = existingRecords.find(r => r.staffId === sa.staffId);
+      return {
+        ...sa,
+        status: existing?.status || ('present' as SupervisionAttendanceStatus),
+        withdrawalTime: existing?.withdrawalTime || '',
+        lateTime: existing?.lateTime || '',
+        notes: existing?.notes || '',
+        isRecorded: !!existing,
+      };
+    });
+  }, [currentDayAssignment, existingRecords]);
+
+  // Check if already recorded
+  const isAlreadyRecorded = existingRecords.length > 0;
+
+  // Save attendance
+  const saveAttendance = (status: SupervisionAttendanceStatus, staffId: string) => {
+    const sa = currentDayAssignment?.staffAssignments.find(s => s.staffId === staffId);
+    if (!sa) return;
+
+    const record: SupervisionAttendanceRecord = {
+      id: `att-${selectedDate}-${staffId}`,
+      date: selectedDate,
+      day: selectedDayOfWeek,
+      staffId,
+      staffType: sa.staffType,
+      staffName: sa.staffName,
+      status,
+      withdrawalTime: status === 'withdrawn' ? (withdrawalTimes[staffId] || '') : undefined,
+      lateTime: status === 'late' ? (lateTimes[staffId] || '') : undefined,
+      notes: notes[staffId] || '',
+      recordedAt: new Date().toISOString(),
+    };
+
+    setSupervisionData(prev => {
+      const existingIdx = prev.attendanceRecords.findIndex(
+        r => r.date === selectedDate && r.staffId === staffId
+      );
+      if (existingIdx >= 0) {
+        const updated = [...prev.attendanceRecords];
+        updated[existingIdx] = record;
+        return { ...prev, attendanceRecords: updated };
+      }
+      return { ...prev, attendanceRecords: [...prev.attendanceRecords, record] };
+    });
+  };
+
+  // Mark all present
+  const markAllPresent = () => {
+    if (!currentDayAssignment) return;
+    currentDayAssignment.staffAssignments.forEach(sa => {
+      saveAttendance('present', sa.staffId);
+    });
+    showToast('تم تسجيل الحضور لجميع المشرفين', 'success');
+  };
+
+  // Navigate dates
+  const changeDate = (delta: number) => {
+    const d = new Date(selectedDate);
+    d.setDate(d.getDate() + delta);
+    setSelectedDate(d.toISOString().split('T')[0]);
+  };
+
+  // Get stats
+  const stats = getAttendanceStats(supervisionData.attendanceRecords);
+  const todayStats = getAttendanceStats(existingRecords);
+
+  // Day name in Arabic
+  const dayName = DAY_NAMES[selectedDayOfWeek] || '';
+  const isWeekend = selectedDayOfWeek === 'friday' || selectedDayOfWeek === 'saturday';
+
+  // Format Selected Date
+  const formattedDate = useMemo(() => {
+    const d = new Date(selectedDate);
+    const calendarType = schoolInfo.semesters?.[0]?.calendarType || 'hijri';
+    
+    if (calendarType === 'hijri') {
+      return new Intl.DateTimeFormat('ar-SA-u-ca-islamic', {
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric'
+      }).format(d);
+    } else {
+      return new Intl.DateTimeFormat('ar-SA', {
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric'
+      }).format(d);
+    }
+  }, [selectedDate, schoolInfo.semesters]);
+
+  return (
+    <div className="space-y-6">
+      {/* Date Navigation */}
+      <div className="bg-white rounded-[2rem] p-6 shadow-sm border border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-4 relative overflow-hidden group">
+        <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-[#e5e1fe]/50 to-transparent rounded-br-full -z-0 pointer-events-none" />
+
+        <div className="flex items-center gap-3 bg-white p-1.5 rounded-2xl border border-slate-200 shadow-sm relative z-10 w-full sm:w-auto justify-between sm:justify-start">
+          <button onClick={() => changeDate(1)} className="p-2.5 rounded-xl hover:bg-slate-50 text-slate-500 hover:text-[#655ac1] hover:shadow-sm transition-all active:scale-95">
+            <ChevronRight size={20} />
+          </button>
+          
+          <div className="text-center min-w-[180px] flex flex-col items-center">
+            <p className="text-lg font-black text-[#655ac1]">{dayName}</p>
+            <div className="relative group/date cursor-pointer flex items-center gap-1.5 mt-0.5">
+              <Calendar size={14} className="text-slate-400 group-hover/date:text-[#655ac1] transition-colors" />
+              <span className="text-sm font-bold text-slate-500 group-hover/date:text-[#655ac1] transition-colors">
+                {formattedDate}
+              </span>
+              <input
+                type="date"
+                value={selectedDate}
+                onChange={e => setSelectedDate(e.target.value)}
+                className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
+              />
+            </div>
+          </div>
+
+          <button onClick={() => changeDate(-1)} className="p-2.5 rounded-xl hover:bg-slate-50 text-slate-500 hover:text-[#655ac1] hover:shadow-sm transition-all active:scale-95">
+            <ChevronLeft size={20} />
+          </button>
+        </div>
+
+        <div className="flex flex-wrap items-center justify-center sm:justify-end gap-3 relative z-10 w-full sm:w-auto">
+          {(!isWeekend && !!currentDayAssignment) && (
+            <>
+              {isAlreadyRecorded && (
+                <Badge variant="info" className="px-3 py-1.5 text-xs font-bold shadow-sm bg-[#e5e1fe] text-[#655ac1] border-none">مرصود مسبقاً</Badge>
+              )}
+              <button 
+                onClick={markAllPresent}
+                className="flex items-center justify-center gap-2 bg-emerald-500 hover:bg-emerald-600 text-white px-6 py-2.5 rounded-xl text-sm font-bold shadow-sm transition-all hover:scale-105 active:scale-95 border border-emerald-600/20 w-full sm:w-auto"
+              >
+                <Check size={18} />
+                <span>حاضر للكل</span>
+              </button>
+            </>
+          )}
+        </div>
+      </div>
+
+      {/* Weekend Notice */}
+      {isWeekend && (
+        <div className="bg-slate-50 border border-slate-200 rounded-[2rem] p-10 text-center relative overflow-hidden group">
+          <div className="absolute top-0 right-0 w-32 h-32 bg-[#e5e1fe]/30 rounded-bl-[4rem] -z-0 transition-transform group-hover:scale-110 duration-500"></div>
+          <div className="relative z-10">
+            <div className="w-20 h-20 mx-auto bg-[#e5e1fe] rounded-3xl flex items-center justify-center text-[#655ac1] mb-4 shadow-sm">
+              <Calendar size={40} />
+            </div>
+            <p className="font-black text-2xl text-slate-700 mb-2">إجازة رسمية</p>
+            <p className="text-sm font-medium text-slate-500">تمتع بعطلة نهاية الأسبوع.</p>
+          </div>
+        </div>
+      )}
+
+      {/* No assignment */}
+      {!isWeekend && !currentDayAssignment && (
+        <div className="bg-amber-50 border border-amber-100/50 rounded-[2rem] p-10 text-center relative overflow-hidden group">
+          <div className="absolute top-0 right-0 w-32 h-32 bg-amber-100/30 rounded-bl-[4rem] -z-0 transition-transform group-hover:scale-110 duration-500"></div>
+          <div className="relative z-10">
+            <div className="w-20 h-20 mx-auto bg-amber-100 rounded-3xl flex items-center justify-center text-amber-500 mb-4 shadow-sm">
+              <AlertTriangle size={40} />
+            </div>
+            <p className="font-black text-2xl text-amber-700 mb-2">لم يتم تعيين مشرفين لهذا اليوم</p>
+            <p className="text-sm font-medium text-amber-500">يُرجى إعداد جدول الإشراف أولاً لتتمكن من رصد الحضور والحالات.</p>
+          </div>
+        </div>
+      )}
+
+      {/* Monitoring Table */}
+      {!isWeekend && currentDayAssignment && (
+        <div className="bg-white rounded-[2rem] p-6 shadow-sm border border-slate-100">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
+            <div className="flex items-center gap-3">
+               <div className="p-2.5 bg-[#e5e1fe] text-[#655ac1] rounded-xl"><Eye size={22} /></div>
+               <div>
+                  <h3 className="text-lg font-black text-slate-800">
+                    رصد الحضور - {dayName}
+                  </h3>
+                  {currentDayAssignment.followUpSupervisorName ? (
+                    <div className="flex items-center gap-1.5 mt-0.5">
+                      <Shield size={14} className="text-amber-600" />
+                      <span className="text-xs font-medium text-slate-500">المشرف المتابع:</span>
+                      <span className="text-xs font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-md border border-amber-100">{currentDayAssignment.followUpSupervisorName}</span>
+                    </div>
+                  ) : (
+                    <p className="text-sm font-medium text-slate-500 mt-0.5">تسجيل حالات الحضور والانصراف للمشرفين</p>
+                  )}
+               </div>
+            </div>
+            <div className="flex gap-2 text-xs font-bold bg-slate-50 p-1.5 rounded-xl border border-slate-100">
+              <span className="px-3 py-1.5 rounded-lg bg-green-100 text-green-700">{todayStats.present} حاضر</span>
+              <span className="px-3 py-1.5 rounded-lg bg-red-100 text-red-700">{todayStats.absent} غائب</span>
+              <span className="px-3 py-1.5 rounded-lg bg-amber-100 text-amber-700">{todayStats.late} متأخر</span>
+            </div>
+          </div>
+
+          <div className="overflow-x-auto rounded-xl border border-slate-200">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="bg-slate-50 text-slate-800 border-b border-slate-200">
+                  <th className="py-4 px-4 text-right font-black">المشرف</th>
+                  <th className="py-4 px-4 text-center font-black">النوع</th>
+                  <th className="py-4 px-4 text-center font-black">المواقع</th>
+                  <th className="py-4 px-4 text-center font-black">الحالة</th>
+                  <th className="py-4 px-4 text-center font-black">الوقت</th>
+                  <th className="py-4 px-4 text-center font-black">ملاحظات</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {supervisorsList.map(sup => {
+                  const currentRecord = existingRecords.find(r => r.staffId === sup.staffId);
+                  const currentStatus = currentRecord?.status || 'present';
+                  const locations = sup.locationIds
+                    .map(lid => supervisionData.locations.find(l => l.id === lid)?.name || '')
+                    .filter(Boolean);
+
+                  return (
+                    <tr key={sup.staffId} className="hover:bg-slate-50/50 transition-colors">
+                      <td className="py-3 px-4">
+                        <div className="flex items-center gap-3">
+                          <div className={`w-8 h-8 rounded-xl flex items-center justify-center text-xs font-black shadow-sm border ${
+                            sup.staffType === 'teacher' ? 'bg-blue-50 text-blue-600 border-blue-100' : 'bg-[#e5e1fe] text-[#655ac1] border-[#655ac1]/20'
+                          }`}>
+                            {sup.staffType === 'teacher' ? 'م' : 'إ'}
+                          </div>
+                          <span className="font-bold text-slate-700">{sup.staffName}</span>
+                        </div>
+                      </td>
+                      <td className="py-3 px-4 text-center">
+                        <Badge variant={sup.staffType === 'teacher' ? 'info' : 'neutral'}>
+                          {sup.staffType === 'teacher' ? 'معلم' : 'إداري'}
+                        </Badge>
+                      </td>
+                      <td className="py-3 px-4 text-center">
+                        <div className="flex flex-wrap gap-1 justify-center">
+                          {locations.map((loc, i) => (
+                            <span key={i} className="px-1.5 py-0.5 rounded text-[10px] bg-[#655ac1]/10 text-[#655ac1] font-bold">
+                              {loc}
+                            </span>
+                          ))}
+                          {locations.length === 0 && <span className="text-slate-300 text-xs">-</span>}
+                        </div>
+                      </td>
+                      <td className="py-3 px-4">
+                        <div className="flex justify-center gap-1.5 flex-nowrap w-max mx-auto">
+                          {(Object.entries(STATUS_MAP) as [SupervisionAttendanceStatus, any][]).map(([status, config]) => (
+                            <button
+                              key={status}
+                              onClick={() => saveAttendance(status, sup.staffId)}
+                              className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition-all whitespace-nowrap active:scale-95 flex-shrink-0 ${
+                                currentStatus === status
+                                  ? config.color + ' ring-2 ring-offset-1 ring-current/20 shadow-sm'
+                                  : 'bg-white border-slate-200 text-slate-500 hover:border-slate-300 hover:bg-slate-50'
+                              }`}
+                              title={config.label}
+                            >
+                              {config.label}
+                            </button>
+                          ))}
+                        </div>
+                      </td>
+                      <td className="py-3 px-4 text-center">
+                        {(currentStatus === 'withdrawn' || currentStatus === 'late') && (
+                          <input
+                            type="time"
+                            value={
+                              currentStatus === 'withdrawn'
+                                ? (withdrawalTimes[sup.staffId] || currentRecord?.withdrawalTime || '')
+                                : (lateTimes[sup.staffId] || currentRecord?.lateTime || '')
+                            }
+                            onChange={e => {
+                              if (currentStatus === 'withdrawn') {
+                                setWithdrawalTimes(prev => ({ ...prev, [sup.staffId]: e.target.value }));
+                              } else {
+                                setLateTimes(prev => ({ ...prev, [sup.staffId]: e.target.value }));
+                              }
+                              // Auto-save
+                              saveAttendance(currentStatus, sup.staffId);
+                            }}
+                            className="w-24 px-2 py-1 rounded border border-slate-200 text-xs outline-none focus:ring-1 focus:ring-[#655ac1]/30 text-center"
+                          />
+                        )}
+                        {currentStatus !== 'withdrawn' && currentStatus !== 'late' && (
+                          <span className="text-slate-300 text-xs">-</span>
+                        )}
+                      </td>
+                      <td className="py-3 px-4 text-center">
+                        <input
+                          type="text"
+                          placeholder="ملاحظة..."
+                          value={notes[sup.staffId] || currentRecord?.notes || ''}
+                          onChange={e => setNotes(prev => ({ ...prev, [sup.staffId]: e.target.value }))}
+                          className="w-full px-2 py-1 rounded border border-slate-200 text-xs outline-none focus:ring-1 focus:ring-[#655ac1]/30"
+                        />
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Auto-save indicator */}
+          <div className="mt-4 flex items-center gap-2 text-xs font-bold text-slate-400 justify-center sm:justify-start bg-slate-50 py-2 px-4 rounded-xl w-max">
+            <Save size={14} className="text-emerald-500" />
+            يتم حفظ التعديلات تلقائياً
+          </div>
+        </div>
+      )}
+
+      {/* Weekly Stats Summary */}
+      {!isWeekend && (
+        <div className="bg-white rounded-[2rem] p-6 shadow-sm border border-slate-100">
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center gap-3">
+               <div className="w-12 h-12 bg-[#e5e1fe] text-[#655ac1] rounded-2xl flex items-center justify-center shadow-sm">
+                 <Eye size={24} />
+               </div>
+               <div>
+                  <h3 className="text-xl font-black text-slate-800">ملخص الأداء الإجمالي</h3>
+                  <p className="text-sm font-medium text-slate-500 mt-0.5">إحصائيات الإشراف لجميع الأيام المسجلة</p>
+               </div>
+            </div>
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+            <div className="bg-white shadow-sm rounded-2xl p-4 text-center border border-slate-200 transition-transform hover:scale-105">
+              <p className="text-3xl font-black text-green-600 mb-1">{stats.present}</p>
+              <p className="text-sm font-bold text-green-600">حاضر</p>
+            </div>
+            <div className="bg-white shadow-sm rounded-2xl p-4 text-center border border-slate-200 transition-transform hover:scale-105">
+              <p className="text-3xl font-black text-red-600 mb-1">{stats.absent}</p>
+              <p className="text-sm font-bold text-red-600">غائب</p>
+            </div>
+            <div className="bg-white shadow-sm rounded-2xl p-4 text-center border border-slate-200 transition-transform hover:scale-105">
+              <p className="text-3xl font-black text-blue-600 mb-1">{stats.excused}</p>
+              <p className="text-sm font-bold text-blue-600">مستأذن</p>
+            </div>
+            <div className="bg-white shadow-sm rounded-2xl p-4 text-center border border-slate-200 transition-transform hover:scale-105">
+              <p className="text-3xl font-black text-orange-600 mb-1">{stats.withdrawn}</p>
+              <p className="text-sm font-bold text-orange-600">منسحب</p>
+            </div>
+            <div className="bg-white shadow-sm rounded-2xl p-4 text-center border border-slate-200 transition-transform hover:scale-105">
+              <p className="text-3xl font-black text-amber-600 mb-1">{stats.late}</p>
+              <p className="text-sm font-bold text-amber-600">متأخر</p>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default SupervisionMonitoring;

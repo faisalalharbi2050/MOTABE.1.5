@@ -130,7 +130,7 @@ const Step4Classes: React.FC<Props> = ({ classes, setClasses, subjects, gradeSub
     }
   }, [activeSchoolId, schoolInfo, activePhase]);
 
-  const hasSecond = schoolInfo.hasSecondSchool && schoolInfo.secondSchoolPhase;
+  const hasSecond = schoolInfo.hasSecondSchool && (schoolInfo.secondSchoolPhases || [])[0];
   const totalGrades = PHASE_CONFIG[activePhase]?.grades || 3;
 
   const currentSchoolClasses = useMemo(() => {
@@ -762,7 +762,7 @@ const Step4Classes: React.FC<Props> = ({ classes, setClasses, subjects, gradeSub
             <div className="flex items-center gap-3 p-4 bg-orange-50 border border-orange-200 rounded-2xl animate-in zoom-in-95 duration-200">
               <AlertTriangle size={20} className="text-orange-500" />
               <span className="text-sm font-bold text-orange-700 flex-1">
-                سيتم حذف جميع فصول مدرسة "{activeSchoolId === 'main' ? schoolInfo.name : schoolInfo.sharedSchools?.find(s=>s.id === activeSchoolId)?.name}" في مرحلة "{activePhase}". هل أنت متأكد؟
+                سيتم حذف جميع فصول مدرسة "{activeSchoolId === 'main' ? schoolInfo.schoolName : schoolInfo.sharedSchools?.find(s=>s.id === activeSchoolId)?.name}" في مرحلة "{activePhase}". هل أنت متأكد؟
               </span>
               <button onClick={handleDeleteAll} className="px-4 py-2 bg-rose-500 text-white rounded-lg text-xs font-bold hover:bg-rose-600 transition-all">
                 نعم، احذف الكل

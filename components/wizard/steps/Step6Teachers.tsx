@@ -162,7 +162,13 @@ const Step6Teachers: React.FC<Step6Props> = ({ teachers = [], setTeachers, speci
             setTeachers(prev => {
                 const maxSort = Math.max(...prev.map(t => t.sortIndex || 0), 0);
                 const newWithSort = uniqueNew.map((t, idx) => ({ 
-                  ...t, 
+                  id: t.id,
+                  name: t.name,
+                  specializationId: t.specialization || 'أخرى',
+                  assignedSubjectId: '',
+                  quotaLimit: t.weeklyQuota || 24,
+                  waitingQuota: t.waitingQuota || 0,
+                  phone: t.mobile || '',
                   sortIndex: maxSort + 1 + idx,
                   schoolId: activeSchoolId 
                 }));

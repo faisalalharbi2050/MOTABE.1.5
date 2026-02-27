@@ -58,14 +58,14 @@ const App: React.FC = () => {
     meetings: [],
     substitution: { method: 'auto', maxTotalQuota: 24, maxDailyTotal: 5 }
   });
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'settings' | 'settings_basic' | 'settings_classes' | 'settings_subjects' | 'settings_students' | 'settings_teachers' | 'settings_admins' | 'database' | 'classes' | 'manual' | 'report'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'settings' | 'settings_basic' | 'settings_classes' | 'settings_subjects' | 'settings_students' | 'settings_teachers' | 'settings_admins' | 'database' | 'classes' | 'manual' | 'report' | 'classes_waiting' | 'supervision' | 'duty' | 'daily_waiting' | 'messages' | 'permissions' | 'subscription' | 'support'>('dashboard');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   // Mock Data for Dashboard
   const [messages] = useState<Message[]>([
     { id: '1', sender: 'مدير المدرسة', recipient: 'المعلمون', content: 'يرجى تسليم الدرجات', timestamp: new Date().toISOString(), type: 'whatsapp', status: 'sent' },
     { id: '2', sender: 'الوكيل للشؤون التعليمية', recipient: 'الإداريون', content: 'اجتماع طارئ', timestamp: new Date(Date.now() - 3600000).toISOString(), type: 'sms', status: 'sent' },
-    { id: '3', sender: 'المرشد الطلابي', recipient: 'أولياء الأمور', content: 'موعد مجلس الأمهات', timestamp: new Date(Date.now() - 7200000).toISOString(), type: 'email', status: 'sent' },
+    { id: '3', sender: 'المرشد الطلابي', recipient: 'أولياء الأمور', content: 'موعد مجلس الأمهات', timestamp: new Date(Date.now() - 7200000).toISOString(), type: 'sms', status: 'sent' },
   ]);
   const [events] = useState<CalendarEvent[]>([
     { id: '1', title: 'اجتماع المعلمين', date: new Date().toISOString().split('T')[0], type: 'meeting' },
@@ -152,7 +152,7 @@ const App: React.FC = () => {
 
   const resetAllData = () => {
     if (confirm('تحذير: سيتم حذف كافة البيانات والبدء من جديد. هل أنت متأكد؟')) {
-      setSchoolInfo({ schoolName: '', region: '', department: 'عام', phases: [Phase.ELEMENTARY], gender: 'بنين', educationalAgent: '', principal: '', hasSecondSchool: false, sharedSchools: [] });
+      setSchoolInfo({ entityType: EntityType.SCHOOL, schoolName: '', region: '', departments: ['عام'], phases: [Phase.ELEMENTARY], gender: 'بنين', educationalAgent: '', principal: '', hasSecondSchool: false, sharedSchools: [] });
       setTeachers([]); setClasses([]); setAssignments([]); setGradeSubjectMap({}); setSpecializations(INITIAL_SPECIALIZATIONS); setSubjects([]);
       localStorage.removeItem('school_assignment_v4'); setActiveTab('settings');
     }
@@ -180,6 +180,7 @@ const App: React.FC = () => {
             setGradeSubjectMap={setGradeSubjectMap}
             scheduleSettings={scheduleSettings}
             setScheduleSettings={setScheduleSettings}
+            assignments={assignments}
             onComplete={() => setActiveTab('dashboard')} 
         />
       );
@@ -208,7 +209,7 @@ const App: React.FC = () => {
 
       case 'manual': return <ManualAssignment teachers={teachers} setTeachers={setTeachers} subjects={subjects} classes={classes} assignments={assignments} setAssignments={setAssignments} specializations={specializations} schoolInfo={schoolInfo} gradeSubjectMap={gradeSubjectMap} />;
       case 'classes_waiting': return <Step9Schedule teachers={teachers} subjects={subjects} classes={classes} specializations={specializations} schoolInfo={schoolInfo} scheduleSettings={scheduleSettings} setScheduleSettings={setScheduleSettings} admins={admins} assignments={assignments} />;
-      case 'supervision': return <DailySupervision />;
+      case 'supervision': return <DailySupervision schoolInfo={schoolInfo} setSchoolInfo={setSchoolInfo} teachers={teachers} admins={admins} scheduleSettings={scheduleSettings} />;
       case 'duty': return <DailyDuty />;
       case 'daily_waiting': return <DailyWaiting />;
       case 'messages': return <Messages />;
@@ -234,6 +235,7 @@ const App: React.FC = () => {
             setGradeSubjectMap={setGradeSubjectMap}
             scheduleSettings={scheduleSettings}
             setScheduleSettings={setScheduleSettings}
+            assignments={assignments}
             onComplete={() => setActiveTab('dashboard')} 
         />
       );

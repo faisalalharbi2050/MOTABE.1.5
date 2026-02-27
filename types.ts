@@ -19,8 +19,8 @@ export interface SharedSchool {
   name: string;
   phases: Phase[];
   gender: 'بنين' | 'بنات';
-  // departments: string[]; // Removed as per request
-  // otherDepartment?: string; // Removed as per request
+  departments?: string[]; // Optional for legacy compatibility
+  otherDepartment?: string; // Optional for legacy compatibility
   otherPhase?: string;
   phone?: string;
   email?: string;
@@ -363,6 +363,116 @@ export interface AuditLogEntry {
   sourceKey?: string;     // المفتاح الأساسي "معلم-يوم-حصة"
   targetKey?: string;
   relatedTeacherIds: string[]; // المعنيون بالحركة
+}
+
+// ===== Daily Supervision Types =====
+
+export interface SupervisionLocation {
+  id: string;
+  name: string;
+  category: 'canteen' | 'yard_inner' | 'yard_outer' | 'playground' | 'gym' | 'floor' | 'prayer_hall' | 'custom';
+  floorNumber?: number; // للأدوار: أرضي=0، أول=1، ثاني=2، ثالث=3، رابع=4
+  isActive: boolean;
+  sortOrder: number;
+  customName?: string;
+}
+
+export interface SupervisionPeriodConfig {
+  id: string;
+  type: 'break' | 'prayer';
+  name: string; // فسحة 1، فسحة 2، صلاة
+  isEnabled: boolean;
+  linkedBreakId?: string; // ربط بمعرف الفسحة من TimingConfig
+  linkedPrayerId?: string; // ربط بمعرف الصلاة من TimingConfig
+  startTime?: string;
+  endTime?: string;
+  duration?: number;
+}
+
+export interface SupervisionStaffExclusion {
+  staffId: string;
+  staffType: 'teacher' | 'admin';
+  reason?: string;
+  isExcluded: boolean;
+}
+
+export interface SupervisionDayAssignment {
+  day: string; // sunday, monday, etc.
+  staffAssignments: SupervisionStaffAssignment[];
+  followUpSupervisorId?: string; // المشرف المتابع
+  followUpSupervisorName?: string;
+}
+
+export interface SupervisionStaffAssignment {
+  staffId: string;
+  staffType: 'teacher' | 'admin';
+  staffName: string;
+  locationIds: string[]; // متعدد المواقع
+  periodIds: string[]; // الفترات المخصصة (فسحة/صلاة)
+}
+
+export type SupervisionAttendanceStatus = 'present' | 'absent' | 'excused' | 'withdrawn' | 'late';
+
+export interface SupervisionAttendanceRecord {
+  id: string;
+  date: string; // ISO YYYY-MM-DD
+  day: string;
+  staffId: string;
+  staffType: 'teacher' | 'admin';
+  staffName: string;
+  status: SupervisionAttendanceStatus;
+  withdrawalTime?: string;
+  lateTime?: string;
+  notes?: string;
+  recordedAt: string;
+  recordedBy?: string;
+}
+
+export interface SavedSupervisionSchedule {
+  id: string;
+  name: string;
+  createdAt: string;
+  dayAssignments: SupervisionDayAssignment[];
+  isApproved: boolean;
+}
+
+export interface SupervisionScheduleData {
+  locations: SupervisionLocation[];
+  periods: SupervisionPeriodConfig[];
+  exclusions: SupervisionStaffExclusion[];
+  dayAssignments: SupervisionDayAssignment[];
+  attendanceRecords: SupervisionAttendanceRecord[];
+  settings: SupervisionSettings;
+  isApproved: boolean;
+  approvedAt?: string;
+  effectiveDate?: string;
+  footerText?: string;
+  schoolId?: string; // لدعم المدارس المشتركة
+  savedSchedules?: SavedSupervisionSchedule[];
+  activeScheduleId?: string;
+}
+
+export interface SupervisionSettings {
+  autoExcludeTeachersWhen5Admins: boolean;
+  excludeVicePrincipals: boolean;
+  suggestedCountPerDay?: number;
+  enableAutoAssignment: boolean;
+  reminderMessageTemplate?: string;
+  assignmentMessageTemplate?: string;
+  sharedSchoolMode: 'unified' | 'separate'; // جدول موحد أو منفصل
+}
+
+export interface SupervisionMessage {
+  id: string;
+  staffId: string;
+  staffName: string;
+  type: 'assignment' | 'reminder';
+  channel: 'whatsapp' | 'sms';
+  content: string;
+  sentAt?: string;
+  status: 'pending' | 'sent' | 'failed';
+  day: string;
+  locationNames: string[];
 }
 
 

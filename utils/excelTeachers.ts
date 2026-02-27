@@ -1,6 +1,17 @@
 import * as XLSX from 'xlsx';
-import { Teacher } from '../types';
 import { INITIAL_SPECIALIZATIONS } from '../constants';
+
+export interface TeacherData {
+  id: string;
+  name: string;
+  mobile: string;
+  specialization: string;
+  weeklyQuota: number;
+  waitingQuota: number;
+  isAdmin: boolean;
+  adminRole?: string;
+  sortIndex: number;
+}
 
 const normalizeSpecialization = (input: string): string => {
   const s = input.trim();
@@ -36,7 +47,7 @@ const normalizeSpecialization = (input: string): string => {
   return "99"; // أخرى
 };
 
-export const parseTeachersExcel = (file: File): Promise<Teacher[]> => {
+export const parseTeachersExcel = (file: File): Promise<TeacherData[]> => {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = (e) => {
@@ -48,7 +59,7 @@ export const parseTeachersExcel = (file: File): Promise<Teacher[]> => {
         const json = XLSX.utils.sheet_to_json(sheet) as any[];
 
         // Map data - expecting columns: Name, Specialization, Mobile (or Arabic equivalents)
-        const teachers: Teacher[] = json.map((row, index) => {
+        const teachers: TeacherData[] = json.map((row, index) => {
            // Basic fuzzy matching for column names
            const name = row['الاسم'] || row['Name'] || row['اسم المعلم'] || '';
            const specializationStr = row['التخصص'] || row['Specialization'] || '';
@@ -60,14 +71,14 @@ export const parseTeachersExcel = (file: File): Promise<Teacher[]> => {
            return {
              id: `t-${index}-${Date.now()}`,
              name,
-             specializationId: normalizeSpecialization(specializationStr),
-             assignedSubjectId: '',
-             quotaLimit: Number(quota) || 24,
+             mobile: String(mobile || ''),
+             specialization: normalizeSpecialization(specializationStr),
+             weeklyQuota: Number(quota) || 24,
              waitingQuota: 0,
-             phone: String(mobile || ''),
+             isAdmin: false,
              sortIndex: index
            };
-        }).filter(t => t !== null) as Teacher[];
+        }).filter(t => t !== null) as TeacherData[];
 
         resolve(teachers);
       } catch (error) {

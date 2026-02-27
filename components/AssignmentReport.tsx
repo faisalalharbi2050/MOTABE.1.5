@@ -61,7 +61,7 @@ const AssignmentReport: React.FC<Props> = ({ schoolInfo, teachers, subjects, cla
            </div>
            <div className="space-y-1 font-bold text-slate-800 text-sm text-left">
               <p className="flex items-center justify-end gap-2">التاريخ: {new Date().toLocaleDateString('ar-SA')} <Calendar size={14}/></p>
-              <p>المرحلة: {schoolInfo.phase} {schoolInfo.hasSecondSchool ? `+ ${schoolInfo.secondSchoolPhase}` : ''}</p>
+              <p>المرحلة: {(schoolInfo.phases || [])[0] || ''} {schoolInfo.hasSecondSchool ? `+ ${(schoolInfo.secondSchoolPhases || [])[0] || ''}` : ''}</p>
               {schoolInfo.hasSecondSchool && <p className="text-[10px] text-primary">المبنى: {schoolInfo.secondSchoolName}</p>}
            </div>
         </div>

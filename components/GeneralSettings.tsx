@@ -13,10 +13,10 @@ const GeneralSettings: React.FC<Props> = ({ schoolInfo, setSchoolInfo, onResetAl
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value, type } = e.target as HTMLInputElement;
     const val = type === 'checkbox' ? (e.target as HTMLInputElement).checked : value;
-    
+    const arrayFields = ['phases', 'departments', 'secondSchoolPhases'];
     setSchoolInfo(prev => ({
       ...prev,
-      [name]: val
+      [name]: arrayFields.includes(name) ? [val as string] : val
     }));
   };
 
@@ -25,7 +25,7 @@ const GeneralSettings: React.FC<Props> = ({ schoolInfo, setSchoolInfo, onResetAl
       ...prev,
       hasSecondSchool: !prev.hasSecondSchool,
       secondSchoolName: !prev.hasSecondSchool ? '' : prev.secondSchoolName,
-      secondSchoolPhase: !prev.hasSecondSchool ? Phase.ELEMENTARY : prev.secondSchoolPhase,
+      secondSchoolPhases: !prev.hasSecondSchool ? [Phase.ELEMENTARY] : prev.secondSchoolPhases,
       secondSchoolGender: !prev.hasSecondSchool ? 'بنين' : prev.secondSchoolGender,
       mergeTeachers: !prev.hasSecondSchool ? true : prev.mergeTeachers
     }));
@@ -51,13 +51,13 @@ const GeneralSettings: React.FC<Props> = ({ schoolInfo, setSchoolInfo, onResetAl
               <InputGroup label="اسم المدرسة" name="schoolName" value={schoolInfo.schoolName} onChange={handleChange} placeholder="أدخل اسم المدرسة" />
               <InputGroup label="الإدارة التعليمية بمنطقة" name="region" value={schoolInfo.region} onChange={handleChange} placeholder="اسم المنطقة التعليمية" />
               
-              <SelectGroup label="القسم" name="department" value={schoolInfo.department} onChange={handleChange}>
+              <SelectGroup label="القسم" name="departments" value={(schoolInfo.departments || [])[0] || ''} onChange={handleChange}>
                 <option value="عام">عام</option>
                 <option value="تحفيظ">تحفيظ قرآن</option>
                 <option value="آخر">آخر</option>
               </SelectGroup>
 
-              <SelectGroup label="المرحلة الدراسية (إلزامي)" name="phase" value={schoolInfo.phase} onChange={handleChange} isMandatory>
+              <SelectGroup label="المرحلة الدراسية (إلزامي)" name="phases" value={(schoolInfo.phases || [])[0] || ''} onChange={handleChange} isMandatory>
                 {Object.values(Phase).map(p => <option key={p} value={p}>{p}</option>)}
               </SelectGroup>
 
@@ -96,7 +96,7 @@ const GeneralSettings: React.FC<Props> = ({ schoolInfo, setSchoolInfo, onResetAl
                 </button>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-6">
                     <InputGroup label="اسم المدرسة الثانية" name="secondSchoolName" value={schoolInfo.secondSchoolName || ''} onChange={handleChange} />
-                    <SelectGroup label="مرحلة المدرسة الثانية" name="secondSchoolPhase" value={schoolInfo.secondSchoolPhase} onChange={handleChange}>
+                    <SelectGroup label="مرحلة المدرسة الثانية" name="secondSchoolPhases" value={(schoolInfo.secondSchoolPhases || [])[0] || ''} onChange={handleChange}>
                         {Object.values(Phase).map(p => <option key={p} value={p}>{p}</option>)}
                     </SelectGroup>
                     <SelectGroup label="جنس المدرسة الثانية" name="secondSchoolGender" value={schoolInfo.secondSchoolGender} onChange={handleChange}>

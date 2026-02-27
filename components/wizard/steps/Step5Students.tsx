@@ -94,7 +94,7 @@ const Step5Students: React.FC<Step5Props> = ({ classes, students, setStudents, s
     }
   }, [activeSchoolId, schoolInfo, activePhase]);
 
-  const hasSecond = schoolInfo.hasSecondSchool && schoolInfo.secondSchoolPhase;
+  const hasSecond = schoolInfo.hasSecondSchool && (schoolInfo.secondSchoolPhases || [])[0];
   const totalGrades = PHASE_CONFIG[activePhase]?.grades || 6;
 
   const schoolStudents = useMemo(() => {

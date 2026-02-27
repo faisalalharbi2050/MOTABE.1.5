@@ -14,13 +14,13 @@ interface Props {
 }
 
 const ClassSetup: React.FC<Props> = ({ classes, setClasses, subjects, gradeSubjectMap, setGradeSubjectMap, schoolInfo }) => {
-  const [activePhase, setActivePhase] = useState<Phase>(schoolInfo.phase);
+  const [activePhase, setActivePhase] = useState<Phase>((schoolInfo.phases || [])[0] || Phase.ELEMENTARY);
   const [gradeCounts, setGradeCounts] = useState<Record<string, number>>({});
   const [editingGrade, setEditingGrade] = useState<number | null>(null);
   const [batchCount, setBatchCount] = useState<string>('');
 
   const getGradeKey = (grade: number) => `${activePhase}-${grade}`;
-  const hasSecond = schoolInfo.hasSecondSchool && schoolInfo.secondSchoolPhase;
+  const hasSecond = schoolInfo.hasSecondSchool && (schoolInfo.secondSchoolPhases || [])[0];
 
   const handleBatchCreate = () => {
     const count = parseInt(batchCount);
@@ -122,11 +122,11 @@ const ClassSetup: React.FC<Props> = ({ classes, setClasses, subjects, gradeSubje
 
       {hasSecond && (
         <div className="flex p-1.5 bg-slate-100 rounded-2xl w-fit border border-slate-200 shadow-inner">
-           <button onClick={() => { setActivePhase(schoolInfo.phase); setEditingGrade(null); }} className={`flex items-center gap-2 px-6 py-3 rounded-xl font-black text-sm transition-all ${activePhase === schoolInfo.phase ? 'bg-white text-primary shadow-md' : 'text-slate-400 hover:text-slate-600'}`}>
-             <School size={18} /> {schoolInfo.schoolName || 'المدرسة الأساسية'} ({schoolInfo.phase})
+           <button onClick={() => { setActivePhase((schoolInfo.phases || [])[0] || Phase.ELEMENTARY); setEditingGrade(null); }} className={`flex items-center gap-2 px-6 py-3 rounded-xl font-black text-sm transition-all ${activePhase === (schoolInfo.phases || [])[0] ? 'bg-white text-primary shadow-md' : 'text-slate-400 hover:text-slate-600'}`}>
+             <School size={18} /> {schoolInfo.schoolName || 'المدرسة الأساسية'} ({(schoolInfo.phases || [])[0]})
            </button>
-           <button onClick={() => { setActivePhase(schoolInfo.secondSchoolPhase!); setEditingGrade(null); }} className={`flex items-center gap-2 px-6 py-3 rounded-xl font-black text-sm transition-all ${activePhase === schoolInfo.secondSchoolPhase ? 'bg-white text-primary shadow-md' : 'text-slate-400 hover:text-slate-600'}`}>
-             <School size={18} /> {schoolInfo.secondSchoolName || 'المدرسة الثانية'} ({schoolInfo.secondSchoolPhase})
+           <button onClick={() => { setActivePhase((schoolInfo.secondSchoolPhases || [])[0]!); setEditingGrade(null); }} className={`flex items-center gap-2 px-6 py-3 rounded-xl font-black text-sm transition-all ${activePhase === (schoolInfo.secondSchoolPhases || [])[0] ? 'bg-white text-primary shadow-md' : 'text-slate-400 hover:text-slate-600'}`}>
+             <School size={18} /> {schoolInfo.secondSchoolName || 'المدرسة الثانية'} ({(schoolInfo.secondSchoolPhases || [])[0]})
            </button>
         </div>
       )}
