@@ -98,7 +98,7 @@ const SupervisionMessagingModal: React.FC<Props> = ({
             </div>
             <div>
               <h2 className="text-xl font-black text-slate-800">إرسال إشعارات الإشراف</h2>
-              <p className="text-sm font-medium text-slate-500 mt-0.5">تبليغ المشرفين بمهامهم عبر الواتساب</p>
+              <p className="text-sm font-medium text-slate-500 mt-0.5">تبليغ المشرفين بمهامهم عبر الواتساب أو الرسائل النصية</p>
             </div>
           </div>
           <button onClick={onClose} className="p-2.5 rounded-xl hover:bg-slate-100 text-slate-400 transition-colors">
