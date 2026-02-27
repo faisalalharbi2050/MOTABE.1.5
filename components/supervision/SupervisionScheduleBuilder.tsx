@@ -34,6 +34,7 @@ const SupervisionScheduleBuilder: React.FC<Props> = ({
   const [showFollowUpPicker, setShowFollowUpPicker] = useState<string | null>(null);
   const [followUpSearch, setFollowUpSearch] = useState('');
   const [bulkLocationId, setBulkLocationId] = useState('');
+  const [showDayDropdown, setShowDayDropdown] = useState(false);
   
   // For manual multi-select within a day
   const [selectedStaffIds, setSelectedStaffIds] = useState<string[]>([]);
@@ -276,7 +277,35 @@ const SupervisionScheduleBuilder: React.FC<Props> = ({
               >
                 <Calendar size={16} /> للكل
               </button>
-              
+
+              {/* Apply to a specific day dropdown */}
+              <div className="relative">
+                <button
+                  onClick={() => setShowDayDropdown(prev => !prev)}
+                  disabled={!bulkLocationId}
+                  className={`flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold transition-all ${bulkLocationId ? 'bg-[#e5e1fe] text-[#655ac1] hover:bg-[#c9c2fd] active:scale-95' : 'bg-slate-100 text-slate-400 cursor-not-allowed'}`}
+                  title="تطبيق الموقع على يوم محدد"
+                >
+                  <Users size={16} /> تطبيق لليوم <ChevronDown size={14} />
+                </button>
+                {showDayDropdown && bulkLocationId && (
+                  <>
+                    <div className="fixed inset-0 z-40" onClick={() => setShowDayDropdown(false)} />
+                    <div className="absolute top-[calc(100%+0.5rem)] right-0 z-50 bg-white border border-slate-200 rounded-2xl shadow-[0_10px_30px_rgba(0,0,0,0.15)] overflow-hidden min-w-[140px]">
+                    {activeDays.map(day => (
+                      <button
+                        key={day}
+                        onClick={() => { copyLocationToAllInDay(day); setShowDayDropdown(false); }}
+                        className="w-full text-right px-4 py-2.5 text-sm font-bold text-slate-700 hover:bg-[#e5e1fe] hover:text-[#655ac1] transition-colors"
+                      >
+                        {DAY_NAMES[day]}
+                      </button>
+                    ))}
+                    </div>
+                  </>
+                )}
+              </div>
+
               {dayAssignments.some(da => da.staffAssignments.some(sa => sa.locationIds.length > 0)) && (
                 <button
                   onClick={() => clearLocations()}
@@ -348,18 +377,11 @@ const SupervisionScheduleBuilder: React.FC<Props> = ({
                                        {staffCount} مشرف
                                      </span>
                                    </div>
-                                   {staffCount > 0 && (
+                                   {staffCount > 0 && da.staffAssignments.some(sa => sa.locationIds.length > 0) && (
                                      <div className="mt-8 w-full flex flex-col gap-2">
-                                        {bulkLocationId && (
-                                          <button onClick={() => copyLocationToAllInDay(day)} className="w-full flex items-center justify-center gap-1.5 py-2 text-[#655ac1] hover:text-[#4f46e5] rounded-xl text-xs font-bold transition-all hover:bg-slate-50" title="تطبيق الموقع المحدد في شريط المواقع على هذا اليوم">
-                                            <Users size={14} /> تطبيق لليوم
-                                          </button>
-                                        )}
-                                        {da.staffAssignments.some(sa => sa.locationIds.length > 0) && (
-                                          <button onClick={() => clearLocations(day)} className="w-full flex items-center justify-center py-2 text-rose-500 hover:text-rose-600 rounded-xl transition-all hover:bg-slate-50" title="استعادة ضبط المواقع لهذا اليوم">
-                                            <RotateCcw size={18} />
-                                          </button>
-                                        )}
+                                        <button onClick={() => clearLocations(day)} className="w-full flex items-center justify-center py-2 text-rose-500 hover:text-rose-600 rounded-xl transition-all hover:bg-slate-50" title="استعادة ضبط المواقع لهذا اليوم">
+                                          <RotateCcw size={18} />
+                                        </button>
                                      </div>
                                    )}
                                 </div>

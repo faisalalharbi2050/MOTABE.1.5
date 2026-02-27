@@ -246,7 +246,7 @@ const DailySupervision: React.FC<DailySupervisionProps> = ({
               className="flex items-center gap-2 bg-[#8779fb] text-white px-5 py-2.5 rounded-xl font-bold transition-all shadow-sm shadow-[#8779fb]/20 hover:scale-105 active:scale-95"
             >
               <Settings size={18} className="text-white" />
-              <span className="text-white">إعدادات الجدول</span>
+              <span className="text-white">إعدادات الإشراف</span>
             </button>
             <button
               onClick={() => setIsCreateScheduleOpen(true)}
@@ -288,8 +288,8 @@ const DailySupervision: React.FC<DailySupervisionProps> = ({
                onClick={() => setIsManageSchedulesOpen(true)}
                className="flex items-center gap-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 px-4 py-2.5 rounded-xl font-bold transition-all hover:border-[#655ac1] hover:text-[#655ac1]"
              >
-               <Settings size={18} className="text-[#655ac1]" />
-               <span>إدارة الجدول</span>
+               <Save size={18} className="text-[#655ac1]" />
+               <span>إدارة الجداول</span>
              </button>
              <button
                onClick={() => setIsPrintOpen(true)}
