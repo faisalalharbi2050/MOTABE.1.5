@@ -401,6 +401,7 @@ export function getTodayAttendance(
   records: SupervisionAttendanceRecord[],
   date: string
 ): SupervisionAttendanceRecord[] {
+  if (!records || !Array.isArray(records)) return [];
   return records.filter(r => r.date === date);
 }
 
@@ -415,6 +416,9 @@ export function getAttendanceStats(
   withdrawn: number;
   late: number;
 } {
+  if (!records || !Array.isArray(records)) {
+    return { total: 0, present: 0, absent: 0, excused: 0, withdrawn: 0, late: 0 };
+  }
   let filtered = records;
   if (dateRange) {
     filtered = records.filter(r => r.date >= dateRange.start && r.date <= dateRange.end);

@@ -112,6 +112,7 @@ export interface SemesterInfo {
   endDate: string;
   weeksCount: number;
   isCurrent?: boolean;
+  holidays?: string[]; // تواريخ الإجازات المستبعدة (YYYY-MM-DD)
 }
 
 export interface BreakInfo {
@@ -475,4 +476,105 @@ export interface SupervisionMessage {
   locationNames: string[];
 }
 
+// ===== Daily Duty Types =====
 
+export interface DutyStaffExclusion {
+  staffId: string;
+  staffType: 'teacher' | 'admin';
+  reason?: string;
+  isExcluded: boolean;
+}
+
+export interface DutyStaffAssignment {
+  staffId: string;
+  staffType: 'teacher' | 'admin';
+  staffName: string;
+  lastPeriod?: number; // The actual last administrative period they end at
+  isManual?: boolean;
+}
+
+export interface DutyDayAssignment {
+  day: string; // sunday, monday, etc.
+  staffAssignments: DutyStaffAssignment[];
+  isRemoteWork?: boolean;
+}
+
+export interface DutyStudentViolation {
+  id: string;
+  studentName: string;
+  gradeAndClass: string;
+  violationType: string;
+  actionTaken: string;
+  notes?: string;
+}
+
+export interface DutyStudentLate {
+  id: string;
+  studentName: string;
+  gradeAndClass: string;
+  exitTime: string;
+  actionTaken: string;
+  notes?: string;
+}
+
+export interface DutyReportRecord {
+  id: string;
+  date: string; // ISO YYYY-MM-DD
+  day: string;
+  staffId: string;
+  staffName: string;
+  signature?: string; // base64 image
+  lateStudents: DutyStudentLate[];
+  violatingStudents: DutyStudentViolation[];
+  isSubmitted: boolean;
+  submittedAt?: string;
+  isEmpty?: boolean; // When report is submitted empty (no violations/lates)
+  status: SupervisionAttendanceStatus; // absent, present, etc. from supervision status
+  withdrawalTime?: string;
+}
+
+export interface SavedDutySchedule {
+  id: string;
+  name: string;
+  createdAt: string;
+  dayAssignments: DutyDayAssignment[];
+  isApproved: boolean;
+}
+
+export interface DutySettings {
+  autoExcludeTeachersWhen5Admins: boolean; // قاعدة 5 إداريين
+  excludeVicePrincipals: boolean;
+  excludeGuards: boolean;
+  suggestedCountPerDay: number;
+  enableAutoAssignment: boolean;
+  reminderMessageTemplate?: string;
+  assignmentMessageTemplate?: string;
+  reminderSendTime?: string; // Time to send reminder links e.g. "07:00"
+  sharedSchoolMode: 'unified' | 'separate';
+  autoSendLinks: boolean; // إرسال تلقائي دون تدخل
+}
+
+export interface DutyScheduleData {
+  exclusions: DutyStaffExclusion[];
+  dayAssignments: DutyDayAssignment[];
+  reports: DutyReportRecord[];
+  settings: DutySettings;
+  isApproved: boolean;
+  approvedAt?: string;
+  effectiveDate?: string;
+  footerText?: string;
+  activeScheduleId?: string;
+  savedSchedules?: SavedDutySchedule[];
+}
+
+export interface DutyMessage {
+  id: string;
+  staffId: string;
+  staffName: string;
+  type: 'assignment' | 'reminder';
+  channel: 'whatsapp' | 'sms';
+  content: string;
+  sentAt?: string;
+  status: 'pending' | 'sent' | 'failed';
+  day: string;
+}

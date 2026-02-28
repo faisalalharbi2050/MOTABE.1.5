@@ -72,7 +72,18 @@ const DailySupervision: React.FC<DailySupervisionProps> = ({
   const [supervisionData, setSupervisionData] = useState<SupervisionScheduleData>(() => {
     const saved = localStorage.getItem('supervision_data_v1');
     if (saved) {
-      try { return JSON.parse(saved); } catch { /* ignore */ }
+      try { 
+        const parsed = JSON.parse(saved);
+        return {
+          ...getDefaultSupervisionData(schoolInfo),
+          ...parsed,
+          exclusions: parsed.exclusions || [],
+          dayAssignments: parsed.dayAssignments || [],
+          attendanceRecords: parsed.attendanceRecords || [],
+          savedSchedules: parsed.savedSchedules || [],
+          settings: parsed.settings || getDefaultSupervisionData(schoolInfo).settings
+        };
+      } catch { /* ignore */ }
     }
     return getDefaultSupervisionData(schoolInfo);
   });
@@ -306,31 +317,13 @@ const DailySupervision: React.FC<DailySupervisionProps> = ({
                <span>إرسال</span>
              </button>
 
-             {!showGlobalDeleteConfirm ? (
-               <button
-                 onClick={() => setShowGlobalDeleteConfirm(true)}
-                 className="flex items-center gap-2 bg-white hover:bg-rose-50 text-slate-700 hover:text-rose-600 border border-slate-200 px-4 py-2.5 rounded-xl font-bold transition-all hover:border-rose-300"
-               >
-                 <Trash2 size={18} className="text-rose-500" />
-                 <span>حذف الجدول</span>
-               </button>
-             ) : (
-               <div className="flex items-center gap-2 bg-rose-50 border border-rose-200 px-3 py-1.5 rounded-xl animate-in slide-in-from-left-4">
-                 <span className="text-xs font-bold text-rose-700 mx-2">أنت متأكد؟ سيتم حذفه من القائمة المحفوظة أيضاً.</span>
-                 <button
-                   onClick={handleDeleteCurrentSchedule}
-                   className="px-4 py-2 bg-rose-500 hover:bg-rose-600 text-white text-xs font-bold rounded-lg transition-colors"
-                 >
-                   نعم، احذف
-                 </button>
-                 <button
-                   onClick={() => setShowGlobalDeleteConfirm(false)}
-                   className="px-4 py-2 bg-white border border-rose-200 text-rose-600 text-xs font-bold rounded-lg transition-colors hover:bg-slate-50"
-                 >
-                   تراجع
-                 </button>
-               </div>
-             )}
+             <button
+               onClick={() => setShowGlobalDeleteConfirm(true)}
+               className="flex items-center gap-2 bg-white hover:bg-rose-50 text-slate-700 hover:text-rose-600 border border-slate-200 px-4 py-2.5 rounded-xl font-bold transition-all hover:border-rose-300"
+             >
+               <Trash2 size={18} className="text-rose-500" />
+               <span>حذف الجدول</span>
+             </button>
            </div>
         </div>
       </div>
@@ -458,6 +451,8 @@ const DailySupervision: React.FC<DailySupervisionProps> = ({
          onClose={() => setIsReportsOpen(false)}
          supervisionData={supervisionData}
          schoolInfo={schoolInfo}
+         teachers={teachers}
+         admins={admins}
          showToast={showToast}
        />
 
@@ -475,6 +470,37 @@ const DailySupervision: React.FC<DailySupervisionProps> = ({
          activeDaysCount={timing.activeDays?.length || 5}
          availableStaffCount={availableStaff.length}
        />
+
+       {/* Delete Confirmation Modal */}
+       {showGlobalDeleteConfirm && (
+         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[9999] flex items-center justify-center p-4">
+           <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden animate-in zoom-in-95 duration-200">
+             <div className="p-6 text-center">
+               <div className="w-16 h-16 bg-rose-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                 <Trash2 size={32} className="text-rose-500" />
+               </div>
+               <h2 className="text-xl font-black text-slate-800 mb-2">تأكيد حذف الجدول</h2>
+               <p className="text-sm font-medium text-slate-500 leading-relaxed">
+                 هل أنت متأكد من رغبتك في حذف الجدول الحالي بالكامل؟ سيتم هذا الإجراء ولاتمكن التراجع عنه، وسيتم حذفه من قائمة الجداول المحفوظة إذا كان محفوظاً مسبقاً.
+               </p>
+             </div>
+             <div className="p-6 pt-0 flex gap-3">
+               <button
+                 onClick={() => setShowGlobalDeleteConfirm(false)}
+                 className="flex-1 px-4 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-bold rounded-xl transition-colors"
+               >
+                 تراجع
+               </button>
+               <button
+                 onClick={handleDeleteCurrentSchedule}
+                 className="flex-1 px-4 py-3 bg-rose-500 hover:bg-rose-600 text-white text-sm font-bold rounded-xl transition-colors shadow-md shadow-rose-500/20"
+               >
+                 نعم، احذف الجدول
+               </button>
+             </div>
+           </div>
+         </div>
+       )}
 
       {/* Timing Popup */}
       {showTimingPopup && (
