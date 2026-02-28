@@ -82,7 +82,7 @@ const SupervisionCreateScheduleModal: React.FC<Props> = ({
               </div>
               <h3 className={`text-lg font-black mb-2 transition-colors ${selectedMode === 'auto' ? 'text-[#655ac1]' : 'text-slate-800'}`}>التوزيع التلقائي</h3>
               <p className="text-sm font-medium text-slate-500 leading-relaxed">
-                يقوم النظام بتوزيع المشرفين المتاحين بالتساوي قدر الإمكان على أيام الأسبوع بناءً على الإعدادات ونصاب المعلمين.
+                يقوم النظام بتوزيع المشرفين المتاحين بالتساوي قدر الإمكان على أيام الأسبوع بناءً على الإعدادات والحصة الفارغة قبل أو بعد الفسحة
               </p>
               
               {selectedMode === 'auto' && (
@@ -115,7 +115,7 @@ const SupervisionCreateScheduleModal: React.FC<Props> = ({
               </div>
               <h3 className={`text-lg font-black mb-2 transition-colors ${selectedMode === 'manual' ? 'text-[#655ac1]' : 'text-slate-800'}`}>التوزيع اليدوي</h3>
               <p className="text-sm font-medium text-slate-500 leading-relaxed">
-                تقوم بتحديد المشرفين لكل يوم بنفسك. سيتم عرض المقترح لمساعدتك ولكن لك حرية الاختيار بالكامل.
+                تقوم بتحديد المشرفين لكل يوم ، وسيتم عرض المقترح لمساعدتك ، ولك حرية الاختيار بالكامل
               </p>
               
               {selectedMode === 'manual' && (
