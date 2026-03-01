@@ -1,5 +1,6 @@
 
 import React, { useState, useRef, useMemo } from 'react';
+import ReactDOM from 'react-dom';
 import { Teacher, Specialization, Subject } from '../types';
 import { UserPlus, Trash2, X, Plus, User, BookOpen, Search, Users, ShieldCheck, FileSpreadsheet, ClipboardPaste, CheckCircle2, Upload, Info, AlertCircle, TrendingUp, Award, Filter, Edit3, ArrowUp, ArrowDown, Settings2, Sparkles } from 'lucide-react';
 
@@ -272,13 +273,14 @@ const TeacherManagement: React.FC<Props> = ({ teachers, setTeachers, specializat
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500 pb-10">
-      {/* Toast Notification */}
-      {toast && (
-        <div className={`fixed bottom-6 left-1/2 -translate-x-1/2 z-[9999] flex items-center gap-3 px-6 py-4 rounded-2xl shadow-2xl border animate-in slide-in-from-bottom-4 fade-in duration-300 min-w-[320px] max-w-[90vw] ${
+      {/* Toast Notification via Portal */}
+      {toast && ReactDOM.createPortal(
+        <div className={`fixed bottom-6 right-6 z-[99999] flex items-center gap-3 px-6 py-4 rounded-2xl shadow-2xl border min-w-[320px] max-w-[90vw] ${
           toast.type === 'success' ? 'bg-emerald-50 border-emerald-200 text-emerald-800' :
           toast.type === 'error'   ? 'bg-red-50 border-red-200 text-red-800' :
                                      'bg-amber-50 border-amber-200 text-amber-800'
-        }`}>
+        }`} style={{ animation: 'slideInToast 0.3s ease-out' }}>
+          <style>{`@keyframes slideInToast { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }`}</style>
           <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${
             toast.type === 'success' ? 'bg-emerald-100' :
             toast.type === 'error'   ? 'bg-red-100' : 'bg-amber-100'
@@ -291,7 +293,8 @@ const TeacherManagement: React.FC<Props> = ({ teachers, setTeachers, specializat
           <button onClick={() => setToast(null)} className="p-1 rounded-lg hover:bg-black/5 transition-colors shrink-0">
             <X size={16} className="opacity-50" />
           </button>
-        </div>
+        </div>,
+        document.body
       )}
       {/* Header & Actions */}
       <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
