@@ -27,11 +27,23 @@ const AcademicYearPopup: React.FC<Props> = ({ schoolInfo, setSchoolInfo, onClose
     holidays: existingSemester.holidays || []
   });
 
-  const [holidayDates, setHolidayDates] = useState<DateObject[]>([]);
+  const getValidDate = (str: string | undefined) => {
+    if (!str) return undefined;
+    const d = new Date(str);
+    return isNaN(d.getTime()) ? undefined : d;
+  };
+
+  const [holidayDates, setHolidayDates] = useState<any[]>(() => {
+    return existingSemester.holidays ? existingSemester.holidays.map(h => getValidDate(h)).filter(Boolean) : [];
+  });
 
   const formatDate = (date: any) => {
     if (!date) return '';
-    if (date instanceof DateObject) return date.format("YYYY-MM-DD");
+    if (date instanceof DateObject) {
+      // Always convert to Gregorian to ensure JS Date compatibility internally
+      const greg = new DateObject({ date, calendar: gregorian });
+      return greg.format("YYYY-MM-DD");
+    }
     return date.toString();
   };
 
@@ -159,7 +171,7 @@ const AcademicYearPopup: React.FC<Props> = ({ schoolInfo, setSchoolInfo, onClose
                   <div>
                       <label className="text-xs font-bold text-slate-500 block mb-1">تاريخ البداية (إلزامي)</label>
                       <DatePicker 
-                        value={semester.startDate}
+                        value={getValidDate(semester.startDate)}
                         onChange={(date) => setSemester({...semester, startDate: formatDate(date)})}
                         calendar={semester.calendarType === 'hijri' ? arabic : gregorian}
                         locale={semester.calendarType === 'hijri' ? arabic_ar : gregorian_ar}
@@ -175,7 +187,7 @@ const AcademicYearPopup: React.FC<Props> = ({ schoolInfo, setSchoolInfo, onClose
                   <div>
                       <label className="text-xs font-bold text-slate-500 block mb-1">تاريخ النهاية (إلزامي)</label>
                       <DatePicker 
-                        value={semester.endDate}
+                        value={getValidDate(semester.endDate)}
                         onChange={(date) => setSemester({...semester, endDate: formatDate(date)})}
                         calendar={semester.calendarType === 'hijri' ? arabic : gregorian}
                         locale={semester.calendarType === 'hijri' ? arabic_ar : gregorian_ar}
@@ -196,7 +208,7 @@ const AcademicYearPopup: React.FC<Props> = ({ schoolInfo, setSchoolInfo, onClose
                   <DatePicker 
                      multiple
                      value={holidayDates}
-                     onChange={(dates) => setHolidayDates(dates as DateObject[])}
+                     onChange={(dates) => setHolidayDates(dates as any[])}
                      calendar={semester.calendarType === 'hijri' ? arabic : gregorian}
                      locale={semester.calendarType === 'hijri' ? arabic_ar : gregorian_ar}
                      containerClassName="w-full relative z-[40]"

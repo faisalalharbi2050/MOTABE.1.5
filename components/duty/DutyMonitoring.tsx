@@ -45,8 +45,12 @@ const DutyMonitoringModal: React.FC<Props> = ({
   }, [selectedDate]);
 
   const currentDayAssignment = useMemo(() => {
+    // Try matching by exact date first (multi-week support)
+    const exactMatch = dutyData.dayAssignments.find(da => da.date === selectedDate);
+    if (exactMatch) return exactMatch;
+    // Fallback for older schedules without dates
     return dutyData.dayAssignments.find(da => da.day === selectedDayOfWeek);
-  }, [dutyData.dayAssignments, selectedDayOfWeek]);
+  }, [dutyData.dayAssignments, selectedDate, selectedDayOfWeek]);
 
   const existingReports = useMemo(() => {
     return getTodayDutyReports(dutyData.reports, selectedDate);

@@ -28,11 +28,11 @@ const DutyCreateScheduleModal: React.FC<Props> = ({
 
   const handleAutoAssign = () => {
     try {
-      const { assignments, alerts } = generateSmartDutyAssignment(
+      const { assignments, weekAssignments, alerts, newCounts } = generateSmartDutyAssignment(
         teachers, admins, dutyData.exclusions, dutyData.settings,
-        scheduleSettings, schoolInfo, suggestedCount
+        scheduleSettings, schoolInfo, dutyData.dutyAssignmentCounts || {}, dutyData.settings.suggestedCountPerDay || suggestedCount
       );
-      setDutyData(prev => ({ ...prev, dayAssignments: assignments, isApproved: false }));
+      setDutyData(prev => ({ ...prev, dayAssignments: assignments, weekAssignments, dutyAssignmentCounts: newCounts, isApproved: false }));
       showToast('تم التوزيع التلقائي للمناوبين بنجاح', 'success');
       if (alerts.length > 0) {
         showToast(alerts[0], 'warning');
@@ -45,7 +45,11 @@ const DutyCreateScheduleModal: React.FC<Props> = ({
   };
 
   const handleManualAssign = () => {
-    setDutyData(prev => ({ ...prev, dayAssignments: [], isApproved: false }));
+    const { assignments, weekAssignments } = generateSmartDutyAssignment(
+      teachers, admins, dutyData.exclusions, dutyData.settings,
+      scheduleSettings, schoolInfo, dutyData.dutyAssignmentCounts || {}, 0
+    );
+    setDutyData(prev => ({ ...prev, dayAssignments: assignments, weekAssignments, isApproved: false }));
     showToast('تم تهيئة الجدول للتوزيع اليدوي', 'success');
     onClose();
   };
@@ -87,7 +91,7 @@ const DutyCreateScheduleModal: React.FC<Props> = ({
                 <Zap size={24} />
               </div>
               <h3 className={`text-lg font-black mb-2 transition-colors ${selectedMode === 'auto' ? 'text-[#655ac1]' : 'text-slate-800'}`}>التوزيع التلقائي</h3>
-              <div className="text-sm font-medium text-slate-500 leading-relaxed space-y-2 mt-2">
+              <div className="text-sm font-medium text-slate-500 leading-relaxed justify-end space-y-2 mt-2">
                 <p>يقوم النظام بتوزيع المناوبين وفق التالي :</p>
                 <ol className="list-decimal list-inside pr-2 text-xs space-y-1 text-slate-600">
                   <li>المعلمون بناءً على الحصة الأخيرة في جداولهم.</li>

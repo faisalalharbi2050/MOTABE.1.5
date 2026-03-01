@@ -66,6 +66,29 @@ const DutyReportsModalContent: React.FC<Props> = ({
     }
   };
 
+  const getWeekDateBounds = (weekNumber: number) => {
+    try {
+      const start = new Date(semesterStartDate);
+      start.setDate(start.getDate() + ((weekNumber - 1) * 7));
+      const end = new Date(start);
+      end.setDate(end.getDate() + 4); 
+      
+      const formatYMD = (d: Date) => {
+        const y = d.getFullYear();
+        const m = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        return `${y}-${m}-${day}`;
+      };
+
+      return { 
+        startStr: formatYMD(start), 
+        endStr: formatYMD(end) 
+      };
+    } catch(e) {
+      return { startStr: '', endStr: '' };
+    }
+  };
+
   const monthsList = Array.from({ length: 4 }, (_, i) => {
     let label = '';
     const startWeek = (i * 4) + 1;
@@ -109,10 +132,38 @@ const DutyReportsModalContent: React.FC<Props> = ({
     
     if (activeTab === 'individual' && selectedStaffId) {
        records = records.filter(r => r.staffId === selectedStaffId);
+       
+       if (individualReportType === 'weekly') {
+         const bounds = getWeekDateBounds(selectedWeek);
+         if (bounds.startStr) {
+           records = records.filter(r => r.date >= bounds.startStr && r.date <= bounds.endStr);
+         }
+       } else if (individualReportType === 'monthly') {
+         const startWeek = (selectedMonth * 4) + 1;
+         const endWeek = startWeek + 3;
+         const startBounds = getWeekDateBounds(startWeek);
+         const endBounds = getWeekDateBounds(endWeek);
+         if (startBounds.startStr && endBounds.endStr) {
+           records = records.filter(r => r.date >= startBounds.startStr && r.date <= endBounds.endStr);
+         }
+       }
+    } else if (activeTab === 'weekly') {
+       const bounds = getWeekDateBounds(selectedWeek);
+       if (bounds.startStr) {
+         records = records.filter(r => r.date >= bounds.startStr && r.date <= bounds.endStr);
+       }
+    } else if (activeTab === 'monthly') {
+       const startWeek = (selectedMonth * 4) + 1;
+       const endWeek = startWeek + 3;
+       const startBounds = getWeekDateBounds(startWeek);
+       const endBounds = getWeekDateBounds(endWeek);
+       if (startBounds.startStr && endBounds.endStr) {
+         records = records.filter(r => r.date >= startBounds.startStr && r.date <= endBounds.endStr);
+       }
     }
     
     return records;
-  }, [dutyData?.reports, activeTab, selectedStaffId, selectedWeek, selectedMonth]);
+  }, [dutyData?.reports, activeTab, selectedStaffId, selectedWeek, selectedMonth, individualReportType, semesterStartDate]);
 
   const stats = getDutyStats(filteredRecords);
 

@@ -120,19 +120,23 @@ const DutyMessagingModal: React.FC<Props> = ({
           <div className="bg-white rounded-[2rem] p-6 shadow-sm border border-slate-100">
              {/* Message Type & Day Filter */}
              <div className="flex flex-wrap gap-4 mb-6">
-               <div className="flex gap-2 bg-slate-100 rounded-xl p-1.5 border border-slate-200">
+               <div className="flex bg-slate-100/80 p-1 rounded-2xl border border-slate-200 shadow-inner w-full sm:w-auto">
                  <button
                    onClick={() => setMessageType('assignment')}
-                   className={`px-4 py-2 flex items-center gap-2 rounded-lg text-sm font-bold transition-all ${
-                     messageType === 'assignment' ? 'bg-white text-[#655ac1] shadow-sm' : 'text-slate-500 hover:bg-slate-200'
+                   className={`flex-1 sm:flex-none px-6 py-2.5 rounded-xl text-sm font-bold transition-all duration-300 ${
+                     messageType === 'assignment'
+                       ? 'bg-white text-[#655ac1] shadow-sm transform scale-[1.02] border border-slate-100/50'
+                       : 'text-slate-500 hover:text-slate-700 hover:bg-slate-200/50'
                    }`}
                  >
                    رسالة تكليف
                  </button>
                  <button
                    onClick={() => setMessageType('reminder')}
-                   className={`px-4 py-2 flex items-center gap-2 rounded-lg text-sm font-bold transition-all ${
-                     messageType === 'reminder' ? 'bg-white text-[#655ac1] shadow-sm' : 'text-slate-500 hover:bg-slate-200'
+                   className={`flex-1 sm:flex-none px-6 py-2.5 rounded-xl text-sm font-bold transition-all duration-300 ${
+                     messageType === 'reminder'
+                       ? 'bg-white text-[#655ac1] shadow-sm transform scale-[1.02] border border-slate-100/50'
+                       : 'text-slate-500 hover:text-slate-700 hover:bg-slate-200/50'
                    }`}
                  >
                    رسالة تذكيرية
