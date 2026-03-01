@@ -62,6 +62,9 @@ const Step6Teachers: React.FC<Step6Props> = ({ teachers = [], setTeachers, speci
 
   // Delete All Confirmation State
   const [showDeleteAllConfirm, setShowDeleteAllConfirm] = useState(false);
+
+  // Delete Single Teacher Confirmation State
+  const [teacherToDelete, setTeacherToDelete] = useState<string | null>(null);
   const showToast = (message: string, type: 'success' | 'error' | 'warning' = 'success') => {
     setToast({ message, type });
     setTimeout(() => setToast(null), 4000);
@@ -237,8 +240,13 @@ const Step6Teachers: React.FC<Step6Props> = ({ teachers = [], setTeachers, speci
   };
 
   const removeTeacher = (id: string) => {
-      if(confirm("هل أنت متأكد من الحذف؟")) {
-          setTeachers(prev => prev.filter(t => t.id !== id));
+      setTeacherToDelete(id);
+  };
+
+  const confirmRemoveTeacher = () => {
+      if (teacherToDelete) {
+          setTeachers(prev => prev.filter(t => t.id !== teacherToDelete));
+          setTeacherToDelete(null);
       }
   };
 
@@ -975,6 +983,37 @@ const Step6Teachers: React.FC<Step6Props> = ({ teachers = [], setTeachers, speci
            </div>
       )}
      {/* ══════ Teacher Constraints Modal ══════ */}
+     {/* Delete Single Teacher Confirmation Modal */}
+     {teacherToDelete && (
+       <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[9999] flex items-center justify-center p-4">
+         <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden animate-in zoom-in-95 duration-200">
+           <div className="p-6 text-center">
+             <div className="w-16 h-16 bg-rose-100 rounded-full flex items-center justify-center mx-auto mb-4">
+               <Trash2 size={32} className="text-rose-500" />
+             </div>
+             <h2 className="text-xl font-black text-slate-800 mb-2">تأكيد حذف المعلم</h2>
+             <p className="text-sm font-medium text-slate-500 leading-relaxed">
+               هل أنت متأكد من رغبتك في حذف هذا المعلم؟ لا يمكن التراجع عن هذا الإجراء.
+             </p>
+           </div>
+           <div className="p-6 pt-0 flex gap-3">
+             <button
+               onClick={() => setTeacherToDelete(null)}
+               className="flex-1 px-4 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-bold rounded-xl transition-colors"
+             >
+               تراجع
+             </button>
+             <button
+               onClick={confirmRemoveTeacher}
+               className="flex-1 px-4 py-3 bg-rose-500 hover:bg-rose-600 text-white text-sm font-bold rounded-xl transition-colors shadow-md shadow-rose-500/20"
+             >
+               نعم، احذف المعلم
+             </button>
+           </div>
+         </div>
+       </div>
+     )}
+
      {/* Delete All Confirmation Modal */}
      {showDeleteAllConfirm && (
        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[9999] flex items-center justify-center p-4">
