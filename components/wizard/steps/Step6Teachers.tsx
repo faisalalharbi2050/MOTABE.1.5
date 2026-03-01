@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
+import ReactDOM from 'react-dom';
 import { Teacher, Specialization, SchoolInfo, ScheduleSettingsData, ClassInfo } from '../../../types';
-import { Briefcase, Plus, X, Upload, Trash2, Edit, Check, ChevronDown, ChevronUp, Search, Printer, List, User, Users, GripVertical, AlertTriangle, CheckCircle2, ArrowUp, ArrowDown, Copy, CheckSquare, Square, Sliders } from 'lucide-react';
+import { Briefcase, Plus, X, Upload, Trash2, Edit, Check, ChevronDown, ChevronUp, Search, Printer, List, User, Users, GripVertical, AlertTriangle, CheckCircle2, ArrowUp, ArrowDown, Copy, CheckSquare, Square, Sliders, Info, AlertCircle } from 'lucide-react';
 import { INITIAL_SPECIALIZATIONS } from '../../../constants';
 import { parseTeachersExcel } from '../../../utils/excelTeachers';
 import SchoolTabs from '../SchoolTabs';
@@ -56,6 +57,16 @@ const Step6Teachers: React.FC<Step6Props> = ({ teachers = [], setTeachers, speci
   const [selectedTargets, setSelectedTargets] = useState<string[]>([]);
   const [copySearchTerm, setCopySearchTerm] = useState("");
 
+  // Toast State
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'warning' } | null>(null);
+
+  // Delete All Confirmation State
+  const [showDeleteAllConfirm, setShowDeleteAllConfirm] = useState(false);
+  const showToast = (message: string, type: 'success' | 'error' | 'warning' = 'success') => {
+    setToast({ message, type });
+    setTimeout(() => setToast(null), 4000);
+  };
+
   // --- Helpers ---
   const currentSchoolTeachers = useMemo(() => {
     if (schoolInfo.mergeTeachersView) return teachers;
@@ -88,7 +99,7 @@ const Step6Teachers: React.FC<Step6Props> = ({ teachers = [], setTeachers, speci
           // Exiting Edit Mode: Save and Check changes
           const currentString = JSON.stringify(teachers);
           if (currentString === teachersSnapshot.current) {
-              alert("لم يتم إجراء أي تعديلات");
+              showToast('لم يتم إجراء أي تعديلات', 'warning');
           }
           setIsBulkEdit(false);
       }
@@ -144,9 +155,12 @@ const Step6Teachers: React.FC<Step6Props> = ({ teachers = [], setTeachers, speci
 
   const handleDeleteAll = () => {
     if (teachers.length === 0) return;
-    if (window.confirm('هل أنت متأكد من حذف جميع المعلمين؟ لا يمكن التراجع عن هذا الإجراء.')) {
-      setTeachers([]);
-    }
+    setShowDeleteAllConfirm(true);
+  };
+
+  const confirmDeleteAll = () => {
+    setTeachers([]);
+    setShowDeleteAllConfirm(false);
   };
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -157,7 +171,7 @@ const Step6Teachers: React.FC<Step6Props> = ({ teachers = [], setTeachers, speci
         const uniqueNew = newTeachers.filter(nt => !teachers.some(et => et.name === nt.name));
         
         if (uniqueNew.length === 0) {
-            alert("لم يتم إضافة أي معلم - الأسماء موجودة مسبقاً");
+            showToast('لم يتم إضافة أي معلم - الأسماء موجودة مسبقاً', 'warning');
         } else {
             setTeachers(prev => {
                 const maxSort = Math.max(...prev.map(t => t.sortIndex || 0), 0);
@@ -174,11 +188,11 @@ const Step6Teachers: React.FC<Step6Props> = ({ teachers = [], setTeachers, speci
                 }));
                 return [...prev, ...newWithSort];
             });
-            alert(`تم إضافة ${uniqueNew.length} معلم بنجاح`);
+            showToast(`✅ تم استيراد ${uniqueNew.length} معلماً بنجاح`, 'success');
         }
       } catch (error) {
         console.error(error);
-        alert("حدث خطأ في قراءة الملف");
+        showToast('حدث خطأ في قراءة الملف', 'error');
       } finally {
         setLoading(false);
         if (fileInputRef.current) fileInputRef.current.value = "";
@@ -330,6 +344,36 @@ const Step6Teachers: React.FC<Step6Props> = ({ teachers = [], setTeachers, speci
   );
 
   return (
+    <>
+      {/* ══════ Toast Notification ══════ */}
+      {toast && ReactDOM.createPortal(
+        <>
+          <style>{`@keyframes toastIn { from { opacity:0; top:64px; } to { opacity:1; top:82px; } }`}</style>
+          <div
+            style={{ top: '82px', left: '50%', transform: 'translateX(-50%)', animation: 'toastIn 0.3s ease-out' }}
+            className={`fixed z-[99999] flex items-center gap-3 px-6 py-4 rounded-2xl shadow-2xl border min-w-[320px] max-w-[90vw] ${
+              toast.type === 'success' ? 'bg-emerald-50 border-emerald-200 text-emerald-800' :
+              toast.type === 'error'   ? 'bg-red-50 border-red-200 text-red-800' :
+                                         'bg-amber-50 border-amber-200 text-amber-800'
+            }`}
+          >
+            <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${
+              toast.type === 'success' ? 'bg-emerald-100' :
+              toast.type === 'error'   ? 'bg-red-100' : 'bg-amber-100'
+            }`}>
+              {toast.type === 'success' && <CheckCircle2 size={20} className="text-emerald-600" />}
+              {toast.type === 'error'   && <AlertCircle  size={20} className="text-red-600" />}
+              {toast.type === 'warning' && <AlertTriangle size={20} className="text-amber-600" />}
+            </div>
+            <p className="font-bold text-sm flex-1 leading-relaxed">{toast.message}</p>
+            <button onClick={() => setToast(null)} className="p-1 rounded-lg hover:bg-black/5 transition-colors shrink-0">
+              <X size={16} className="opacity-50" />
+            </button>
+          </div>
+        </>,
+        document.body
+      )}
+
     <div className="space-y-8 animate-in fade-in duration-500 pb-20 print:pb-0 print:space-y-4">
       
       {/* ══════ Header (Hidden in Print) ══════ */}
@@ -931,6 +975,36 @@ const Step6Teachers: React.FC<Step6Props> = ({ teachers = [], setTeachers, speci
            </div>
       )}
      {/* ══════ Teacher Constraints Modal ══════ */}
+     {/* Delete All Confirmation Modal */}
+     {showDeleteAllConfirm && (
+       <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[9999] flex items-center justify-center p-4">
+         <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden animate-in zoom-in-95 duration-200">
+           <div className="p-6 text-center">
+             <div className="w-16 h-16 bg-rose-100 rounded-full flex items-center justify-center mx-auto mb-4">
+               <Trash2 size={32} className="text-rose-500" />
+             </div>
+             <h2 className="text-xl font-black text-slate-800 mb-2">تأكيد حذف جميع المعلمين</h2>
+             <p className="text-sm font-medium text-slate-500 leading-relaxed">
+               هل أنت متأكد من رغبتك في حذف جميع المعلمين؟ لا يمكن التراجع عن هذا الإجراء.
+             </p>
+           </div>
+           <div className="p-6 pt-0 flex gap-3">
+             <button
+               onClick={() => setShowDeleteAllConfirm(false)}
+               className="flex-1 px-4 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-bold rounded-xl transition-colors"
+             >
+               تراجع
+             </button>
+             <button
+               onClick={confirmDeleteAll}
+               className="flex-1 px-4 py-3 bg-rose-500 hover:bg-rose-600 text-white text-sm font-bold rounded-xl transition-colors shadow-md shadow-rose-500/20"
+             >
+               نعم، احذف الكل
+             </button>
+           </div>
+         </div>
+       </div>
+     )}
      <TeacherConstraintsModal 
         isOpen={showConstraintsModal}
         onClose={() => setShowConstraintsModal(false)}
@@ -947,6 +1021,7 @@ const Step6Teachers: React.FC<Step6Props> = ({ teachers = [], setTeachers, speci
         onChangeMeetings={m => setScheduleSettings && setScheduleSettings(prev => ({ ...prev, meetings: m }))}
      />
     </div>
+    </>
   );
 };
 
