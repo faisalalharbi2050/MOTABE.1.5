@@ -506,6 +506,8 @@ export interface DutyDayAssignment {
   date?: string; // actual date in YYYY-MM-DD format
   staffAssignments: DutyStaffAssignment[];
   isRemoteWork?: boolean;
+  isOfficialLeave?: boolean;   // يوم إجازة رسمية
+  officialLeaveText?: string;  // نص الإجازة الرسمية (افتراضي: "إجازة رسمية")
 }
 
 export interface DutyStudentViolation {
@@ -521,8 +523,8 @@ export interface DutyStudentLate {
   id: string;
   studentName: string;
   gradeAndClass: string;
-  exitTime: string;
-  actionTaken: string;
+  exitTime: string;      // زمن الانصراف
+  actionTaken: string;   // الإجراء المتخذ
   notes?: string;
 }
 
@@ -538,6 +540,7 @@ export interface DutyReportRecord {
   isSubmitted: boolean;
   submittedAt?: string;
   isEmpty?: boolean; // When report is submitted empty (no violations/lates)
+  manuallySubmitted?: boolean; // تم التسليم يدوياً (ورقي)
   status: SupervisionAttendanceStatus; // absent, present, etc. from supervision status
   withdrawalTime?: string;
 }

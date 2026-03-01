@@ -651,7 +651,7 @@ export function getDutyPrintData(
     schoolName: schoolInfo.schoolName,
     semester: schoolInfo.semesters?.find(s => s.id === schoolInfo.currentSemesterId)?.name || 'الفصل الدراسي',
     weeks: [{
-      weekName: 'الجدول الموحد',
+      weekName: '',
       startDate: '',
       endDate: '',
       days: activeDays.map(day => {

@@ -20,6 +20,7 @@ const DutyMessagingModal: React.FC<Props> = ({
   const [selectedDay, setSelectedDay] = useState<string>('all');
   const [customMessages, setCustomMessages] = useState<Record<string, string>>({});
   const [bulkMasterMessage, setBulkMasterMessage] = useState<string>('');
+  const [includeReportLink, setIncludeReportLink] = useState(false);
 
   const timing = getTimingConfig(schoolInfo);
   const activeDays = timing.activeDays || DAYS.slice();
@@ -53,7 +54,8 @@ const DutyMessagingModal: React.FC<Props> = ({
 
         const baseContent = messageType === 'assignment'
           ? generateDutyAssignmentMessage(sa.staffName, staffType, day, dateString, schoolInfo.gender)
-          : generateDutyReminderMessage(sa.staffName, staffType, day, dateString, schoolInfo.gender);
+          : generateDutyReminderMessage(sa.staffName, staffType, day, dateString, schoolInfo.gender)
+              + (includeReportLink ? `\n\n📋 رابط نموذج التقرير اليومي:\nhttps://motabe.app/report/${day}/${sa.staffId}` : '');
 
         const finalContent = customMessages[`${day}-${sa.staffId}`] || baseContent;
 
@@ -71,7 +73,7 @@ const DutyMessagingModal: React.FC<Props> = ({
     });
 
     return msgs;
-  }, [dutyData.dayAssignments, messageType, selectedDay, activeDays, schoolInfo.gender, customMessages, teachers]);
+  }, [dutyData.dayAssignments, messageType, selectedDay, activeDays, schoolInfo.gender, customMessages, teachers, includeReportLink]);
 
   const handleApplyBulkMessage = () => {
     if (!bulkMasterMessage.trim()) return;
@@ -153,9 +155,23 @@ const DutyMessagingModal: React.FC<Props> = ({
                    <option key={day} value={day}>{DAY_NAMES[day]}</option>
                  ))}
                </select>
-             </div>
+               </div>
 
-             {/* Bulk Edit & Copy All Section */}
+               {/* Include report link (reminder only) */}
+               {messageType === 'reminder' && (
+                 <div className="flex items-center gap-3 bg-violet-50 border border-violet-200 rounded-xl px-4 py-2.5 w-full">
+                   <input
+                     id="include-report-link"
+                     type="checkbox"
+                     checked={includeReportLink}
+                     onChange={e => setIncludeReportLink(e.target.checked)}
+                     className="w-4 h-4 accent-[#8779fb] cursor-pointer"
+                   />
+                   <label htmlFor="include-report-link" className="text-sm font-bold text-[#655ac1] cursor-pointer select-none flex-1">
+                     تضمين رابط نموذج التقرير اليومي مع الرسالة التذكيرية
+                   </label>
+                 </div>
+               )}
              {messages.length > 0 && (
                <div className="bg-[#facc15]/10 rounded-2xl p-5 mb-6 border border-[#facc15]/20 flex flex-col gap-4">
                  <div className="flex items-start gap-3">
