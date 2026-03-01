@@ -39,6 +39,12 @@ const TeacherManagement: React.FC<Props> = ({ teachers, setTeachers, specializat
   const [tableSearch, setTableSearch] = useState('');
   const [sortBy, setSortBy] = useState<'name' | 'specialization'>('name');
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'warning' } | null>(null);
+
+  const showToast = (message: string, type: 'success' | 'error' | 'warning' = 'success') => {
+    setToast({ message, type });
+    setTimeout(() => setToast(null), 4000);
+  };
 
   // دالة متطورة لتنظيف وتوحيد النصوص
   const normalizeText = (s: string) => {
@@ -159,7 +165,8 @@ const TeacherManagement: React.FC<Props> = ({ teachers, setTeachers, specializat
         const data = XLSX.utils.sheet_to_json(ws, { header: 1 });
         
         if (data.length < 1) {
-          alert('الملف فارغ أو غير صالح.');
+          showToast('الملف فارغ أو غير صالح.', 'error');
+          setIsProcessing(false);
           return;
         }
 
@@ -216,13 +223,13 @@ const TeacherManagement: React.FC<Props> = ({ teachers, setTeachers, specializat
         if (newTeachers.length > 0) {
           setSpecializations(currentSpecs);
           setTeachers(prev => [...prev, ...newTeachers]);
-          alert(`تم بنجاح تحليل البيانات ودمج التخصصات المتشابهة. تم استيراد ${newTeachers.length} معلماً.`);
+          showToast(`✅ تم استيراد ${newTeachers.length} معلماً بنجاح مع دمج التخصصات المتشابهة.`, 'success');
         } else {
-          alert('لم يتم العثور على بيانات صالحة في الملف.');
+          showToast('لم يتم العثور على بيانات صالحة في الملف.', 'warning');
         }
       } catch (err) {
         console.error(err);
-        alert('حدث خطأ أثناء معالجة الملف.');
+        showToast('حدث خطأ أثناء معالجة الملف.', 'error');
       } finally {
         setIsProcessing(false);
         setShowImportModal(false);
@@ -234,7 +241,7 @@ const TeacherManagement: React.FC<Props> = ({ teachers, setTeachers, specializat
 
   const deleteSpecialization = (id: string) => {
     if (teachers.some(t => t.specializationId === id)) {
-      alert("لا يمكن حذف تخصص مرتبط بمعلمين.");
+      showToast('لا يمكن حذف تخصص مرتبط بمعلمين.', 'error');
       return;
     }
     if (confirm("هل أنت متأكد؟")) {
@@ -265,6 +272,27 @@ const TeacherManagement: React.FC<Props> = ({ teachers, setTeachers, specializat
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500 pb-10">
+      {/* Toast Notification */}
+      {toast && (
+        <div className={`fixed bottom-6 left-1/2 -translate-x-1/2 z-[9999] flex items-center gap-3 px-6 py-4 rounded-2xl shadow-2xl border animate-in slide-in-from-bottom-4 fade-in duration-300 min-w-[320px] max-w-[90vw] ${
+          toast.type === 'success' ? 'bg-emerald-50 border-emerald-200 text-emerald-800' :
+          toast.type === 'error'   ? 'bg-red-50 border-red-200 text-red-800' :
+                                     'bg-amber-50 border-amber-200 text-amber-800'
+        }`}>
+          <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${
+            toast.type === 'success' ? 'bg-emerald-100' :
+            toast.type === 'error'   ? 'bg-red-100' : 'bg-amber-100'
+          }`}>
+            {toast.type === 'success' && <CheckCircle2 size={20} className="text-emerald-600" />}
+            {toast.type === 'error'   && <AlertCircle  size={20} className="text-red-600" />}
+            {toast.type === 'warning' && <Info          size={20} className="text-amber-600" />}
+          </div>
+          <p className="font-bold text-sm flex-1 leading-relaxed">{toast.message}</p>
+          <button onClick={() => setToast(null)} className="p-1 rounded-lg hover:bg-black/5 transition-colors shrink-0">
+            <X size={16} className="opacity-50" />
+          </button>
+        </div>
+      )}
       {/* Header & Actions */}
       <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
         <div className="space-y-0.5">
