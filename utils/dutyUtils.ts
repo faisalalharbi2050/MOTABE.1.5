@@ -107,6 +107,136 @@ export function getEligibleDutyAdminRoles(): string[] {
 
 // ===== Smart Auto-Assignment Engine =====
 
+export interface DutyDateInfo {
+  date: string; // YYYY-MM-DD
+  dayKey: string; // sunday, monday...
+  weekId: string;
+  weekName: string;
+}
+
+export function generateDutyDates(schoolInfo: SchoolInfo): DutyDateInfo[] {
+  const timing = getTimingConfig(schoolInfo);
+  const activeDays = timing.activeDays || DAYS.slice();
+  const currentSemester = schoolInfo.semesters?.find(s => s.isCurrent) || schoolInfo.semesters?.[0];
+
+  if (!currentSemester || !currentSemester.startDate || !currentSemester.endDate) {
+    // Fallback: single generic week if no semester dates
+    return activeDays.map(day => ({
+      date: '',
+      dayKey: day,
+      weekId: 'week-1',
+      weekName: 'الأسبوع الأول'
+    }));
+  }
+
+  const parseGregorianDate = (str: string): Date | null => {
+    if (!str) return null;
+    const d = new Date(str);
+    if (!isNaN(d.getTime())) {
+      // Sanity-check: if year < 1800, it's likely a Hijri date parsed as Gregorian
+      if (d.getFullYear() < 1800) {
+        // Estimate Gregorian: Hijri year 1446 = approx 2024-2025
+        // Rough conversion: Gregorian = Hijri + 579 years (approx)
+        const parts = str.split('-');
+        if (parts.length === 3) {
+          const hijriYear = parseInt(parts[0]);
+          const month = parseInt(parts[1]);
+          const day = parseInt(parts[2]);
+          const gregYear = hijriYear + 579;
+          const approx = new Date(gregYear, month - 1, day);
+          if (!isNaN(approx.getTime())) return approx;
+        }
+        return null;
+      }
+      return d;
+    }
+    return null;
+  };
+
+  let startDate = parseGregorianDate(currentSemester.startDate || '');
+  let endDate = parseGregorianDate(currentSemester.endDate || '');
+
+  // If we still can't get valid dates, generate from weeksCount using today as anchor
+  if (!startDate || !endDate) {
+    const totalWeeks = currentSemester.weeksCount || 18;
+    // Start from first Sunday of this month as best estimate
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const dayOfWeek = today.getDay();
+    const daysToSunday = dayOfWeek === 0 ? 0 : (7 - dayOfWeek);
+    startDate = new Date(today);
+    startDate.setDate(today.getDate() - (7 * Math.floor(totalWeeks / 2))); // center around today
+    // Find the next Sunday from startDate
+    while (startDate.getDay() !== 0) startDate.setDate(startDate.getDate() + 1);
+    endDate = new Date(startDate);
+    endDate.setDate(startDate.getDate() + totalWeeks * 7);
+  }
+
+  startDate.setHours(0, 0, 0, 0);
+  endDate.setHours(0, 0, 0, 0);
+
+
+  const holidays = new Set(currentSemester.holidays || []);
+  const dates: DutyDateInfo[] = [];
+  let currentDate = new Date(startDate);
+
+  let weekCounter = 1;
+  let hasProcessedDays = false;
+  let safetyCounter = 0; // Prevent infinite loops
+  const MAX_DAYS = 365;
+
+  const totalWeeksExpected = currentSemester.weeksCount || 18;
+
+
+  const getDayKey = (d: Date): string => {
+    const daysArr = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+    return daysArr[d.getDay()];
+  };
+
+  while (currentDate <= endDate && safetyCounter < MAX_DAYS) {
+    const dayKey = getDayKey(currentDate);
+    // Use local string to ensure date doesn't shift backward
+    const dateStr = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}-${String(currentDate.getDate()).padStart(2, '0')}`;
+
+    // Saudi week starts on Sunday. Increment week counter if it's Sunday and we've already processed previous days.
+    if (dayKey === 'sunday' && hasProcessedDays) {
+      weekCounter++;
+    }
+
+    if (activeDays.includes(dayKey) && !holidays.has(dateStr)) {
+      dates.push({
+        date: dateStr,
+        dayKey,
+        weekId: `week-${weekCounter}`,
+        weekName: `الأسبوع ${weekCounter}`
+      });
+      hasProcessedDays = true;
+    } else if (dayKey === 'sunday' || dayKey === 'monday' || dayKey === 'tuesday' || dayKey === 'wednesday' || dayKey === 'thursday') {
+      // Even if it's a holiday, we mark that we've processed days so week logic doesn't break
+      hasProcessedDays = true; 
+    }
+
+    currentDate.setDate(currentDate.getDate() + 1);
+    safetyCounter++;
+  }
+
+  // Safety fallback if loop generated zero valid days but we have a weeksCount
+  if (dates.length === 0 && totalWeeksExpected > 0) {
+     for (let w = 1; w <= totalWeeksExpected; w++) {
+       activeDays.forEach(day => {
+         dates.push({
+           date: '',
+           dayKey: day,
+           weekId: `week-${w}`,
+           weekName: `الأسبوع ${w}`
+         });
+       });
+     }
+  }
+
+  return dates;
+}
+
 interface DutyStaffScore {
   staffId: string;
   staffName: string;
@@ -199,14 +329,17 @@ export function generateSmartDutyAssignment(
   settings: DutySettings,
   scheduleSettings: ScheduleSettingsData,
   schoolInfo: SchoolInfo,
+  existingCounts: Record<string, number> = {},
   countPerDay?: number
-): { assignments: DutyDayAssignment[]; alerts: string[] } {
+): { assignments: DutyDayAssignment[]; weekAssignments: import('../types').DutyWeekAssignment[]; alerts: string[]; newCounts: Record<string, number> } {
   const timing = getTimingConfig(schoolInfo);
-  const activeDays = timing.activeDays || DAYS.slice();
+  const dates = generateDutyDates(schoolInfo);
   const availableStaff = getAvailableStaffForDuty(teachers, admins, exclusions, settings);
-  const staffPerDay = countPerDay || getSuggestedDutyCountPerDay(availableStaff.length, activeDays.length);
+  // Default to 1 per day if not provided, for across the semester
+  const staffPerDay = countPerDay || settings.suggestedCountPerDay || 1;
   const timetable = scheduleSettings.timetable || {};
   const alerts: string[] = [];
+  const activeCounts = { ...existingCounts };
 
   // Check early exit alerts
   const earlyExitStaff = getEarlyExitStaff(timetable, teachers, timing);
@@ -217,91 +350,142 @@ export function generateSmartDutyAssignment(
     }
   });
 
-  const allScores: DutyStaffScore[] = [];
+  const weekAssignmentsMap: Record<string, import('../types').DutyWeekAssignment> = {};
+  
+  // Group dates by week
+  dates.forEach(d => {
+    if (!weekAssignmentsMap[d.weekId]) {
+      weekAssignmentsMap[d.weekId] = {
+        weekId: d.weekId,
+        weekName: d.weekName,
+        startDate: d.date, // Will be updated
+        endDate: d.date,   // Will be updated
+        dayAssignments: []
+      };
+    }
+    weekAssignmentsMap[d.weekId].endDate = d.date; // Continuously update to get the last date of the week
+  });
 
-  availableStaff.forEach(staff => {
-    activeDays.forEach(day => {
-      let score = 0;
-      const reasons: string[] = [];
-      const dayMaxPeriod = timing.periodCounts?.[day] || 7;
-      let lastPeriodForStaff = 0;
+  // For each week, we calculate scores dynamically because "Justice Counters" change week by week
+  const weekIds = Object.keys(weekAssignmentsMap);
 
-      if (staff.type === 'teacher') {
-        let hasClassInLastPeriod = false;
-        
-        for (let p = 1; p <= dayMaxPeriod; p++) {
-          const key = `${staff.id}-${day}-${p}`;
-          if (timetable[key]) {
-            lastPeriodForStaff = p;
-          }
-        }
+  for (const weekId of weekIds) {
+    const weekDates = dates.filter(d => d.weekId === weekId);
+    if (weekDates.length === 0) continue;
 
-        if (lastPeriodForStaff === dayMaxPeriod) {
-          hasClassInLastPeriod = true;
-          score += 100; // Prioritize those who stay till the end naturally
-          reasons.push(`ينتهي جدوله في الحصة الأخيرة (${dayMaxPeriod})`);
-        } else if (lastPeriodForStaff === dayMaxPeriod - 1) {
-          score += 50; 
-          reasons.push(`ينتهي جدوله متأخراً (الحصة ${lastPeriodForStaff})`);
-        } else if (lastPeriodForStaff > 0) {
-          score += 10;
-          reasons.push(`ينتهي مبكراً جداً في هذا اليوم (الحصة ${lastPeriodForStaff})`);
+    weekAssignmentsMap[weekId].startDate = weekDates[0].date;
+    weekAssignmentsMap[weekId].endDate = weekDates[weekDates.length - 1].date;
+
+    // Track assigned staff THIS week to avoid duplicates in the same week
+    const assignedThisWeek = new Set<string>();
+
+    weekDates.forEach(dateInfo => {
+      const dayKey = dateInfo.dayKey;
+      let dailyQuota = staffPerDay;
+
+      const dayAssignment: DutyDayAssignment = {
+        day: dayKey,
+        date: dateInfo.date,
+        staffAssignments: []
+      };
+
+      // Score all available staff for THIS specific day
+      const dailyScores: DutyStaffScore[] = [];
+
+      availableStaff.forEach(staff => {
+        // Skip if assigned this week already
+        if (assignedThisWeek.has(staff.id)) return;
+
+        let score = 0;
+        const reasons: string[] = [];
+        const dayMaxPeriod = timing.periodCounts?.[dayKey] || 7;
+        let lastPeriodForStaff = 0;
+
+        // Apply Justice Counter Modifier (Negative weight for being assigned too much)
+        const pastAssignments = activeCounts[staff.id] || 0;
+        // Decrease score heavily for every past assignment
+        score -= pastAssignments * 150; 
+
+        if (staff.type === 'teacher') {
+           let hasClassInLastPeriod = false;
+           
+           for (let p = 1; p <= dayMaxPeriod; p++) {
+             const key = `${staff.id}-${dayKey}-${p}`;
+             if (timetable[key]) {
+               lastPeriodForStaff = p;
+             }
+           }
+
+           if (lastPeriodForStaff === dayMaxPeriod) {
+             hasClassInLastPeriod = true;
+             score += 100; // Prioritize those who stay till the end naturally
+             reasons.push(`ينتهي جدوله في الحصة الأخيرة (${dayMaxPeriod})`);
+           } else if (lastPeriodForStaff === dayMaxPeriod - 1) {
+             score += 50; 
+             reasons.push(`ينتهي جدوله متأخراً (الحصة ${lastPeriodForStaff})`);
+           } else if (lastPeriodForStaff > 0) {
+             // He has classes, but finishes early. Negative score to save him for manual or specific cases unless needed
+             score -= 20;
+             reasons.push(`ينتهي مبكراً جداً في هذا اليوم (الحصة ${lastPeriodForStaff})`);
+           } else {
+             // No classes at all
+             score += 5; 
+             reasons.push(`ليس لديه حصص هذا اليوم`);
+           }
         } else {
-          score += 5; 
-          reasons.push(`ليس لديه حصص هذا اليوم`);
+           // Admins
+           score += 80;
+           reasons.push('إداري متواجد لنهاية الدوام');
+           lastPeriodForStaff = dayMaxPeriod;
         }
-      } else {
-        // Admins are highly favored since they are always there till the end
-        score += 80;
-        reasons.push('إداري متواجد لنهاية الدوام');
-        lastPeriodForStaff = dayMaxPeriod;
+
+        dailyScores.push({
+          staffId: staff.id,
+          staffName: staff.name,
+          staffType: staff.type,
+          phone: staff.phone,
+          day: dayKey,
+          score,
+          reasons,
+          lastPeriod: lastPeriodForStaff
+        });
+      });
+
+      // Sort staff by score for this day
+      dailyScores.sort((a, b) => b.score - a.score);
+
+      for (const scoreObj of dailyScores) {
+        if (dailyQuota <= 0) break;
+        
+        assignedThisWeek.add(scoreObj.staffId);
+        activeCounts[scoreObj.staffId] = (activeCounts[scoreObj.staffId] || 0) + 1;
+        dailyQuota--;
+        
+        dayAssignment.staffAssignments.push({
+          staffId: scoreObj.staffId,
+          staffName: scoreObj.staffName,
+          staffType: scoreObj.staffType,
+          lastPeriod: scoreObj.lastPeriod,
+          isManual: false
+        });
       }
 
-      allScores.push({
-        staffId: staff.id,
-        staffName: staff.name,
-        staffType: staff.type,
-        phone: staff.phone,
-        day,
-        score,
-        reasons,
-        lastPeriod: lastPeriodForStaff
-      });
-    });
-  });
-
-  const dailyQuotas: Record<string, number> = {};
-  activeDays.forEach(day => {
-     dailyQuotas[day] = staffPerDay;
-  });
-
-  const assigned = new Set<string>();
-  const dayAssignments: DutyDayAssignment[] = activeDays.map(day => ({
-    day,
-    staffAssignments: []
-  }));
-
-  const sortedScores = allScores.sort((a, b) => b.score - a.score);
-
-  // Distribute based on score
-  for (const scoreObj of sortedScores) {
-    if (assigned.has(scoreObj.staffId)) continue; 
-    if (dailyQuotas[scoreObj.day] <= 0) continue; 
-    
-    assigned.add(scoreObj.staffId);
-    dailyQuotas[scoreObj.day]--;
-    
-    const targetDay = dayAssignments.find(d => d.day === scoreObj.day)!;
-    targetDay.staffAssignments.push({
-      staffId: scoreObj.staffId,
-      staffName: scoreObj.staffName,
-      staffType: scoreObj.staffType,
-      lastPeriod: scoreObj.lastPeriod,
-      isManual: false
+      weekAssignmentsMap[weekId].dayAssignments.push(dayAssignment);
     });
   }
 
-  return { assignments: dayAssignments, alerts };
+  // Flatten for older components compatibility, though they should ideally use weekAssignments
+  const flatDayAssignments: DutyDayAssignment[] = [];
+  Object.values(weekAssignmentsMap).forEach(wa => {
+    flatDayAssignments.push(...wa.dayAssignments);
+  });
+
+  return { 
+    assignments: flatDayAssignments, 
+    weekAssignments: Object.values(weekAssignmentsMap),
+    alerts,
+    newCounts: activeCounts 
+  };
 }
 
 // ===== Default Data =====
@@ -424,30 +608,66 @@ export function getDutyPrintData(
   title: string;
   schoolName: string;
   semester: string;
-  days: {
-    dayName: string;
-    supervisors: { name: string; type: string; lastPeriod?: number; signature: string }[];
+  weeks: {
+    weekName: string;
+    startDate: string;
+    endDate: string;
+    days: {
+      date: string;
+      dayName: string;
+      supervisors: { name: string; type: string; lastPeriod?: number; signature: string }[];
+    }[];
   }[];
   footerText: string;
 } {
   const activeDays = getTimingConfig(schoolInfo).activeDays || DAYS.slice();
 
+  if (data.weekAssignments && data.weekAssignments.length > 0) {
+    return {
+      title: 'جدول المناوبة اليومية',
+      schoolName: schoolInfo.schoolName,
+      semester: schoolInfo.semesters?.find(s => s.id === schoolInfo.currentSemesterId)?.name || 'الفصل الدراسي',
+      weeks: data.weekAssignments.map(wa => ({
+        weekName: wa.weekName,
+        startDate: wa.startDate,
+        endDate: wa.endDate,
+        days: wa.dayAssignments.map(da => ({
+          date: da.date || '',
+          dayName: DAY_NAMES[da.day],
+          supervisors: (da.staffAssignments || []).map(sa => ({
+             name: sa.staffName,
+             type: sa.staffType === 'teacher' ? 'معلم' : 'إداري',
+             lastPeriod: sa.lastPeriod,
+             signature: '',
+          })),
+        }))
+      })),
+      footerText: data.footerText || `يبدأ العمل بهذا الجدول من يوم ${DAY_NAMES[activeDays[0]]} الموافق ${data.effectiveDate || '___/___/______'}`,
+    };
+  }
+
   return {
     title: 'جدول المناوبة اليومية',
     schoolName: schoolInfo.schoolName,
     semester: schoolInfo.semesters?.find(s => s.id === schoolInfo.currentSemesterId)?.name || 'الفصل الدراسي',
-    days: activeDays.map(day => {
-      const da = data.dayAssignments.find(d => d.day === day);
-      return {
-        dayName: DAY_NAMES[day],
-        supervisors: (da?.staffAssignments || []).map(sa => ({
-           name: sa.staffName,
-           type: sa.staffType === 'teacher' ? 'معلم' : 'إداري',
-           lastPeriod: sa.lastPeriod,
-           signature: '',
-        })),
-      };
-    }),
+    weeks: [{
+      weekName: 'الجدول الموحد',
+      startDate: '',
+      endDate: '',
+      days: activeDays.map(day => {
+        const da = data.dayAssignments.find(d => d.day === day);
+        return {
+          date: '',
+          dayName: DAY_NAMES[day],
+          supervisors: (da?.staffAssignments || []).map(sa => ({
+             name: sa.staffName,
+             type: sa.staffType === 'teacher' ? 'معلم' : 'إداري',
+             lastPeriod: sa.lastPeriod,
+             signature: '',
+          })),
+        };
+      })
+    }],
     footerText: data.footerText || `يبدأ العمل بهذا الجدول من يوم ${DAY_NAMES[activeDays[0]]} الموافق ${data.effectiveDate || '___/___/______'}`,
   };
 }

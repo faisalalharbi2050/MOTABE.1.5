@@ -47,6 +47,7 @@ const getDefaultDutyData = (): DutyScheduleData => ({
     autoSendLinks: false
   },
   dayAssignments: [],
+  weekAssignments: [],
   reports: [],
   isApproved: false,
   savedSchedules: []
@@ -136,11 +137,11 @@ const DailyDuty: React.FC<DailyDutyProps> = ({
   // ===== Handlers =====
   const handleAutoAssign = () => {
     try {
-      const { assignments, alerts } = generateSmartDutyAssignment(
+      const { assignments, weekAssignments, alerts, newCounts } = generateSmartDutyAssignment(
         teachers, admins, dutyData.exclusions, dutyData.settings,
-        scheduleSettings, schoolInfo, dutyData.settings.suggestedCountPerDay || suggestedCount
+        scheduleSettings, schoolInfo, dutyData.dutyAssignmentCounts || {}, dutyData.settings.suggestedCountPerDay || suggestedCount
       );
-      setDutyData(prev => ({ ...prev, dayAssignments: assignments }));
+      setDutyData(prev => ({ ...prev, dayAssignments: assignments, weekAssignments, dutyAssignmentCounts: newCounts }));
       showToast('تم التوزيع الذكي بنجاح', 'success');
       if (alerts.length > 0) {
          showToast(alerts[0], 'warning');
@@ -223,7 +224,7 @@ const DailyDuty: React.FC<DailyDutyProps> = ({
       {/* ══════ Toolbar / Action Bar ══════ */}
       <div className="flex flex-col gap-4 mb-6">
         {/* ROW 1 */}
-        <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex flex-wrap items-center justify-between gap-3 bg-white p-3 rounded-2xl shadow-sm border border-slate-100">
           {/* Right Side */}
           <div className="flex flex-wrap items-center gap-2">
             <button

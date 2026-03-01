@@ -275,25 +275,30 @@ const TeacherManagement: React.FC<Props> = ({ teachers, setTeachers, specializat
     <div className="space-y-6 animate-in fade-in duration-500 pb-10">
       {/* Toast Notification via Portal */}
       {toast && ReactDOM.createPortal(
-        <div className={`fixed bottom-6 right-6 z-[99999] flex items-center gap-3 px-6 py-4 rounded-2xl shadow-2xl border min-w-[320px] max-w-[90vw] ${
-          toast.type === 'success' ? 'bg-emerald-50 border-emerald-200 text-emerald-800' :
-          toast.type === 'error'   ? 'bg-red-50 border-red-200 text-red-800' :
-                                     'bg-amber-50 border-amber-200 text-amber-800'
-        }`} style={{ animation: 'slideInToast 0.3s ease-out' }}>
-          <style>{`@keyframes slideInToast { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }`}</style>
-          <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${
-            toast.type === 'success' ? 'bg-emerald-100' :
-            toast.type === 'error'   ? 'bg-red-100' : 'bg-amber-100'
-          }`}>
-            {toast.type === 'success' && <CheckCircle2 size={20} className="text-emerald-600" />}
-            {toast.type === 'error'   && <AlertCircle  size={20} className="text-red-600" />}
-            {toast.type === 'warning' && <Info          size={20} className="text-amber-600" />}
+        <>
+          <style>{`@keyframes toastIn { from { opacity:0; top:64px; } to { opacity:1; top:82px; } }`}</style>
+          <div
+            style={{ top: '82px', left: '50%', transform: 'translateX(-50%)', animation: 'toastIn 0.3s ease-out' }}
+            className={`fixed z-[99999] flex items-center gap-3 px-6 py-4 rounded-2xl shadow-2xl border min-w-[320px] max-w-[90vw] ${
+              toast.type === 'success' ? 'bg-emerald-50 border-emerald-200 text-emerald-800' :
+              toast.type === 'error'   ? 'bg-red-50 border-red-200 text-red-800' :
+                                         'bg-amber-50 border-amber-200 text-amber-800'
+            }`}
+          >
+            <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${
+              toast.type === 'success' ? 'bg-emerald-100' :
+              toast.type === 'error'   ? 'bg-red-100' : 'bg-amber-100'
+            }`}>
+              {toast.type === 'success' && <CheckCircle2 size={20} className="text-emerald-600" />}
+              {toast.type === 'error'   && <AlertCircle  size={20} className="text-red-600" />}
+              {toast.type === 'warning' && <Info          size={20} className="text-amber-600" />}
+            </div>
+            <p className="font-bold text-sm flex-1 leading-relaxed">{toast.message}</p>
+            <button onClick={() => setToast(null)} className="p-1 rounded-lg hover:bg-black/5 transition-colors shrink-0">
+              <X size={16} className="opacity-50" />
+            </button>
           </div>
-          <p className="font-bold text-sm flex-1 leading-relaxed">{toast.message}</p>
-          <button onClick={() => setToast(null)} className="p-1 rounded-lg hover:bg-black/5 transition-colors shrink-0">
-            <X size={16} className="opacity-50" />
-          </button>
-        </div>,
+        </>,
         document.body
       )}
       {/* Header & Actions */}

@@ -17,6 +17,7 @@ const SupervisionManageSchedulesModal: React.FC<Props> = ({
   const [newScheduleName, setNewScheduleName] = useState('');
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState('');
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
 
   if (!isOpen) return null;
 
@@ -62,15 +63,21 @@ const SupervisionManageSchedulesModal: React.FC<Props> = ({
     showToast(`تم عرض الجدول: ${target.name}`, 'success');
   };
 
-  const handleDelete = (id: string) => {
+  const confirmDelete = (id: string) => {
+    setDeleteConfirmId(id);
+  };
+
+  const executeDelete = () => {
+    if (!deleteConfirmId) return;
     setSupervisionData(prev => {
-      const remaining = (prev.savedSchedules || []).filter(s => s.id !== id);
+      const remaining = (prev.savedSchedules || []).filter(s => s.id !== deleteConfirmId);
       return {
         ...prev,
         savedSchedules: remaining,
-        activeScheduleId: prev.activeScheduleId === id ? undefined : prev.activeScheduleId,
+        activeScheduleId: prev.activeScheduleId === deleteConfirmId ? undefined : prev.activeScheduleId,
       };
     });
+    setDeleteConfirmId(null);
     showToast('تم حذف الجدول من القائمة', 'success');
   };
 
@@ -246,7 +253,7 @@ const SupervisionManageSchedulesModal: React.FC<Props> = ({
                                )}
 
                                <button
-                                 onClick={() => handleDelete(schedule.id)}
+                                 onClick={() => confirmDelete(schedule.id)}
                                  className="p-1.5 text-slate-400 hover:bg-rose-50 hover:text-rose-600 rounded-lg transition-colors"
                                  title="حذف الجدول المحفوظ"
                                >
@@ -264,6 +271,37 @@ const SupervisionManageSchedulesModal: React.FC<Props> = ({
           </div>
         </div>
       </div>
+
+      {/* Delete Confirmation Dialog */}
+      {deleteConfirmId && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[99999] flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-sm overflow-hidden animate-in zoom-in-95 duration-200">
+            <div className="p-6 text-center">
+              <div className="w-16 h-16 bg-rose-50 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                <Trash2 size={32} className="text-rose-500" />
+              </div>
+              <h2 className="text-xl font-black text-slate-800 mb-2">تأكيد الحذف</h2>
+              <p className="text-sm font-medium text-slate-500 leading-relaxed">
+                هل أنت متأكد من رغبتك في حذف هذا الجدول؟ لا يمكن التراجع عن هذا الإجراء وسيتم حذفه نهائياً من القائمة.
+              </p>
+            </div>
+            <div className="p-6 pt-0 flex gap-3">
+              <button
+                onClick={() => setDeleteConfirmId(null)}
+                className="flex-1 px-4 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-bold rounded-xl transition-colors"
+              >
+                تراجع
+              </button>
+              <button
+                onClick={executeDelete}
+                className="flex-1 px-4 py-3 bg-rose-500 hover:bg-rose-600 text-white text-sm font-bold rounded-xl transition-colors shadow-md shadow-rose-500/20"
+              >
+                تأكيد الحذف
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

@@ -38,8 +38,18 @@ const SemesterManager: React.FC<SemesterManagerProps> = ({
   // Helper to safely format DateObject or string to YYYY-MM-DD
   const formatDate = (date: any) => {
     if (!date) return '';
-    if (date instanceof DateObject) return date.format("YYYY-MM-DD");
+    if (date instanceof DateObject) {
+      // Always convert to Gregorian to ensure JS Date compatibility internally
+      const greg = new DateObject({ date, calendar: gregorian });
+      return greg.format("YYYY-MM-DD");
+    }
     return date.toString();
+  };
+
+  const getValidDate = (str: string | undefined | null) => {
+    if (!str) return undefined;
+    const d = new Date(str);
+    return isNaN(d.getTime()) ? undefined : d;
   };
 
   const handleSaveSemester = () => {
@@ -295,8 +305,8 @@ const SemesterManager: React.FC<SemesterManagerProps> = ({
                         <label className="text-xs font-bold text-slate-500 block mb-1">تاريخ البداية</label>
                         <div className="relative">
                             <DatePicker 
-                              value={newSemester.startDate}
-                              onChange={(date) => setNewSemester({...newSemester, startDate: date?.toString()})}
+                              value={getValidDate(newSemester.startDate)}
+                              onChange={(date) => setNewSemester({...newSemester, startDate: formatDate(date)})}
                               calendar={newSemester.calendarType === 'hijri' ? arabic : gregorian}
                               locale={newSemester.calendarType === 'hijri' ? arabic_ar : gregorian_ar}
                               containerClassName="w-full"
@@ -320,8 +330,8 @@ const SemesterManager: React.FC<SemesterManagerProps> = ({
                         <label className="text-xs font-bold text-slate-500 block mb-1">تاريخ النهاية</label>
                         <div className="relative">
                             <DatePicker 
-                              value={newSemester.endDate}
-                              onChange={(date) => setNewSemester({...newSemester, endDate: date?.toString()})}
+                              value={getValidDate(newSemester.endDate)}
+                              onChange={(date) => setNewSemester({...newSemester, endDate: formatDate(date)})}
                               calendar={newSemester.calendarType === 'hijri' ? arabic : gregorian}
                               locale={newSemester.calendarType === 'hijri' ? arabic_ar : gregorian_ar}
                               containerClassName="w-full"

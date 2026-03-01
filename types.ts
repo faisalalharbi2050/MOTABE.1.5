@@ -493,8 +493,17 @@ export interface DutyStaffAssignment {
   isManual?: boolean;
 }
 
+export interface DutyWeekAssignment {
+  weekId: string;   // e.g. "week-1"
+  weekName: string; // e.g. "الأسبوع الأول"
+  startDate: string; // YYYY-MM-DD
+  endDate: string;   // YYYY-MM-DD
+  dayAssignments: DutyDayAssignment[];
+}
+
 export interface DutyDayAssignment {
   day: string; // sunday, monday, etc.
+  date?: string; // actual date in YYYY-MM-DD format
   staffAssignments: DutyStaffAssignment[];
   isRemoteWork?: boolean;
 }
@@ -557,6 +566,8 @@ export interface DutySettings {
 export interface DutyScheduleData {
   exclusions: DutyStaffExclusion[];
   dayAssignments: DutyDayAssignment[];
+  weekAssignments?: DutyWeekAssignment[]; // Multi-week view grouping
+  dutyAssignmentCounts?: Record<string, number>; // Justice counter: staffId -> assignment count
   reports: DutyReportRecord[];
   settings: DutySettings;
   isApproved: boolean;
