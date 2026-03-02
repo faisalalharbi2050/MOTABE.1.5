@@ -265,7 +265,7 @@ const DailyDuty: React.FC<DailyDutyProps> = ({
                className="flex items-center gap-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 px-4 py-2.5 rounded-xl font-bold transition-all hover:border-[#8779fb] hover:text-[#655ac1]"
              >
                <BarChart3 size={18} className="text-[#8779fb]" />
-               <span>تقارير المناوبين</span>
+                 <span>تقارير المناوبة</span>
              </button>
            </div>
 

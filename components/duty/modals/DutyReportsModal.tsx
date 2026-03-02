@@ -438,7 +438,7 @@ const DutyReportsModalContent: React.FC<Props> = ({
               <BarChart3 size={24} />
             </div>
             <div>
-              <h2 className="text-xl font-black text-slate-800">تقارير المناوبين</h2>
+              <h2 className="text-xl font-black text-slate-800">تقارير المناوبة</h2>
               <p className="text-sm font-medium text-slate-500 mt-0.5">تقارير الأداء للمناوبين</p>
             </div>
           </div>
