@@ -524,6 +524,9 @@ export function getDefaultSupervisionData(schoolInfo: SchoolInfo): SupervisionSc
       sharedSchoolMode: 'unified',
       reminderMessageTemplate: '',
       assignmentMessageTemplate: '',
+      autoSendReminder: false,       // يدوي بشكل افتراضي
+      reminderSendTime: '07:00',
+      reminderSendChannel: 'whatsapp',
     },
     isApproved: false,
     footerText: '',

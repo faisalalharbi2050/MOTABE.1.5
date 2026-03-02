@@ -505,6 +505,7 @@ export function getDefaultDutyData(schoolInfo: SchoolInfo): DutyScheduleData {
       assignmentMessageTemplate: '',
       reminderSendTime: '07:00',
       autoSendLinks: false,
+      reminderSendChannel: 'whatsapp',
     },
     isApproved: false,
   };

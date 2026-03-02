@@ -461,6 +461,9 @@ export interface SupervisionSettings {
   reminderMessageTemplate?: string;
   assignmentMessageTemplate?: string;
   sharedSchoolMode: 'unified' | 'separate'; // جدول موحد أو منفصل
+  autoSendReminder: boolean; // إرسال تذكير تلقائي أم يدوي
+  reminderSendTime?: string; // وقت إرسال رسالة التذكير مثال: "07:00"
+  reminderSendChannel?: 'whatsapp' | 'sms'; // طريقة الإرسال
 }
 
 export interface SupervisionMessage {
@@ -564,6 +567,7 @@ export interface DutySettings {
   reminderSendTime?: string; // Time to send reminder links e.g. "07:00"
   sharedSchoolMode: 'unified' | 'separate';
   autoSendLinks: boolean; // إرسال تلقائي دون تدخل
+  reminderSendChannel?: 'whatsapp' | 'sms'; // طريقة الإرسال
 }
 
 export interface DutyScheduleData {

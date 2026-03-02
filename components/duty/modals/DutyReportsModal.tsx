@@ -289,11 +289,7 @@ const DutyReportsModalContent: React.FC<Props> = ({
     </tbody>
   </table>
   
-  <div class="footer">
-    <div class="signature-box">
-      <div>وكيل شؤون الطلاب</div>
-      <div class="signature-line"></div>
-    </div>
+  <div class="footer" style="justify-content: center;">
     <div class="signature-box">
       <div>مدير المدرسة</div>
       <div style="margin-top: 10px; font-weight: bold;">${schoolInfo.principal || ''}</div>
