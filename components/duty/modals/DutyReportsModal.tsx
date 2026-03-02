@@ -26,7 +26,8 @@ interface Props {
 const DutyReportsModalContent: React.FC<Props> = ({
   isOpen, onClose, dutyData, schoolInfo, teachers = [], admins = [], showToast
 }) => {
-  const [activeTab, setActiveTab] = useState<'weekly' | 'monthly' | 'individual' | 'daily'>('weekly');
+  const [mainTab, setMainTab] = useState<'performance' | 'daily'>('performance');
+  const [activeTab, setActiveTab] = useState<'weekly' | 'monthly' | 'individual'>('weekly');
   const [selectedWeek, setSelectedWeek] = useState<number>(1);
   const [selectedMonth, setSelectedMonth] = useState<number>(0);
   const [selectedStaffSearch, setSelectedStaffSearch] = useState('');
@@ -439,7 +440,6 @@ const DutyReportsModalContent: React.FC<Props> = ({
             </div>
             <div>
               <h2 className="text-xl font-black text-slate-800">تقارير المناوبة</h2>
-              <p className="text-sm font-medium text-slate-500 mt-0.5">تقارير الأداء للمناوبين</p>
             </div>
           </div>
           <button onClick={onClose} className="p-2.5 rounded-xl hover:bg-slate-100 text-slate-400 transition-colors self-end sm:self-auto">
@@ -449,13 +449,38 @@ const DutyReportsModalContent: React.FC<Props> = ({
 
         <div className="flex-1 overflow-y-auto p-6 space-y-6 bg-slate-50/50">
           
-          {/* Tabs */}
+          {/* Main Tabs */}
+          <div className="flex gap-2 bg-white p-2 rounded-2xl shadow-sm border border-slate-100 w-fit">
+            <button
+              onClick={() => setMainTab('performance')}
+              className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold transition-all ${
+                mainTab === 'performance'
+                  ? 'bg-[#8779fb] text-white shadow-md'
+                  : 'text-slate-500 hover:bg-slate-50 hover:text-[#655ac1]'
+              }`}
+            >
+              <BarChart3 size={18} /> تقارير الأداء للمناوبين
+            </button>
+            <button
+              onClick={() => setMainTab('daily')}
+              className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold transition-all ${
+                mainTab === 'daily'
+                  ? 'bg-[#8779fb] text-white shadow-md'
+                  : 'text-slate-500 hover:bg-slate-50 hover:text-[#655ac1]'
+              }`}
+            >
+              <FileText size={18} /> تقرير المناوبة اليومية (السلوك والتأخر)
+            </button>
+          </div>
+
+          {mainTab === 'performance' && (<>
+          {/* Sub-Tabs */}
           <div className="flex flex-wrap gap-2 bg-white p-2 rounded-2xl shadow-sm border border-slate-100 w-fit">
             <button
               onClick={() => setActiveTab('weekly')}
               className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold transition-all ${
-                activeTab === 'weekly' 
-                  ? 'bg-[#8779fb] text-white shadow-md' 
+                activeTab === 'weekly'
+                  ? 'bg-[#655ac1]/10 text-[#655ac1] shadow-sm'
                   : 'text-slate-500 hover:bg-slate-50 hover:text-[#655ac1]'
               }`}
             >
@@ -464,8 +489,8 @@ const DutyReportsModalContent: React.FC<Props> = ({
             <button
               onClick={() => setActiveTab('monthly')}
               className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold transition-all ${
-                activeTab === 'monthly' 
-                  ? 'bg-[#8779fb] text-white shadow-md' 
+                activeTab === 'monthly'
+                  ? 'bg-[#655ac1]/10 text-[#655ac1] shadow-sm'
                   : 'text-slate-500 hover:bg-slate-50 hover:text-[#655ac1]'
               }`}
             >
@@ -474,26 +499,14 @@ const DutyReportsModalContent: React.FC<Props> = ({
             <button
               onClick={() => setActiveTab('individual')}
               className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold transition-all ${
-                activeTab === 'individual' 
-                  ? 'bg-[#8779fb] text-white shadow-md' 
+                activeTab === 'individual'
+                  ? 'bg-[#655ac1]/10 text-[#655ac1] shadow-sm'
                   : 'text-slate-500 hover:bg-slate-50 hover:text-[#655ac1]'
               }`}
             >
               <User size={18} /> تقرير فردي
             </button>
-            <button
-              onClick={() => setActiveTab('daily')}
-              className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold transition-all ${
-                activeTab === 'daily' 
-                  ? 'bg-[#8779fb] text-white shadow-md' 
-                  : 'text-slate-500 hover:bg-slate-50 hover:text-[#655ac1]'
-              }`}
-            >
-              <BarChart3 size={18} /> التقارير اليومية للسلوك والتأخر
-            </button>
           </div>
-
-          {activeTab !== 'daily' && (<>
           {/* Filters Area */}
           <div className="bg-white rounded-[2rem] p-6 shadow-sm border border-slate-100 flex flex-col md:flex-row gap-6 md:items-center justify-between relative z-[60]">
             {activeTab === 'weekly' && (
@@ -633,10 +646,10 @@ const DutyReportsModalContent: React.FC<Props> = ({
              <div className="relative z-10">
              </div>
           </div>
-          </>)} {/* end activeTab !== daily */}
+          </>)} {/* end mainTab === performance */}
 
           {/* ══════ Daily Reports Hub ══════ */}
-          {activeTab === 'daily' && (
+          {mainTab === 'daily' && (
             <div className="space-y-5">
 
               {/* ── Period Filter ─────────────────────────────────────────── */}
@@ -672,7 +685,7 @@ const DutyReportsModalContent: React.FC<Props> = ({
               </div>
 
               {/* ── Statistics Cards ──────────────────────────────────────── */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="bg-gradient-to-br from-amber-50 to-amber-100/50 rounded-2xl p-5 border border-amber-100 text-center shadow-sm hover:scale-105 transition-transform">
                   <p className="text-4xl font-black text-amber-600 mb-1">{dailyFilteredLate.length}</p>
                   <p className="text-sm font-black text-amber-700">حالة تأخر</p>
@@ -683,11 +696,7 @@ const DutyReportsModalContent: React.FC<Props> = ({
                   <p className="text-sm font-black text-[#655ac1]">مخالفة سلوكية</p>
                   <p className="text-xs text-[#655ac1]/70 mt-1">في الفترة المحددة</p>
                 </div>
-                <div className="bg-gradient-to-br from-slate-50 to-slate-100/50 rounded-2xl p-5 border border-slate-100 text-center shadow-sm hover:scale-105 transition-transform">
-                  <p className="text-4xl font-black text-slate-700 mb-1">{dailyUniqueStudents}</p>
-                  <p className="text-sm font-black text-slate-600">طالب مسجل</p>
-                  <p className="text-xs text-slate-500 mt-1">طلاب مختلفون في النطاق</p>
-                </div>
+                {/* تم حذف بطاقة الطلاب الفريدين بناءً على طلب المستخدم */}
               </div>
 
               {/* ── Daily Chart ───────────────────────────────────────────── */}
