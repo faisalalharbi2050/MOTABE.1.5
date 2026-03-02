@@ -483,6 +483,21 @@ const DutyScheduleBuilder: React.FC<Props> = ({
       {/* Main Table Layout */}
       <div className="space-y-8">
         {(() => {
+          const calendarType = schoolInfo.semesters?.find(s => s.isCurrent)?.calendarType
+            || schoolInfo.semesters?.[0]?.calendarType || 'hijri';
+
+          // Helper: format a YYYY-MM-DD date string per the school's calendar preference
+          const formatDisplayDate = (dateStr: string) => {
+            if (!dateStr) return '';
+            try {
+              const d = new Date(dateStr);
+              if (isNaN(d.getTime())) return dateStr;
+              return calendarType === 'hijri'
+                ? new Intl.DateTimeFormat('ar-SA-u-ca-islamic', { day: 'numeric', month: 'numeric', year: 'numeric' }).format(d)
+                : new Intl.DateTimeFormat('ar-SA', { day: 'numeric', month: 'numeric', year: 'numeric' }).format(d);
+            } catch { return dateStr; }
+          };
+
           const weeksToRender = dutyData.weekAssignments && dutyData.weekAssignments.length > 0
             ? dutyData.weekAssignments
             : [{ weekId: 'legacy-week', weekName: '', startDate: '', endDate: '', dayAssignments: activeDays.map(day => getDayAssignment(day)) }];
@@ -493,8 +508,8 @@ const DutyScheduleBuilder: React.FC<Props> = ({
                 <div className="bg-slate-50/80 border-b border-slate-200 p-5 flex items-center justify-between">
                   <h4 className="font-black text-[#5C50A4] text-xl">{week.weekName}</h4>
                   {week.startDate && (
-                    <span className="text-sm font-bold text-slate-500 font-mono bg-white px-3 py-1 rounded-lg border border-slate-200 shadow-sm">
-                      {week.startDate} إلى {week.endDate}
+                    <span className="text-sm font-bold text-slate-500 bg-white px-3 py-1 rounded-lg border border-slate-200 shadow-sm">
+                      {formatDisplayDate(week.startDate)} إلى {formatDisplayDate(week.endDate)}
                     </span>
                   )}
                 </div>
@@ -534,7 +549,9 @@ const DutyScheduleBuilder: React.FC<Props> = ({
                           {/* Date Column */}
                           <td className="p-4 border-l border-slate-200/60 align-middle text-center">
                             {da.date ? (
-                              <span className="font-bold text-slate-700 text-xs font-mono bg-violet-50 px-2 py-1 rounded-lg border border-violet-200 shadow-sm">{da.date}</span>
+                              <span className="font-bold text-slate-700 text-xs bg-violet-50 px-2 py-1 rounded-lg border border-violet-200 shadow-sm">
+                                {formatDisplayDate(da.date)}
+                              </span>
                             ) : (
                               <span className="text-xs text-slate-400">—</span>
                             )}
