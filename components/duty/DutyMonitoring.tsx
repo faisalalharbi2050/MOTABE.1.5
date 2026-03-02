@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef } from 'react';
 import {
   Eye, UserCheck, UserX, Clock, Check, AlertTriangle,
   CheckCircle, Calendar, ChevronLeft, ChevronRight, Save,
@@ -34,6 +34,7 @@ const DutyMonitoringModal: React.FC<Props> = ({
   // ===== ALL HOOKS BEFORE ANY EARLY RETURN =====
   const [selectedDate, setSelectedDate] = useState(() => new Date().toISOString().split('T')[0]);
   const [withdrawalTimes, setWithdrawalTimes] = useState<Record<string, string>>({});
+  const dateInputRef = useRef<HTMLInputElement>(null);
 
   const timing = getTimingConfig(schoolInfo);
 
@@ -165,51 +166,61 @@ const DutyMonitoringModal: React.FC<Props> = ({
         <div className="flex-1 overflow-y-auto p-6">
           <div className="space-y-6">
 
-            {/* Date Navigation */}
-            <div className="bg-white rounded-[2rem] p-6 shadow-sm border border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-4 relative overflow-hidden group">
-              <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-[#e5e1fe]/50 to-transparent rounded-br-full -z-0 pointer-events-none" />
-
-              <div className="flex items-center gap-3 bg-white p-1.5 rounded-2xl border border-slate-200 shadow-sm relative z-10 w-full sm:w-auto justify-between sm:justify-start">
-                <button onClick={() => changeDate(1)} className="p-2.5 rounded-xl hover:bg-slate-50 text-slate-500 hover:text-[#655ac1] hover:shadow-sm transition-all active:scale-95">
-                  <ChevronRight size={20} />
-                </button>
-
-                <div className="text-center min-w-[180px] flex flex-col items-center">
-                  <p className="text-lg font-black text-[#655ac1]">{dayName}</p>
-                  <div className="relative group/date cursor-pointer flex items-center gap-1.5 mt-0.5">
-                    <Calendar size={14} className="text-slate-400 group-hover/date:text-[#655ac1] transition-colors" />
-                    <span className="text-sm font-bold text-slate-500 group-hover/date:text-[#655ac1] transition-colors">
-                      {formattedDate}
-                    </span>
-                    <input
-                      type="date"
-                      value={selectedDate}
-                      onChange={e => setSelectedDate(e.target.value)}
-                      className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
-                    />
-                  </div>
+            {/* Weekly Stats Summary - moved to top */}
+            <div className="bg-white rounded-[2rem] p-6 shadow-sm border border-slate-100">
+              <div className="flex items-center justify-between mb-5">
+                <div>
+                  <h3 className="text-base font-black text-slate-800">ملخص الأداء</h3>
+                  <p className="text-xs font-medium text-slate-500 mt-0.5">إحصائيات المناوبة لجميع الأيام المسجلة</p>
                 </div>
-
-                <button onClick={() => changeDate(-1)} className="p-2.5 rounded-xl hover:bg-slate-50 text-slate-500 hover:text-[#655ac1] hover:shadow-sm transition-all active:scale-95">
-                  <ChevronLeft size={20} />
-                </button>
               </div>
+              <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+                <div className="bg-white shadow-sm rounded-2xl p-4 text-center border border-slate-200 transition-transform hover:scale-105">
+                  <p className="text-3xl font-black text-green-600 mb-1">{stats.present}</p>
+                  <p className="text-sm font-bold text-green-600">حاضر</p>
+                </div>
+                <div className="bg-white shadow-sm rounded-2xl p-4 text-center border border-slate-200 transition-transform hover:scale-105">
+                  <p className="text-3xl font-black text-red-600 mb-1">{stats.absent}</p>
+                  <p className="text-sm font-bold text-red-600">غائب</p>
+                </div>
+                <div className="bg-white shadow-sm rounded-2xl p-4 text-center border border-slate-200 transition-transform hover:scale-105">
+                  <p className="text-3xl font-black text-blue-600 mb-1">{stats.excused}</p>
+                  <p className="text-sm font-bold text-blue-600">مستأذن</p>
+                </div>
+                <div className="bg-white shadow-sm rounded-2xl p-4 text-center border border-slate-200 transition-transform hover:scale-105">
+                  <p className="text-3xl font-black text-orange-600 mb-1">{stats.withdrawn}</p>
+                  <p className="text-sm font-bold text-orange-600">منسحب</p>
+                </div>
+                <div className="bg-white shadow-sm rounded-2xl p-4 text-center border border-slate-200 transition-transform hover:scale-105">
+                  <p className="text-3xl font-black text-[#655ac1] mb-1">{stats.submitted}</p>
+                  <p className="text-sm font-bold text-[#655ac1]">تقرير مُسلّم</p>
+                </div>
+              </div>
+            </div>
 
-              <div className="flex flex-wrap items-center justify-center sm:justify-end gap-3 relative z-10 w-full sm:w-auto">
-                {(!isWeekend && !!currentDayAssignment) && (
-                  <>
-                    {isAlreadyRecorded && (
-                      <Badge variant="info" className="px-3 py-1.5 text-xs font-bold shadow-sm bg-[#e5e1fe] text-[#655ac1] border-none">مرصود مسبقاً</Badge>
-                    )}
-                    <button
-                      onClick={markAllPresent}
-                      className="flex items-center justify-center gap-2 bg-emerald-500 hover:bg-emerald-600 text-white px-6 py-2.5 rounded-xl text-sm font-bold shadow-sm transition-all hover:scale-105 active:scale-95 border border-emerald-600/20 w-full sm:w-auto"
-                    >
-                      <Check size={18} />
-                      <span>حاضر للكل</span>
-                    </button>
-                  </>
-                )}
+            {/* Date Navigation */}
+            <div className="bg-white rounded-[2rem] p-6 shadow-sm border border-slate-100 relative">
+              <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-[#e5e1fe]/50 to-transparent rounded-br-full -z-0 pointer-events-none" />
+              <p className="text-sm font-black text-slate-700 mb-4 relative z-10">اليوم والتاريخ</p>
+              <div className="relative z-10 inline-block">
+                <button
+                  type="button"
+                  onClick={() => dateInputRef.current?.showPicker()}
+                  className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-2xl px-5 py-3 hover:border-[#8779fb] hover:bg-[#f5f3ff] transition-all shadow-sm cursor-pointer"
+                >
+                  <Calendar size={16} className="text-[#8779fb] shrink-0" />
+                  <div className="flex flex-col text-right">
+                    <span className="text-lg font-black text-[#655ac1] leading-tight">{dayName}</span>
+                    <span className="text-xs font-bold text-slate-500 mt-0.5">{formattedDate}</span>
+                  </div>
+                </button>
+                <input
+                  ref={dateInputRef}
+                  type="date"
+                  value={selectedDate}
+                  onChange={e => setSelectedDate(e.target.value)}
+                  className="sr-only"
+                />
               </div>
             </div>
 
@@ -245,20 +256,15 @@ const DutyMonitoringModal: React.FC<Props> = ({
             {!isWeekend && currentDayAssignment && (
               <div className="bg-white rounded-[2rem] p-6 shadow-sm border border-slate-100">
                 <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2.5 bg-[#e5e1fe] text-[#655ac1] rounded-xl"><Eye size={22} /></div>
-                    <div>
-                      <h3 className="text-lg font-black text-slate-800">
-                        رصد الحضور للمناوبين - {dayName}
-                      </h3>
-                      <p className="text-sm font-medium text-slate-500 mt-0.5">تسجيل حالات الحضور والانصراف للمناوبين وإدارة تقاريرهم</p>
-                    </div>
+                  <div>
+                    <h3 className="text-lg font-black text-slate-800">
+                      متابعة حضور المناوبين - {dayName}
+                    </h3>
+                    <p className="text-sm font-medium text-slate-500 mt-0.5">متابعة أداء المناوبين للمناوبة اليومية</p>
                   </div>
-                  <div className="flex gap-2 text-xs font-bold bg-slate-50 p-1.5 rounded-xl border border-slate-100">
-                    <span className="px-3 py-1.5 rounded-lg bg-green-100 text-green-700">{todayStats.present} حاضر</span>
-                    <span className="px-3 py-1.5 rounded-lg bg-red-100 text-red-700">{todayStats.absent} غائب</span>
-                    <span className="px-3 py-1.5 rounded-lg bg-amber-100 text-amber-700">{todayStats.late} متأخر</span>
-                  </div>
+                  {isAlreadyRecorded && (
+                    <Badge variant="info" className="px-3 py-1.5 text-xs font-bold shadow-sm bg-[#e5e1fe] text-[#655ac1] border-none">مرصود مسبقاً</Badge>
+                  )}
                 </div>
 
                 <div className="overflow-x-auto rounded-xl border border-slate-200">
@@ -266,10 +272,9 @@ const DutyMonitoringModal: React.FC<Props> = ({
                     <thead>
                       <tr className="bg-slate-50 text-slate-800 border-b border-slate-200">
                         <th className="py-4 px-4 text-right font-black">المناوب</th>
-                        <th className="py-4 px-4 text-center font-black">النوع</th>
-                        <th className="py-4 px-4 text-center font-black">الحالة</th>
-                        <th className="py-4 px-4 text-center font-black">وقت الانسحاب (إن وجد)</th>
-                        <th className="py-4 px-4 text-center font-black">التقرير الختامي</th>
+                        <th className="py-4 px-4 text-center font-black">الصفة</th>
+                        <th className="py-4 px-4 text-center font-black">الأداء</th>
+                        <th className="py-4 px-4 text-center font-black">الوقت</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
@@ -278,19 +283,7 @@ const DutyMonitoringModal: React.FC<Props> = ({
                         return (
                           <tr key={sup.staffId} className="hover:bg-slate-50/50 transition-colors">
                             <td className="py-3 px-4">
-                              <div className="flex items-center gap-3">
-                                <div className={`w-8 h-8 rounded-xl flex items-center justify-center text-xs font-black shadow-sm border ${
-                                  sup.staffType === 'teacher' ? 'bg-blue-50 text-blue-600 border-blue-100' : 'bg-[#e5e1fe] text-[#655ac1] border-[#655ac1]/20'
-                                }`}>
-                                  {sup.staffType === 'teacher' ? 'م' : 'إ'}
-                                </div>
-                                <div className="flex flex-col">
-                                  <span className="font-bold text-slate-700">{sup.staffName}</span>
-                                  {sup.staffType === 'teacher' && sup.lastPeriod && (
-                                    <span className="text-[10px] text-slate-400">ينتهي الحصة {sup.lastPeriod}</span>
-                                  )}
-                                </div>
-                              </div>
+                              <span className="font-bold text-slate-700">{sup.staffName}</span>
                             </td>
                             <td className="py-3 px-4 text-center">
                               <Badge variant={sup.staffType === 'teacher' ? 'info' : 'neutral'}>
@@ -299,7 +292,7 @@ const DutyMonitoringModal: React.FC<Props> = ({
                             </td>
                             <td className="py-3 px-4">
                               <div className="flex justify-center gap-1.5 flex-nowrap w-max mx-auto">
-                                {(Object.entries(STATUS_MAP) as [SupervisionAttendanceStatus, any][]).map(([status, config]) => (
+                                {(Object.entries(STATUS_MAP) as [SupervisionAttendanceStatus, any][]).filter(([status]) => status !== 'late').map(([status, config]) => (
                                   <button
                                     key={status}
                                     onClick={() => saveAttendanceStatus(status, sup.staffId)}
@@ -330,15 +323,7 @@ const DutyMonitoringModal: React.FC<Props> = ({
                                 <span className="text-slate-300 text-xs">-</span>
                               )}
                             </td>
-                            <td className="py-3 px-4 text-center">
-                              {sup.isSubmitted ? (
-                                <div className="flex items-center justify-center gap-1 text-emerald-600 bg-emerald-50 px-2 py-1 rounded-lg border border-emerald-100 text-xs font-bold w-max mx-auto">
-                                  <CheckCircle size={14} /> تم تسليم التقرير
-                                </div>
-                              ) : (
-                                <div className="text-[#655ac1] text-xs font-bold">بانتظار التسليم</div>
-                              )}
-                            </td>
+
                           </tr>
                         );
                       })}
@@ -354,48 +339,6 @@ const DutyMonitoringModal: React.FC<Props> = ({
               </div>
             )}
 
-            {/* Weekly Stats Summary */}
-            {!isWeekend && (
-              <div className="bg-white rounded-[2rem] p-6 shadow-sm border border-slate-100">
-                <div className="flex items-center justify-between mb-6">
-                  <div className="flex items-center gap-3">
-                    <div className="w-12 h-12 bg-[#e5e1fe] text-[#655ac1] rounded-2xl flex items-center justify-center shadow-sm">
-                      <Eye size={24} />
-                    </div>
-                    <div>
-                      <h3 className="text-xl font-black text-slate-800">ملخص الأداء الإجمالي</h3>
-                      <p className="text-sm font-medium text-slate-500 mt-0.5">إحصائيات المناوبة لجميع الأيام المسجلة</p>
-                    </div>
-                  </div>
-                </div>
-                <div className="grid grid-cols-2 md:grid-cols-6 gap-4">
-                  <div className="bg-white shadow-sm rounded-2xl p-4 text-center border border-slate-200 transition-transform hover:scale-105">
-                    <p className="text-3xl font-black text-green-600 mb-1">{stats.present}</p>
-                    <p className="text-sm font-bold text-green-600">حاضر</p>
-                  </div>
-                  <div className="bg-white shadow-sm rounded-2xl p-4 text-center border border-slate-200 transition-transform hover:scale-105">
-                    <p className="text-3xl font-black text-red-600 mb-1">{stats.absent}</p>
-                    <p className="text-sm font-bold text-red-600">غائب</p>
-                  </div>
-                  <div className="bg-white shadow-sm rounded-2xl p-4 text-center border border-slate-200 transition-transform hover:scale-105">
-                    <p className="text-3xl font-black text-blue-600 mb-1">{stats.excused}</p>
-                    <p className="text-sm font-bold text-blue-600">مستأذن</p>
-                  </div>
-                  <div className="bg-white shadow-sm rounded-2xl p-4 text-center border border-slate-200 transition-transform hover:scale-105">
-                    <p className="text-3xl font-black text-orange-600 mb-1">{stats.withdrawn}</p>
-                    <p className="text-sm font-bold text-orange-600">منسحب</p>
-                  </div>
-                  <div className="bg-white shadow-sm rounded-2xl p-4 text-center border border-slate-200 transition-transform hover:scale-105">
-                    <p className="text-3xl font-black text-amber-600 mb-1">{stats.late}</p>
-                    <p className="text-sm font-bold text-amber-600">متأخر</p>
-                  </div>
-                  <div className="bg-white shadow-sm rounded-2xl p-4 text-center border border-slate-200 transition-transform hover:scale-105">
-                    <p className="text-3xl font-black text-[#655ac1] mb-1">{stats.submitted}</p>
-                    <p className="text-sm font-bold text-[#655ac1]">تقرير مُسلم</p>
-                  </div>
-                </div>
-              </div>
-            )}
 
           </div>
         </div>

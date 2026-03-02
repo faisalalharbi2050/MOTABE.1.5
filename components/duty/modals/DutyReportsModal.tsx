@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { X, BarChart3, Printer, FileText, Calendar, User, Search, ChevronDown, Check } from 'lucide-react';
+import { X, BarChart3, Printer, FileText, Calendar, User, Search, ChevronDown, Check, Clock, AlertTriangle } from 'lucide-react';
 import { SchoolInfo, DutyScheduleData, Teacher, Admin } from '../../../types';
 import { getDutyStats } from '../../../utils/dutyUtils';
 
@@ -26,13 +26,18 @@ interface Props {
 const DutyReportsModalContent: React.FC<Props> = ({
   isOpen, onClose, dutyData, schoolInfo, teachers = [], admins = [], showToast
 }) => {
-  const [activeTab, setActiveTab] = useState<'weekly' | 'monthly' | 'individual'>('weekly');
+  const [activeTab, setActiveTab] = useState<'weekly' | 'monthly' | 'individual' | 'daily'>('weekly');
   const [selectedWeek, setSelectedWeek] = useState<number>(1);
   const [selectedMonth, setSelectedMonth] = useState<number>(0);
   const [selectedStaffSearch, setSelectedStaffSearch] = useState('');
   const [selectedStaffId, setSelectedStaffId] = useState<string>('');
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [individualReportType, setIndividualReportType] = useState<'weekly' | 'monthly'>('weekly');
+  // ── Daily Reports Hub State ───────────────────────────────────────
+  const [dailyPeriod, setDailyPeriod] = useState<'today' | 'week' | 'month' | 'custom'>('today');
+  const [dailyFromDate, setDailyFromDate] = useState(() => new Date().toISOString().split('T')[0]);
+  const [dailyToDate, setDailyToDate] = useState(() => new Date().toISOString().split('T')[0]);
+  const [studentSearch, setStudentSearch] = useState('');
 
   if (!isOpen) return null;
 
@@ -167,6 +172,125 @@ const DutyReportsModalContent: React.FC<Props> = ({
 
   const stats = getDutyStats(filteredRecords);
 
+  // ═════ Daily Reports Hub – Computed Data ═════════════════════════════════
+  interface EnrichedLate { studentName: string; gradeAndClass: string; exitTime: string; actionTaken: string; notes?: string; date: string; staffName: string; }
+  interface EnrichedViolation { studentName: string; gradeAndClass: string; violationType: string; actionTaken: string; notes?: string; date: string; staffName: string; }
+
+  const allEnrichedLate: EnrichedLate[] = (dutyData?.reports || []).flatMap(r =>
+    (r.lateStudents || []).map(s => ({ ...s, date: r.date, staffName: r.staffName }))
+  ).filter(r => r.studentName?.trim());
+
+  const allEnrichedViolations: EnrichedViolation[] = (dutyData?.reports || []).flatMap(r =>
+    (r.violatingStudents || []).map(s => ({ ...s, date: r.date, staffName: r.staffName }))
+  ).filter(r => r.studentName?.trim());
+
+  const computeDailyDateRange = (): { from: string; to: string } => {
+    const today = new Date().toISOString().split('T')[0];
+    if (dailyPeriod === 'today') return { from: today, to: today };
+    if (dailyPeriod === 'week') {
+      const now = new Date();
+      const startOfWeek = new Date(now); startOfWeek.setDate(now.getDate() - now.getDay());
+      const endOfWeek = new Date(startOfWeek); endOfWeek.setDate(startOfWeek.getDate() + 6);
+      return { from: startOfWeek.toISOString().split('T')[0], to: endOfWeek.toISOString().split('T')[0] };
+    }
+    if (dailyPeriod === 'month') {
+      const now = new Date();
+      return {
+        from: new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0],
+        to: new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().split('T')[0],
+      };
+    }
+    return { from: dailyFromDate, to: dailyToDate };
+  };
+
+  const { from: dRangeFrom, to: dRangeTo } = computeDailyDateRange();
+  const dailyFilteredLate = allEnrichedLate.filter(r => r.date >= dRangeFrom && r.date <= dRangeTo);
+  const dailyFilteredViolations = allEnrichedViolations.filter(r => r.date >= dRangeFrom && r.date <= dRangeTo);
+  const dailyUniqueStudents = new Set([
+    ...dailyFilteredLate.map(r => r.studentName),
+    ...dailyFilteredViolations.map(r => r.studentName)
+  ]).size;
+
+  const studentFilteredLate = studentSearch.trim()
+    ? allEnrichedLate.filter(r => r.studentName.includes(studentSearch.trim()))
+    : [];
+  const studentFilteredViolations = studentSearch.trim()
+    ? allEnrichedViolations.filter(r => r.studentName.includes(studentSearch.trim()))
+    : [];
+
+  const chartByDate: Record<string, { lateCount: number; violationCount: number }> = {};
+  dailyFilteredLate.forEach(r => {
+    if (!chartByDate[r.date]) chartByDate[r.date] = { lateCount: 0, violationCount: 0 };
+    chartByDate[r.date].lateCount++;
+  });
+  dailyFilteredViolations.forEach(r => {
+    if (!chartByDate[r.date]) chartByDate[r.date] = { lateCount: 0, violationCount: 0 };
+    chartByDate[r.date].violationCount++;
+  });
+  const dailyChartDates = Object.entries(chartByDate)
+    .map(([date, counts]) => ({ date, ...counts }))
+    .sort((a, b) => a.date.localeCompare(b.date));
+
+  const toHijriShort = (dateStr: string) => {
+    try {
+      if (calendarType === 'hijri') return new Intl.DateTimeFormat('ar-SA-u-ca-islamic', { day: 'numeric', month: 'short', year: 'numeric' }).format(new Date(dateStr));
+      return new Intl.DateTimeFormat('ar-SA', { day: 'numeric', month: 'short', year: 'numeric' }).format(new Date(dateStr));
+    } catch { return dateStr; }
+  };
+
+  const handlePrintStudentReport = (name: string, lateRecs: EnrichedLate[], violRecs: EnrichedViolation[]) => {
+    const pw = window.open('', '_blank'); if (!pw) return;
+    pw.document.write(`<!DOCTYPE html><html dir="rtl" lang="ar"><head><meta charset="UTF-8"><title>تقرير الطالب - ${name}</title>
+    <style>*{margin:0;padding:0;box-sizing:border-box;}body{font-family:'Segoe UI',Tahoma,Arial,sans-serif;padding:30px;direction:rtl;color:#1e293b;}
+    .header{text-align:center;border-bottom:2px solid #e2e8f0;padding-bottom:15px;margin-bottom:20px;}h1{font-size:20px;margin-bottom:4px;}h2{font-size:14px;color:#475569;font-weight:normal;margin-bottom:15px;}
+    .sec{font-size:13px;font-weight:bold;margin:15px 0 8px;padding:6px 10px;border-radius:6px;}
+    .late-sec{background:#fff7ed;color:#c2410c;border:1px solid #fed7aa;}.viol-sec{background:#f5f3ff;color:#6d28d9;border:1px solid #ddd6fe;}
+    table{width:100%;border-collapse:collapse;font-size:12px;margin-bottom:15px;}th,td{border:1px solid #cbd5e1;padding:8px;text-align:center;}th{font-weight:bold;}
+    .late-th{background:#f97316;color:#fff;}.viol-th{background:#7c3aed;color:#fff;}tr:nth-child(even){background:#f8fafc;}
+    .footer{margin-top:30px;text-align:center;font-size:11px;color:#94a3b8;}
+    @media print{body{padding:0;}@page{margin:1.5cm;}}
+    </style></head><body>
+    <div class="header"><h1>تقرير الطالب: ${name}</h1><h2>${schoolInfo.schoolName} | ${schoolInfo.academicYear || ''}</h2></div>
+    ${lateRecs.length > 0 ? `<div class="sec late-sec">سجلات التأخر (${lateRecs.length})</div>
+    <table><thead><tr class="late-th"><th>م</th><th>التاريخ</th><th>الصف</th><th>زمن الوصول</th><th>الإجراء</th><th>ملاحظات</th></tr></thead><tbody>
+    ${lateRecs.map((r,i)=>`<tr><td>${i+1}</td><td>${toHijriShort(r.date)}</td><td>${r.gradeAndClass}</td><td>${r.exitTime||'-'}</td><td>${r.actionTaken||'-'}</td><td>${r.notes||'-'}</td></tr>`).join('')}
+    </tbody></table>` : ''}
+    ${violRecs.length > 0 ? `<div class="sec viol-sec">سجلات المخالفات (${violRecs.length})</div>
+    <table><thead><tr class="viol-th"><th>م</th><th>التاريخ</th><th>الصف</th><th>المخالفة</th><th>الإجراء</th><th>ملاحظات</th></tr></thead><tbody>
+    ${violRecs.map((r,i)=>`<tr><td>${i+1}</td><td>${toHijriShort(r.date)}</td><td>${r.gradeAndClass}</td><td>${r.violationType}</td><td>${r.actionTaken||'-'}</td><td>${r.notes||'-'}</td></tr>`).join('')}
+    </tbody></table>` : ''}
+    <div class="footer">إجمالي: ${lateRecs.length} تأخر | ${violRecs.length} مخالفة — طُبع بتاريخ: ${new Date().toLocaleDateString('ar-SA')}</div>
+    </body></html>`);
+    pw.document.close(); setTimeout(() => pw.print(), 300);
+    showToast('تم فتح تقرير الطالب للطباعة', 'success');
+  };
+
+  const handlePrintDailyReport = (lateRecs: EnrichedLate[], violRecs: EnrichedViolation[]) => {
+    const pw = window.open('', '_blank'); if (!pw) return;
+    const periodLabel = dailyPeriod === 'today' ? 'اليوم' : dailyPeriod === 'week' ? 'هذا الأسبوع' : dailyPeriod === 'month' ? 'هذا الشهر' : `${dRangeFrom} - ${dRangeTo}`;
+    pw.document.write(`<!DOCTYPE html><html dir="rtl" lang="ar"><head><meta charset="UTF-8"><title>التقارير اليومية</title>
+    <style>*{margin:0;padding:0;box-sizing:border-box;}body{font-family:'Segoe UI',Tahoma,Arial,sans-serif;padding:30px;direction:rtl;color:#1e293b;}
+    .header{text-align:center;border-bottom:2px solid #e2e8f0;padding-bottom:15px;margin-bottom:20px;}h1{font-size:20px;margin-bottom:4px;}h2{font-size:14px;color:#475569;font-weight:normal;}
+    .sec{font-size:13px;font-weight:bold;margin:15px 0 8px;padding:6px 10px;border-radius:6px;}
+    .late-sec{background:#fff7ed;color:#c2410c;border:1px solid #fed7aa;}.viol-sec{background:#f5f3ff;color:#6d28d9;border:1px solid #ddd6fe;}
+    table{width:100%;border-collapse:collapse;font-size:12px;margin-bottom:15px;}th,td{border:1px solid #cbd5e1;padding:8px;text-align:center;}th{font-weight:bold;}
+    .late-th{background:#f97316;color:#fff;}.viol-th{background:#7c3aed;color:#fff;}tr:nth-child(even){background:#f8fafc;}
+    @media print{body{padding:0;}@page{margin:1.5cm;}}
+    </style></head><body>
+    <div class="header"><h1>${schoolInfo.schoolName}</h1><h2>التقارير اليومية – ${periodLabel} | ${schoolInfo.academicYear || ''}</h2></div>
+    ${lateRecs.length > 0 ? `<div class="sec late-sec">المتأخرون (${lateRecs.length})</div>
+    <table><thead><tr class="late-th"><th>م</th><th>الطالب</th><th>الصف</th><th>التاريخ</th><th>الزمن</th><th>الإجراء</th></tr></thead><tbody>
+    ${lateRecs.map((r,i)=>`<tr><td>${i+1}</td><td style="text-align:right;font-weight:bold;">${r.studentName}</td><td>${r.gradeAndClass}</td><td>${toHijriShort(r.date)}</td><td>${r.exitTime||'-'}</td><td>${r.actionTaken||'-'}</td></tr>`).join('')}
+    </tbody></table>` : ''}
+    ${violRecs.length > 0 ? `<div class="sec viol-sec">المخالفون (${violRecs.length})</div>
+    <table><thead><tr class="viol-th"><th>م</th><th>الطالب</th><th>الصف</th><th>التاريخ</th><th>المخالفة</th><th>الإجراء</th></tr></thead><tbody>
+    ${violRecs.map((r,i)=>`<tr><td>${i+1}</td><td style="text-align:right;font-weight:bold;">${r.studentName}</td><td>${r.gradeAndClass}</td><td>${toHijriShort(r.date)}</td><td>${r.violationType}</td><td>${r.actionTaken||'-'}</td></tr>`).join('')}
+    </tbody></table>` : ''}
+    </body></html>`);
+    pw.document.close(); setTimeout(() => pw.print(), 300);
+    showToast('تم فتح تقرير الفترة للطباعة', 'success');
+  };
+  // ══════════════════════════════════════════════════════════════════════
   const handlePrintAttendanceReport = (period: 'weekly' | 'monthly' | 'individual') => {
     const printWindow = window.open('', '_blank');
     if (!printWindow) return;
@@ -314,8 +438,8 @@ const DutyReportsModalContent: React.FC<Props> = ({
               <BarChart3 size={24} />
             </div>
             <div>
-              <h2 className="text-xl font-black text-slate-800">تقارير المناوبة</h2>
-              <p className="text-sm font-medium text-slate-500 mt-0.5">استعراض المعدلات واستخراج تقارير الأداء للمناوبين</p>
+              <h2 className="text-xl font-black text-slate-800">تقارير المناوبين</h2>
+              <p className="text-sm font-medium text-slate-500 mt-0.5">تقارير الأداء للمناوبين</p>
             </div>
           </div>
           <button onClick={onClose} className="p-2.5 rounded-xl hover:bg-slate-100 text-slate-400 transition-colors self-end sm:self-auto">
@@ -357,8 +481,19 @@ const DutyReportsModalContent: React.FC<Props> = ({
             >
               <User size={18} /> تقرير فردي
             </button>
+            <button
+              onClick={() => setActiveTab('daily')}
+              className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold transition-all ${
+                activeTab === 'daily' 
+                  ? 'bg-[#8779fb] text-white shadow-md' 
+                  : 'text-slate-500 hover:bg-slate-50 hover:text-[#655ac1]'
+              }`}
+            >
+              <BarChart3 size={18} /> التقارير اليومية
+            </button>
           </div>
 
+          {activeTab !== 'daily' && (<>
           {/* Filters Area */}
           <div className="bg-white rounded-[2rem] p-6 shadow-sm border border-slate-100 flex flex-col md:flex-row gap-6 md:items-center justify-between relative z-[60]">
             {activeTab === 'weekly' && (
@@ -555,6 +690,277 @@ const DutyReportsModalContent: React.FC<Props> = ({
 
              </div>
           </div>
+          </>)} {/* end activeTab !== daily */}
+
+          {/* ══════ Daily Reports Hub ══════ */}
+          {activeTab === 'daily' && (
+            <div className="space-y-5">
+
+              {/* ── Period Filter ─────────────────────────────────────────── */}
+              <div className="bg-white rounded-[2rem] p-6 shadow-sm border border-slate-100">
+                <p className="text-sm font-black text-slate-700 mb-4 flex items-center gap-2">
+                  <Calendar size={17} className="text-[#8779fb]" /> تحديد الفترة الزمنية
+                </p>
+                <div className="flex flex-wrap gap-2 mb-3">
+                  {([['today', 'اليوم'], ['week', 'هذا الأسبوع'], ['month', 'هذا الشهر'], ['custom', 'مخصص']] as const).map(([id, label]) => (
+                    <button
+                      key={id}
+                      onClick={() => setDailyPeriod(id)}
+                      className={`px-5 py-2 rounded-xl text-sm font-bold transition-all ${dailyPeriod === id ? 'bg-[#8779fb] text-white shadow-md' : 'bg-slate-100 text-slate-600 hover:bg-[#e5e1fe] hover:text-[#655ac1]'}`}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+                {dailyPeriod === 'custom' && (
+                  <div className="flex flex-wrap gap-4 mt-3">
+                    <div className="flex-1 min-w-[150px]">
+                      <label className="text-xs font-bold text-slate-600 mb-1.5 block">من تاريخ</label>
+                      <input type="date" value={dailyFromDate} onChange={e => setDailyFromDate(e.target.value)}
+                        className="w-full px-3 py-2.5 border border-slate-200 rounded-xl text-sm outline-none focus:ring-1 focus:border-[#8779fb] bg-slate-50" />
+                    </div>
+                    <div className="flex-1 min-w-[150px]">
+                      <label className="text-xs font-bold text-slate-600 mb-1.5 block">إلى تاريخ</label>
+                      <input type="date" value={dailyToDate} onChange={e => setDailyToDate(e.target.value)}
+                        className="w-full px-3 py-2.5 border border-slate-200 rounded-xl text-sm outline-none focus:ring-1 focus:border-[#8779fb] bg-slate-50" />
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* ── Statistics Cards ──────────────────────────────────────── */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div className="bg-gradient-to-br from-amber-50 to-amber-100/50 rounded-2xl p-5 border border-amber-100 text-center shadow-sm hover:scale-105 transition-transform">
+                  <p className="text-4xl font-black text-amber-600 mb-1">{dailyFilteredLate.length}</p>
+                  <p className="text-sm font-black text-amber-700">حالة تأخر</p>
+                  <p className="text-xs text-amber-600/70 mt-1">في الفترة المحددة</p>
+                </div>
+                <div className="bg-gradient-to-br from-violet-50 to-violet-100/50 rounded-2xl p-5 border border-violet-100 text-center shadow-sm hover:scale-105 transition-transform">
+                  <p className="text-4xl font-black text-[#8779fb] mb-1">{dailyFilteredViolations.length}</p>
+                  <p className="text-sm font-black text-[#655ac1]">مخالفة سلوكية</p>
+                  <p className="text-xs text-[#655ac1]/70 mt-1">في الفترة المحددة</p>
+                </div>
+                <div className="bg-gradient-to-br from-slate-50 to-slate-100/50 rounded-2xl p-5 border border-slate-100 text-center shadow-sm hover:scale-105 transition-transform">
+                  <p className="text-4xl font-black text-slate-700 mb-1">{dailyUniqueStudents}</p>
+                  <p className="text-sm font-black text-slate-600">طالب مسجل</p>
+                  <p className="text-xs text-slate-500 mt-1">طلاب مختلفون في النطاق</p>
+                </div>
+              </div>
+
+              {/* ── Daily Chart ───────────────────────────────────────────── */}
+              {dailyChartDates.length > 0 && (
+                <div className="bg-white rounded-[2rem] p-6 shadow-sm border border-slate-100">
+                  <p className="text-sm font-black text-slate-700 mb-5 flex items-center gap-2">
+                    <BarChart3 size={17} className="text-[#8779fb]" /> التوزيع اليومي للبيانات
+                  </p>
+                  <div className="overflow-x-auto pb-2">
+                    <div className="flex gap-3 items-end min-w-min">
+                      {dailyChartDates.slice(-14).map(({ date, lateCount, violationCount }) => {
+                        const maxVal = Math.max(...dailyChartDates.map(d => d.lateCount + d.violationCount), 1);
+                        const lateH = Math.round((lateCount / maxVal) * 64);
+                        const violH = Math.round((violationCount / maxVal) * 64);
+                        return (
+                          <div key={date} className="flex flex-col items-center gap-1 min-w-[44px]">
+                            <span className="text-[9px] font-bold text-slate-500">{lateCount + violationCount}</span>
+                            <div className="w-8 flex flex-col justify-end gap-0.5" style={{ height: '68px' }}>
+                              {violationCount > 0 && <div className="w-full bg-[#8779fb] rounded-sm" style={{ height: `${violH}px` }} title={`مخالفة: ${violationCount}`} />}
+                              {lateCount > 0 && <div className="w-full bg-amber-400 rounded-sm" style={{ height: `${lateH}px` }} title={`تأخر: ${lateCount}`} />}
+                            </div>
+                            <span className="text-[8px] text-slate-400 text-center leading-tight max-w-[44px] break-words">
+                              {calendarType === 'hijri'
+                                ? new Intl.DateTimeFormat('ar-SA-u-ca-islamic', { day: 'numeric', month: 'short' }).format(new Date(date))
+                                : new Intl.DateTimeFormat('ar-SA', { day: 'numeric', month: 'short' }).format(new Date(date))}
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                  <div className="flex gap-5 mt-3 text-xs font-bold text-slate-600">
+                    <span className="flex items-center gap-1.5"><span className="w-3 h-3 bg-amber-400 rounded-sm inline-block" /> تأخر</span>
+                    <span className="flex items-center gap-1.5"><span className="w-3 h-3 bg-[#8779fb] rounded-sm inline-block" /> مخالفة سلوكية</span>
+                  </div>
+                </div>
+              )}
+
+              {/* ── Student Search ────────────────────────────────────────── */}
+              <div className="bg-white rounded-[2rem] p-6 shadow-sm border border-slate-100">
+                <p className="text-sm font-black text-slate-700 mb-4 flex items-center gap-2">
+                  <Search size={17} className="text-[#8779fb]" /> البحث عن طالب
+                </p>
+                <div className="relative mb-4">
+                  <Search size={15} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400" />
+                  <input
+                    type="text"
+                    placeholder="اكتب اسم الطالب للبحث في السجلات..."
+                    value={studentSearch}
+                    onChange={e => setStudentSearch(e.target.value)}
+                    className="w-full pr-10 pl-10 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium outline-none focus:ring-1 focus:border-[#8779fb] focus:ring-[#8779fb]/30"
+                  />
+                  {studentSearch && (
+                    <button onClick={() => setStudentSearch('')} className="absolute left-3 top-1/2 -translate-y-1/2 p-1 hover:bg-slate-200 rounded-full transition-colors">
+                      <X size={13} className="text-slate-400" />
+                    </button>
+                  )}
+                </div>
+
+                {studentSearch.trim() ? (
+                  <div className="space-y-4">
+                    {/* Late records for student */}
+                    {studentFilteredLate.length > 0 && (
+                      <div>
+                        <p className="text-xs font-black text-amber-700 bg-amber-50 border border-amber-100 px-3 py-1.5 rounded-lg mb-2 flex items-center gap-2 w-fit">
+                          <Clock size={12} /> سجلات التأخر ({studentFilteredLate.length})
+                        </p>
+                        <div className="overflow-x-auto rounded-xl border border-amber-100">
+                          <table className="w-full text-xs">
+                            <thead><tr className="bg-amber-500 text-white text-center">
+                              <th className="p-2 text-right rounded-tr-lg">الطالب</th><th className="p-2">الصف</th><th className="p-2">التاريخ</th><th className="p-2">الزمن</th><th className="p-2">الإجراء</th><th className="p-2 rounded-tl-lg">ملاحظات</th>
+                            </tr></thead>
+                            <tbody>
+                              {studentFilteredLate.map((r, i) => (
+                                <tr key={i} className={i % 2 === 0 ? 'bg-white' : 'bg-amber-50/30'}>
+                                  <td className="p-2 font-bold text-slate-700">{r.studentName}</td>
+                                  <td className="p-2 text-center">{r.gradeAndClass}</td>
+                                  <td className="p-2 text-center">{toHijriShort(r.date)}</td>
+                                  <td className="p-2 text-center">{r.exitTime || '-'}</td>
+                                  <td className="p-2 text-center text-[10px]">{r.actionTaken || '-'}</td>
+                                  <td className="p-2 text-center text-slate-400">{r.notes || '-'}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    )}
+                    {/* Violation records for student */}
+                    {studentFilteredViolations.length > 0 && (
+                      <div>
+                        <p className="text-xs font-black text-[#655ac1] bg-violet-50 border border-violet-100 px-3 py-1.5 rounded-lg mb-2 flex items-center gap-2 w-fit">
+                          <AlertTriangle size={12} /> سجلات المخالفات ({studentFilteredViolations.length})
+                        </p>
+                        <div className="overflow-x-auto rounded-xl border border-violet-100">
+                          <table className="w-full text-xs">
+                            <thead><tr className="bg-[#7c6ff0] text-white text-center">
+                              <th className="p-2 text-right rounded-tr-lg">الطالب</th><th className="p-2">الصف</th><th className="p-2">التاريخ</th><th className="p-2">المخالفة</th><th className="p-2">الإجراء</th><th className="p-2 rounded-tl-lg">ملاحظات</th>
+                            </tr></thead>
+                            <tbody>
+                              {studentFilteredViolations.map((r, i) => (
+                                <tr key={i} className={i % 2 === 0 ? 'bg-white' : 'bg-violet-50/20'}>
+                                  <td className="p-2 font-bold text-slate-700">{r.studentName}</td>
+                                  <td className="p-2 text-center">{r.gradeAndClass}</td>
+                                  <td className="p-2 text-center">{toHijriShort(r.date)}</td>
+                                  <td className="p-2 text-center text-[10px]">{r.violationType}</td>
+                                  <td className="p-2 text-center text-[10px]">{r.actionTaken || '-'}</td>
+                                  <td className="p-2 text-center text-slate-400">{r.notes || '-'}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    )}
+                    {studentFilteredLate.length === 0 && studentFilteredViolations.length === 0 && (
+                      <div className="text-center py-8 text-sm text-slate-400 font-bold">لا توجد سجلات لهذا الطالب في قاعدة البيانات</div>
+                    )}
+                    {(studentFilteredLate.length > 0 || studentFilteredViolations.length > 0) && (
+                      <button
+                        onClick={() => handlePrintStudentReport(studentSearch.trim(), studentFilteredLate, studentFilteredViolations)}
+                        className="flex items-center gap-2 bg-[#8779fb] hover:bg-[#655ac1] text-white px-5 py-2.5 rounded-xl text-sm font-bold shadow-md shadow-[#8779fb]/20 transition-all active:scale-95"
+                      >
+                        <Printer size={15} /> طباعة تقرير الطالب
+                      </button>
+                    )}
+                  </div>
+                ) : (
+                  <p className="text-center py-5 text-sm text-slate-400 font-medium">ابحث باسم الطالب لعرض سجله الكامل من التأخرات والمخالفات</p>
+                )}
+              </div>
+
+              {/* ── Full Period Records ───────────────────────────────────── */}
+              {!studentSearch.trim() && (dailyFilteredLate.length > 0 || dailyFilteredViolations.length > 0) && (
+                <div className="bg-white rounded-[2rem] p-6 shadow-sm border border-slate-100">
+                  <div className="flex items-center justify-between mb-5">
+                    <p className="text-sm font-black text-slate-700 flex items-center gap-2">
+                      <FileText size={17} className="text-[#8779fb]" /> جميع السجلات في الفترة
+                    </p>
+                    <button
+                      onClick={() => handlePrintDailyReport(dailyFilteredLate, dailyFilteredViolations)}
+                      className="flex items-center gap-2 bg-[#8779fb] hover:bg-[#655ac1] text-white px-4 py-2 rounded-xl text-xs font-bold shadow-sm transition-all active:scale-95"
+                    >
+                      <Printer size={13} /> طباعة
+                    </button>
+                  </div>
+
+                  {dailyFilteredLate.length > 0 && (
+                    <div className="mb-5">
+                      <p className="text-xs font-black text-amber-700 mb-2 flex items-center gap-1.5">
+                        <Clock size={12} /> المتأخرون ({dailyFilteredLate.length})
+                      </p>
+                      <div className="overflow-x-auto rounded-xl border border-amber-100">
+                        <table className="w-full text-xs">
+                          <thead><tr className="bg-amber-500 text-white text-center">
+                            <th className="p-2">م</th><th className="p-2 text-right">الطالب</th><th className="p-2">الصف</th><th className="p-2">التاريخ</th><th className="p-2">الزمن</th><th className="p-2">الإجراء</th>
+                          </tr></thead>
+                          <tbody>
+                            {dailyFilteredLate.map((r, i) => (
+                              <tr key={i} className={i % 2 === 0 ? 'bg-white' : 'bg-amber-50/30'}>
+                                <td className="p-2 text-center text-slate-400">{i + 1}</td>
+                                <td className="p-2 font-bold text-slate-700">{r.studentName}</td>
+                                <td className="p-2 text-center">{r.gradeAndClass}</td>
+                                <td className="p-2 text-center">{toHijriShort(r.date)}</td>
+                                <td className="p-2 text-center">{r.exitTime || '-'}</td>
+                                <td className="p-2 text-center text-[10px]">{r.actionTaken || '-'}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )}
+
+                  {dailyFilteredViolations.length > 0 && (
+                    <div>
+                      <p className="text-xs font-black text-[#655ac1] mb-2 flex items-center gap-1.5">
+                        <AlertTriangle size={12} /> المخالفون ({dailyFilteredViolations.length})
+                      </p>
+                      <div className="overflow-x-auto rounded-xl border border-violet-100">
+                        <table className="w-full text-xs">
+                          <thead><tr className="bg-[#7c6ff0] text-white text-center">
+                            <th className="p-2">م</th><th className="p-2 text-right">الطالب</th><th className="p-2">الصف</th><th className="p-2">التاريخ</th><th className="p-2">المخالفة</th><th className="p-2">الإجراء</th>
+                          </tr></thead>
+                          <tbody>
+                            {dailyFilteredViolations.map((r, i) => (
+                              <tr key={i} className={i % 2 === 0 ? 'bg-white' : 'bg-violet-50/20'}>
+                                <td className="p-2 text-center text-slate-400">{i + 1}</td>
+                                <td className="p-2 font-bold text-slate-700">{r.studentName}</td>
+                                <td className="p-2 text-center">{r.gradeAndClass}</td>
+                                <td className="p-2 text-center">{toHijriShort(r.date)}</td>
+                                <td className="p-2 text-center text-[10px]">{r.violationType}</td>
+                                <td className="p-2 text-center text-[10px]">{r.actionTaken || '-'}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Empty state */}
+              {dailyFilteredLate.length === 0 && dailyFilteredViolations.length === 0 && !studentSearch.trim() && (
+                <div className="bg-white rounded-[2rem] p-12 shadow-sm border border-slate-100 text-center">
+                  <div className="w-16 h-16 bg-slate-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                    <BarChart3 size={32} className="text-slate-300" />
+                  </div>
+                  <p className="text-base font-black text-slate-600 mb-1">لا توجد بيانات في هذه الفترة</p>
+                  <p className="text-sm text-slate-400">لم يتم رصد أي تأخرات أو مخالفات حتى الآن في الفترة المحددة</p>
+                </div>
+              )}
+
+            </div>
+          )}
         </div>
       </div>
     </div>

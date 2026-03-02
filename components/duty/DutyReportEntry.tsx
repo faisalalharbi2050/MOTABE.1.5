@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { Shield, Clock, AlertTriangle, Users, Check, X, ArrowLeft, Edit3, Trash2, Plus } from 'lucide-react';
+import { Shield, Clock, AlertTriangle, Users, Check, X, ArrowLeft, Edit3, Trash2, Plus, ChevronDown } from 'lucide-react';
 import { DutyReportRecord, DutyStudentLate, DutyStudentViolation, SchoolInfo } from '../../types';
 import SignaturePad, { SignaturePadRef } from '../ui/SignaturePad';
 
@@ -14,16 +14,80 @@ interface Props {
   showToast: (msg: string, type: 'success' | 'warning' | 'error') => void;
 }
 
-const LATE_ACTION_OPTIONS = ['تم التواصل مع ولي الأمر', 'إنذار شفهي', 'إنذار كتابي', 'تحويل للوكيل', 'أخرى'];
-const VIOLATION_ACTION_OPTIONS = ['إنذار شفهي', 'إنذار كتابي', 'ضبط الجهاز / المصادرة', 'تحويل للوكيل', 'أخرى'];
-const VIOLATION_TYPE_OPTIONS = ['تأخر صباحي', 'حلاقة مخالفة', 'استخدام الجوال', 'الزي المدرسي', 'سلوك مخالف', 'أخرى'];
+const LATE_ACTION_OPTIONS = [
+  'التواصل مع ولي الأمر',
+  'إبلاغ مدير المدرسة',
+  'إبلاغ وكيل الشؤون التعليمية',
+  'إبلاغ وكيل شؤون الطلاب',
+  'إبلاغ وكيل الشؤون المدرسية',
+  'إبلاغ الموجه الطلابي',
+];
+const VIOLATION_ACTION_OPTIONS = [
+  'إبلاغ مدير المدرسة',
+  'إبلاغ وكيل الشؤون التعليمية',
+  'إبلاغ وكيل شؤون الطلاب',
+  'إبلاغ وكيل الشؤون المدرسية',
+  'إبلاغ الموجه الطلابي',
+];
+
+// ── Multi-Select Dropdown ────────────────────────────────────────────────────
+const MultiSelectDropdown: React.FC<{
+  options: string[];
+  value: string;
+  onChange: (v: string) => void;
+  placeholder?: string;
+}> = ({ options, value, onChange, placeholder = 'اختر الإجراء' }) => {
+  const [open, setOpen] = useState(false);
+  const selected = value ? value.split(' | ').filter(Boolean) : [];
+  const toggle = (o: string) => {
+    const ns = selected.includes(o) ? selected.filter(s => s !== o) : [...selected, o];
+    onChange(ns.join(' | '));
+  };
+  return (
+    <div className="relative">
+      {open && <div className="fixed inset-0 z-[90]" onClick={() => setOpen(false)} />}
+      <button
+        type="button"
+        onClick={() => setOpen(p => !p)}
+        className="w-full text-right bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-1 focus:border-[#8779fb] focus:ring-[#8779fb] flex items-center gap-1 relative z-[91] min-h-[28px]"
+      >
+        <span className="truncate flex-1 text-right">
+          {selected.length === 0
+            ? <span className="text-slate-400">{placeholder}</span>
+            : <span className="text-slate-700">{selected.join('، ')}</span>
+          }
+        </span>
+        <ChevronDown size={10} className={`shrink-0 text-slate-400 transition-transform ${open ? 'rotate-180' : ''}`} />
+      </button>
+      {open && (
+        <div className="absolute z-[99] top-full mt-1 bg-white border border-slate-200 rounded-xl shadow-xl min-w-[200px] py-1 right-0">
+          {options.map(o => (
+            <button
+              key={o}
+              type="button"
+              onClick={() => toggle(o)}
+              className="w-full text-right px-3 py-2 text-xs font-medium hover:bg-violet-50 flex items-center gap-2 transition-colors"
+            >
+              <span className={`w-3.5 h-3.5 rounded border flex items-center justify-center shrink-0 transition-colors ${
+                selected.includes(o) ? 'bg-[#8779fb] border-[#8779fb]' : 'border-slate-300'
+              }`}>
+                {selected.includes(o) && <Check size={9} className="text-white" />}
+              </span>
+              {o}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 const emptyLate = (): Omit<DutyStudentLate, 'id'> => ({
   studentName: '', gradeAndClass: '', exitTime: '', actionTaken: '', notes: ''
 });
 const emptyViolation = (): Omit<DutyStudentViolation, 'id'> => ({
-  studentName: '', gradeAndClass: '', violationType: 'تأخر صباحي', actionTaken: '', notes: ''
+  studentName: '', gradeAndClass: '', violationType: '', actionTaken: '', notes: ''
 });
 
 // Hijri date helper (browser-native)
@@ -134,36 +198,56 @@ const DutyReportEntry: React.FC<Props> = ({
 
       <div className="flex-1 w-full max-w-4xl mx-auto p-4 space-y-5 pb-24">
 
-        {/* ── School Header Card ─────────────────────────────────────────── */}
-        <div className="bg-white rounded-3xl p-5 shadow-sm border border-slate-100">
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-center">
-            <div className="bg-violet-50 rounded-2xl p-3 border border-violet-100">
-              <p className="text-[10px] font-bold text-slate-500 mb-1">المدرسة</p>
-              <p className="text-sm font-black text-slate-800 truncate">{schoolInfo.schoolName || '—'}</p>
-            </div>
-            <div className="bg-violet-50 rounded-2xl p-3 border border-violet-100">
-              <p className="text-[10px] font-bold text-slate-500 mb-1">العام الدراسي</p>
-              <p className="text-sm font-black text-slate-800">{schoolInfo.academicYear || '—'}</p>
-            </div>
-            <div className="bg-violet-50 rounded-2xl p-3 border border-violet-100">
-              <p className="text-[10px] font-bold text-slate-500 mb-1">اليوم</p>
-              <p className="text-sm font-black text-slate-800">{DAY_NAMES_AR[day] || day}</p>
-            </div>
-            <div className="bg-violet-50 rounded-2xl p-3 border border-violet-100">
-              <p className="text-[10px] font-bold text-slate-500 mb-1">التاريخ</p>
-              <p className="text-xs font-black text-slate-700">{hijriDate}</p>
-              <p className="text-[10px] text-slate-500 font-medium">{date}</p>
+        {/* ── Official Letterhead ────────────────────────────────────────── */}
+        <div className="bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden">
+          {/* Three-column header row */}
+          <div className="bg-gradient-to-b from-[#f5f3ff] to-white px-5 pt-5 pb-4 border-b border-violet-100">
+            <div className="grid grid-cols-3 gap-3 items-start">
+              {/* Right: Education Administration + School */}
+              <div className="text-right space-y-1">
+                <p className="text-[10px] font-bold text-slate-500 leading-relaxed">المملكة العربية السعودية</p>
+                <p className="text-[10px] font-bold text-slate-500 leading-relaxed">وزارة التعليم</p>
+                {schoolInfo.educationAdministration ? (
+                  <p className="text-[11px] font-black text-[#655ac1] leading-relaxed">{schoolInfo.educationAdministration}</p>
+                ) : schoolInfo.region ? (
+                  <p className="text-[11px] font-black text-[#655ac1] leading-relaxed">الإدارة العامة للتعليم بمنطقة {schoolInfo.region}</p>
+                ) : null}
+                <p className="text-xs font-black text-slate-800 mt-1 leading-snug">{schoolInfo.schoolName}</p>
+              </div>
+
+              {/* Center: Emblem + Title */}
+              <div className="flex flex-col items-center gap-2 text-center">
+                <div className="w-16 h-16 rounded-full bg-[#e5e1fe] border-4 border-[#8779fb]/30 flex items-center justify-center shadow-md shrink-0">
+                  <Shield size={30} className="text-[#655ac1]" />
+                </div>
+                <p className="text-[11px] font-black text-slate-800 leading-tight">نموذج تقرير المناوبة اليومية</p>
+              </div>
+
+              {/* Left: Year + Semester + Date */}
+              <div className="text-left space-y-1">
+                <p className="text-[10px] font-bold text-slate-500">العام الدراسي</p>
+                <p className="text-xs font-black text-slate-800">{schoolInfo.academicYear || '—'}</p>
+                {schoolInfo.semesters?.find(s => s.isCurrent) && (
+                  <>
+                    <p className="text-[10px] font-bold text-slate-500 mt-1">الفصل الدراسي</p>
+                    <p className="text-xs font-black text-slate-800">{schoolInfo.semesters.find(s => s.isCurrent)?.name || '—'}</p>
+                  </>
+                )}
+                <p className="text-[10px] font-bold text-slate-500 mt-1">اليوم / التاريخ</p>
+                <p className="text-xs font-black text-slate-800">{DAY_NAMES_AR[day] || day}</p>
+                <p className="text-[10px] text-slate-500 font-medium">{hijriDate}</p>
+              </div>
             </div>
           </div>
 
-          {/* Officer Info */}
-          <div className="mt-4 flex items-center gap-4 bg-slate-50 rounded-2xl p-3 border border-slate-100">
-            <div className="w-10 h-10 bg-[#e5e1fe] text-[#655ac1] rounded-xl flex items-center justify-center shrink-0">
-              <Shield size={20} />
+          {/* Supervisor info row */}
+          <div className="px-5 py-3 flex items-center gap-3 bg-violet-50/40">
+            <div className="w-8 h-8 bg-[#e5e1fe] text-[#655ac1] rounded-xl flex items-center justify-center shrink-0">
+              <Shield size={16} />
             </div>
-            <div>
-              <p className="text-xs font-bold text-slate-500">المناوب</p>
-              <p className="text-base font-black text-slate-800">{staffName}</p>
+            <div className="flex items-center gap-2 flex-wrap">
+              <p className="text-xs font-bold text-slate-500">المناوب:</p>
+              <p className="text-sm font-black text-[#655ac1]">{staffName}</p>
             </div>
           </div>
         </div>
@@ -216,13 +300,20 @@ const DutyReportEntry: React.FC<Props> = ({
                         <input className={inp} type="time" value={row.exitTime} onChange={e => updateLateField(idx, 'exitTime', e.target.value)} />
                       </td>
                       <td className="p-1.5">
-                        <select className={sel} value={row.actionTaken} onChange={e => updateLateField(idx, 'actionTaken', e.target.value)}>
-                          <option value="">اختر الإجراء</option>
-                          {LATE_ACTION_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
-                        </select>
+                        <MultiSelectDropdown
+                          options={LATE_ACTION_OPTIONS}
+                          value={row.actionTaken}
+                          onChange={v => updateLateField(idx, 'actionTaken', v)}
+                        />
                       </td>
                       <td className="p-1.5">
-                        <input className={inp} value={row.notes || ''} onChange={e => updateLateField(idx, 'notes', e.target.value)} placeholder="اختياري" />
+                        <textarea
+                          className={inp + ' resize-none min-h-[40px] leading-relaxed'}
+                          value={row.notes || ''}
+                          onChange={e => updateLateField(idx, 'notes', e.target.value)}
+                          placeholder="ملاحظات تفصيلية..."
+                          rows={2}
+                        />
                       </td>
                       <td className="p-1.5 text-center">
                         {lateRows.length > 1 && (
@@ -246,7 +337,7 @@ const DutyReportEntry: React.FC<Props> = ({
             <div className="p-4 overflow-x-auto">
               <table className="w-full text-xs border-collapse">
                 <thead>
-                  <tr className="bg-rose-500 text-white text-center">
+                  <tr className="bg-[#7c6ff0] text-white text-center">
                     <th className="p-2 rounded-tr-lg w-8">م</th>
                     <th className="p-2">اسم الطالب</th>
                     <th className="p-2">الصف / الفصل</th>
@@ -258,7 +349,7 @@ const DutyReportEntry: React.FC<Props> = ({
                 </thead>
                 <tbody>
                   {violationRows.map((row, idx) => (
-                    <tr key={idx} className={idx % 2 === 0 ? 'bg-white' : 'bg-rose-50/30'}>
+                    <tr key={idx} className={idx % 2 === 0 ? 'bg-white' : 'bg-violet-50/30'}>
                       <td className="p-1.5 text-center font-bold text-slate-500">{idx + 1}</td>
                       <td className="p-1.5">
                         <input className={inp} value={row.studentName} onChange={e => updateViolationField(idx, 'studentName', e.target.value)} placeholder="الاسم الرباعي" />
@@ -267,15 +358,19 @@ const DutyReportEntry: React.FC<Props> = ({
                         <input className={inp} value={row.gradeAndClass} onChange={e => updateViolationField(idx, 'gradeAndClass', e.target.value)} placeholder="ثالث / ٢" />
                       </td>
                       <td className="p-1.5">
-                        <select className={sel} value={row.violationType} onChange={e => updateViolationField(idx, 'violationType', e.target.value)}>
-                          {VIOLATION_TYPE_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
-                        </select>
+                        <input
+                          className={inp}
+                          value={row.violationType}
+                          onChange={e => updateViolationField(idx, 'violationType', e.target.value)}
+                          placeholder="كتابة المخالفة..."
+                        />
                       </td>
                       <td className="p-1.5">
-                        <select className={sel} value={row.actionTaken} onChange={e => updateViolationField(idx, 'actionTaken', e.target.value)}>
-                          <option value="">اختر الإجراء</option>
-                          {VIOLATION_ACTION_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
-                        </select>
+                        <MultiSelectDropdown
+                          options={VIOLATION_ACTION_OPTIONS}
+                          value={row.actionTaken}
+                          onChange={v => updateViolationField(idx, 'actionTaken', v)}
+                        />
                       </td>
                       <td className="p-1.5">
                         <input className={inp} value={row.notes || ''} onChange={e => updateViolationField(idx, 'notes', e.target.value)} placeholder="اختياري" />
@@ -291,7 +386,7 @@ const DutyReportEntry: React.FC<Props> = ({
                   ))}
                 </tbody>
               </table>
-              <button onClick={addViolationRow} className="mt-3 w-full py-2 border-2 border-dashed border-slate-200 rounded-xl text-rose-300 hover:text-rose-500 hover:border-rose-300 hover:bg-rose-50/50 text-xs font-bold flex items-center justify-center gap-1 transition-all">
+              <button onClick={addViolationRow} className="mt-3 w-full py-2 border-2 border-dashed border-slate-200 rounded-xl text-slate-400 hover:text-[#8779fb] hover:border-violet-300 hover:bg-violet-50/50 text-xs font-bold flex items-center justify-center gap-1 transition-all">
                 <Plus size={13} /> إضافة صف
               </button>
             </div>

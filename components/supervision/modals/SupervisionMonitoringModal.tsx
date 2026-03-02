@@ -27,7 +27,7 @@ const SupervisionMonitoringModal: React.FC<Props> = ({
             </div>
             <div>
               <h2 className="text-xl font-black text-slate-800">المتابعة اليومية</h2>
-              <p className="text-sm font-medium text-slate-500 mt-0.5">تسجيل حالات الحضور والانصراف للمشرفين</p>
+              <p className="text-sm font-medium text-slate-500 mt-0.5">متابعة أداء المشرفين للإشراف اليومي</p>
             </div>
           </div>
           <button onClick={onClose} className="p-2.5 rounded-xl hover:bg-slate-100 text-slate-400 transition-colors">
