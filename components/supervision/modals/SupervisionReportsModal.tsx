@@ -270,7 +270,7 @@ const SupervisionReportsModalContent: React.FC<Props> = ({
 
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[9999] flex items-center justify-center p-4">
-      <div className="bg-slate-50 rounded-3xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-200">
+      <div className="bg-slate-50 rounded-3xl shadow-2xl w-full max-w-4xl h-[85vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-200">
         <div className="bg-white border-b border-slate-200 px-6 py-4 flex flex-col sm:flex-row sm:items-center justify-between shrink-0 gap-4">
           <div className="flex items-center gap-3">
             <div className="w-12 h-12 bg-[#e5e1fe] rounded-2xl flex items-center justify-center text-[#655ac1] shadow-sm">
@@ -278,7 +278,7 @@ const SupervisionReportsModalContent: React.FC<Props> = ({
             </div>
             <div>
               <h2 className="text-xl font-black text-slate-800">تقارير الإشراف</h2>
-              <p className="text-sm font-medium text-slate-500 mt-0.5">استعراض المعدلات واستخراج تقارير الأداء</p>
+              <p className="text-sm font-medium text-slate-500 mt-0.5">تقارير الأداء للمشرفين</p>
             </div>
           </div>
           <button onClick={onClose} className="p-2.5 rounded-xl hover:bg-slate-100 text-slate-400 transition-colors self-end sm:self-auto">
@@ -458,64 +458,7 @@ const SupervisionReportsModalContent: React.FC<Props> = ({
             </div>
           </div>
 
-          <div className="bg-white rounded-[2rem] p-6 shadow-sm border border-slate-100 relative overflow-hidden">
-             <div className="absolute top-0 left-0 w-32 h-32 bg-gradient-to-br from-transparent to-slate-50 rounded-br-full -z-0 pointer-events-none" />
-             <div className="relative z-10">
-             {/* Stats Cards */}
-             <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-8">
-               <div className="bg-white shadow-sm rounded-2xl p-4 text-center border border-slate-200 transition-transform hover:scale-105">
-                 <p className="text-3xl font-black text-green-600">{stats.present}</p>
-                 <p className="text-sm font-bold text-green-600 mt-1">حاضر</p>
-               </div>
-               <div className="bg-white shadow-sm rounded-2xl p-4 text-center border border-slate-200 transition-transform hover:scale-105">
-                 <p className="text-3xl font-black text-red-600">{stats.absent}</p>
-                 <p className="text-sm font-bold text-red-600 mt-1">غائب</p>
-               </div>
-               <div className="bg-white shadow-sm rounded-2xl p-4 text-center border border-slate-200 transition-transform hover:scale-105">
-                 <p className="text-3xl font-black text-blue-600">{stats.excused}</p>
-                 <p className="text-sm font-bold text-blue-600 mt-1">مستأذن</p>
-               </div>
-               <div className="bg-white shadow-sm rounded-2xl p-4 text-center border border-slate-200 transition-transform hover:scale-105">
-                 <p className="text-3xl font-black text-orange-600">{stats.withdrawn}</p>
-                 <p className="text-sm font-bold text-orange-600 mt-1">منسحب</p>
-               </div>
-               <div className="bg-white shadow-sm rounded-2xl p-4 text-center border border-slate-200 transition-transform hover:scale-105">
-                 <p className="text-3xl font-black text-amber-600">{stats.late}</p>
-                 <p className="text-sm font-bold text-amber-600 mt-1">متأخر</p>
-               </div>
-             </div>
 
-             {/* Overall Chart */}
-             {stats.total > 0 && (
-               <div className="bg-slate-50 rounded-2xl p-5 mb-8 border border-slate-100">
-                 <p className="text-base font-black text-slate-700 mb-4">نسبة الحضور الإجمالية</p>
-                 <div className="w-full bg-slate-200 rounded-full h-8 overflow-hidden flex shadow-inner">
-                   {stats.present > 0 && (
-                     <div
-                       className="bg-green-500 h-full flex items-center justify-center text-white text-xs font-bold transition-all duration-1000"
-                       style={{ width: `${(stats.present / stats.total) * 100}%` }}
-                     >
-                       {Math.round((stats.present / stats.total) * 100)}%
-                     </div>
-                   )}
-                   {stats.late > 0 && (
-                     <div
-                       className="bg-amber-400 h-full flex items-center justify-center text-white text-xs font-bold transition-all duration-1000"
-                       style={{ width: `${(stats.late / stats.total) * 100}%` }}
-                     />
-                   )}
-                   {stats.absent > 0 && (
-                     <div
-                       className="bg-red-500 h-full flex items-center justify-center text-white text-xs font-bold transition-all duration-1000"
-                       style={{ width: `${(stats.absent / stats.total) * 100}%` }}
-                     />
-                   )}
-                 </div>
-               </div>
-             )}
-
-             </div>
-          </div>
         </div>
       </div>
     </div>
