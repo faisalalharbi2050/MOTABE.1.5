@@ -431,7 +431,7 @@ const DutyReportsModalContent: React.FC<Props> = ({
 
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[9999] flex items-center justify-center p-4">
-      <div className="bg-slate-50 rounded-3xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-200">
+      <div className="bg-slate-50 rounded-3xl shadow-2xl w-full max-w-4xl h-[85vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-200">
         <div className="bg-white border-b border-slate-200 px-6 py-4 flex flex-col sm:flex-row sm:items-center justify-between shrink-0 gap-4">
           <div className="flex items-center gap-3">
             <div className="w-12 h-12 bg-[#e5e1fe] rounded-2xl flex items-center justify-center text-[#655ac1] shadow-sm">
@@ -489,7 +489,7 @@ const DutyReportsModalContent: React.FC<Props> = ({
                   : 'text-slate-500 hover:bg-slate-50 hover:text-[#655ac1]'
               }`}
             >
-              <BarChart3 size={18} /> التقارير اليومية
+              <BarChart3 size={18} /> التقارير اليومية للسلوك والتأخر
             </button>
           </div>
 
@@ -631,63 +631,6 @@ const DutyReportsModalContent: React.FC<Props> = ({
           <div className="bg-white rounded-[2rem] p-6 shadow-sm border border-slate-100 relative overflow-hidden z-10">
              <div className="absolute top-0 left-0 w-32 h-32 bg-gradient-to-br from-transparent to-slate-50 rounded-br-full -z-0 pointer-events-none" />
              <div className="relative z-10">
-             {/* Stats Cards */}
-             <div className="grid grid-cols-2 md:grid-cols-6 gap-4 mb-8">
-               <div className="bg-white shadow-sm rounded-2xl p-4 text-center border border-slate-200 transition-transform hover:scale-105">
-                 <p className="text-3xl font-black text-emerald-500">{stats.present}</p>
-                 <p className="text-sm font-bold text-emerald-700 mt-1">حاضر</p>
-               </div>
-               <div className="bg-white shadow-sm rounded-2xl p-4 text-center border border-slate-200 transition-transform hover:scale-105">
-                 <p className="text-3xl font-black text-red-500">{stats.absent}</p>
-                 <p className="text-sm font-bold text-red-700 mt-1">غائب</p>
-               </div>
-               <div className="bg-white shadow-sm rounded-2xl p-4 text-center border border-slate-200 transition-transform hover:scale-105">
-                 <p className="text-3xl font-black text-blue-500">{stats.excused}</p>
-                 <p className="text-sm font-bold text-blue-700 mt-1">مستأذن</p>
-               </div>
-               <div className="bg-white shadow-sm rounded-2xl p-4 text-center border border-slate-200 transition-transform hover:scale-105">
-                 <p className="text-3xl font-black text-orange-500">{stats.withdrawn}</p>
-                 <p className="text-sm font-bold text-orange-700 mt-1">منسحب</p>
-               </div>
-               <div className="bg-white shadow-sm rounded-2xl p-4 text-center border border-slate-200 transition-transform hover:scale-105">
-                 <p className="text-3xl font-black text-[#8779fb]">{stats.late}</p>
-                 <p className="text-sm font-bold text-[#655ac1] mt-1">متأخر</p>
-               </div>
-               <div className="bg-white shadow-sm rounded-2xl p-4 text-center border border-slate-200 transition-transform hover:scale-105">
-                 <p className="text-3xl font-black text-[#8779fb]">{stats.submitted}</p>
-                 <p className="text-sm font-bold text-[#655ac1] mt-1">تقارير مسلمة</p>
-               </div>
-             </div>
-
-             {/* Overall Chart */}
-             {stats.total > 0 && (
-               <div className="bg-slate-50 rounded-2xl p-5 border border-slate-100">
-                 <p className="text-base font-black text-slate-700 mb-4">نسبة الحضور والتسليم الإجمالية</p>
-                 <div className="w-full bg-slate-200 rounded-full h-8 overflow-hidden flex shadow-inner">
-                   {stats.present > 0 && (
-                     <div
-                       className="bg-emerald-500 h-full flex items-center justify-center text-white text-xs font-bold transition-all duration-1000"
-                       style={{ width: `${(stats.present / stats.total) * 100}%` }}
-                     >
-                       {Math.round((stats.present / stats.total) * 100)}%
-                     </div>
-                   )}
-                   {stats.late > 0 && (
-                     <div
-                       className="bg-indigo-400 h-full flex items-center justify-center text-white text-xs font-bold transition-all duration-1000"
-                       style={{ width: `${(stats.late / stats.total) * 100}%` }}
-                     />
-                   )}
-                   {stats.absent > 0 && (
-                     <div
-                       className="bg-red-500 h-full flex items-center justify-center text-white text-xs font-bold transition-all duration-1000"
-                       style={{ width: `${(stats.absent / stats.total) * 100}%` }}
-                     />
-                   )}
-                 </div>
-               </div>
-             )}
-
              </div>
           </div>
           </>)} {/* end activeTab !== daily */}
