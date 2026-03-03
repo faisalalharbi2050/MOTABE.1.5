@@ -152,7 +152,7 @@ const App: React.FC = () => {
 
   const handleLogout = () => {
     if(confirm('هل أنت متأكد من تسجيل الخروج؟')) {
-        setActiveTab('settings');
+        setActiveTab('dashboard');
         setIsSidebarOpen(false);
     }
   };
