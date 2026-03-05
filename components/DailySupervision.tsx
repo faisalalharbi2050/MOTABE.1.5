@@ -278,24 +278,6 @@ const DailySupervision: React.FC<DailySupervisionProps> = ({
            {/* Right Side */}
            <div className="flex flex-wrap items-center gap-2">
              <button
-               onClick={() => setIsMonitoringOpen(true)}
-               className="flex items-center gap-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 px-4 py-2.5 rounded-xl font-bold transition-all hover:border-[#655ac1] hover:text-[#655ac1]"
-             >
-               <Eye size={18} className="text-[#655ac1]" />
-               <span>المتابعة اليومية</span>
-             </button>
-             <button
-               onClick={() => setIsReportsOpen(true)}
-               className="flex items-center gap-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 px-4 py-2.5 rounded-xl font-bold transition-all hover:border-[#655ac1] hover:text-[#655ac1]"
-             >
-               <BarChart3 size={18} className="text-[#655ac1]" />
-               <span>تقارير الإشراف</span>
-             </button>
-           </div>
-
-           {/* Left Side */}
-           <div className="flex flex-wrap items-center gap-2">
-             <button
                onClick={() => setIsManageSchedulesOpen(true)}
                className="flex items-center gap-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 px-4 py-2.5 rounded-xl font-bold transition-all hover:border-[#655ac1] hover:text-[#655ac1]"
              >
@@ -314,15 +296,32 @@ const DailySupervision: React.FC<DailySupervisionProps> = ({
                className="flex items-center gap-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 px-4 py-2.5 rounded-xl font-bold transition-all hover:border-[#655ac1] hover:text-[#655ac1]"
              >
                <Send size={18} className="text-[#655ac1]" />
-               <span>إرسال</span>
+               <span>إرسال الإشراف</span>
              </button>
-
              <button
                onClick={() => setShowGlobalDeleteConfirm(true)}
                className="flex items-center gap-2 bg-white hover:bg-rose-50 text-slate-700 hover:text-rose-600 border border-slate-200 px-4 py-2.5 rounded-xl font-bold transition-all hover:border-rose-300"
              >
                <Trash2 size={18} className="text-rose-500" />
                <span>حذف الجدول</span>
+             </button>
+           </div>
+
+           {/* Left Side */}
+           <div className="flex flex-wrap items-center gap-2">
+             <button
+               onClick={() => setIsMonitoringOpen(true)}
+               className="flex items-center gap-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 px-4 py-2.5 rounded-xl font-bold transition-all hover:border-[#655ac1] hover:text-[#655ac1]"
+             >
+               <Eye size={18} className="text-[#655ac1]" />
+               <span>المتابعة اليومية</span>
+             </button>
+             <button
+               onClick={() => setIsReportsOpen(true)}
+               className="flex items-center gap-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 px-4 py-2.5 rounded-xl font-bold transition-all hover:border-[#655ac1] hover:text-[#655ac1]"
+             >
+               <BarChart3 size={18} className="text-[#655ac1]" />
+               <span>تقارير الإشراف</span>
              </button>
            </div>
         </div>

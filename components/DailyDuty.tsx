@@ -258,24 +258,6 @@ const DailyDuty: React.FC<DailyDutyProps> = ({
            {/* Right Side */}
            <div className="flex flex-wrap items-center gap-2">
              <button
-               onClick={() => setIsMonitoringOpen(true)}
-               className="flex items-center gap-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 px-4 py-2.5 rounded-xl font-bold transition-all hover:border-[#8779fb] hover:text-[#655ac1]"
-             >
-               <Eye size={18} className="text-[#8779fb]" />
-               <span>المتابعة اليومية</span>
-             </button>
-             <button
-               onClick={() => setIsReportsOpen(true)}
-               className="flex items-center gap-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 px-4 py-2.5 rounded-xl font-bold transition-all hover:border-[#8779fb] hover:text-[#655ac1]"
-             >
-               <BarChart3 size={18} className="text-[#8779fb]" />
-                 <span>تقارير المناوبة</span>
-             </button>
-           </div>
-
-           {/* Left Side */}
-           <div className="flex flex-wrap items-center gap-2">
-             <button
                onClick={() => setIsManageSchedulesOpen(true)}
                className="flex items-center gap-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 px-4 py-2.5 rounded-xl font-bold transition-all hover:border-[#8779fb] hover:text-[#655ac1]"
              >
@@ -287,22 +269,39 @@ const DailyDuty: React.FC<DailyDutyProps> = ({
                className="flex items-center gap-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 px-4 py-2.5 rounded-xl font-bold transition-all hover:border-[#8779fb] hover:text-[#655ac1]"
              >
                <Printer size={18} className="text-[#8779fb]" />
-               <span>طباعة</span>
+               <span>طباعة الجدول</span>
              </button>
              <button
                onClick={() => setIsMessagingOpen(true)}
                className="flex items-center gap-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 px-4 py-2.5 rounded-xl font-bold transition-all hover:border-[#8779fb] hover:text-[#655ac1]"
              >
                <Send size={18} className="text-[#8779fb]" />
-               <span>إرسال</span>
+               <span>إرسال المناوبة</span>
              </button>
-
              <button
                onClick={() => setShowGlobalDeleteConfirm(true)}
                className="flex items-center gap-2 bg-white hover:bg-rose-50 text-slate-700 hover:text-rose-600 border border-slate-200 px-4 py-2.5 rounded-xl font-bold transition-all hover:border-rose-300"
              >
                <Trash2 size={18} className="text-rose-500" />
                <span>حذف الجدول</span>
+             </button>
+           </div>
+
+           {/* Left Side */}
+           <div className="flex flex-wrap items-center gap-2">
+             <button
+               onClick={() => setIsMonitoringOpen(true)}
+               className="flex items-center gap-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 px-4 py-2.5 rounded-xl font-bold transition-all hover:border-[#8779fb] hover:text-[#655ac1]"
+             >
+               <Eye size={18} className="text-[#8779fb]" />
+               <span>المتابعة اليومية</span>
+             </button>
+             <button
+               onClick={() => setIsReportsOpen(true)}
+               className="flex items-center gap-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 px-4 py-2.5 rounded-xl font-bold transition-all hover:border-[#8779fb] hover:text-[#655ac1]"
+             >
+               <BarChart3 size={18} className="text-[#8779fb]" />
+               <span>تقارير المناوبة</span>
              </button>
            </div>
         </div>
