@@ -723,59 +723,58 @@ interface GradeCardProps {
 }
 
 const GradeCard: React.FC<GradeCardProps> = ({ grade, isActive, subjectCount, onView, color }) => {
+    // Override icon color to purple for all cards
     const colorClasses = {
-        emerald: { border: 'border-emerald-100', text: 'text-emerald-600', bg: 'bg-emerald-50', activeBorder: 'border-emerald-500', activeBg: 'bg-emerald-50/50' },
-        blue: { border: 'border-blue-100', text: 'text-blue-600', bg: 'bg-blue-50', activeBorder: 'border-blue-500', activeBg: 'bg-blue-50/50' },
-        amber: { border: 'border-amber-100', text: 'text-amber-600', bg: 'bg-amber-50', activeBorder: 'border-amber-500', activeBg: 'bg-amber-50/50' },
-    }[color];
+      border: 'border-[#e5e1fe]',
+      text: 'text-[#655ac1]',
+      bg: 'bg-[#e5e1fe]',
+      activeBorder: 'border-[#655ac1]',
+      activeBg: 'bg-[#e5e1fe]/50',
+    };
 
     return (
-        <div className={`
-            relative p-6 rounded-[2rem] border-2 transition-all duration-300 group
-            ${isActive 
-                ? `${colorClasses.activeBorder} ${colorClasses.activeBg} shadow-lg shadow-${color}-500/10` 
-                : `${colorClasses.border} bg-white hover:border-${color}-200 hover:shadow-lg`}
-        `}>
-            {isActive && (
-                <div className="absolute top-4 left-4">
-                    <div className="p-1 bg-white rounded-full shadow-sm"><CheckCircle2 size={20} className={colorClasses.text} /></div>
-                </div>
-            )}
-            
-            <div className="flex flex-col gap-4">
-               <div>
-                   <h4 className="text-2xl font-black text-slate-800">{grade}</h4>
-                   <p className="text-xs font-bold text-slate-400 mt-1">{isActive ? 'الخطة معتمدة' : 'لم يتم الاعتماد'}</p>
-               </div>
-               
-               <div className="flex items-center gap-3">
-                   <div className={`px-4 py-2 rounded-xl text-xs font-black ${colorClasses.bg} ${colorClasses.text}`}>
-                       {subjectCount} مادة
-                   </div>
-                   <button onClick={onView} className="flex-1 py-2 bg-slate-50 hover:bg-slate-100 rounded-xl text-xs font-bold text-slate-500 transition-colors flex items-center justify-center gap-2">
-                       <Eye size={14}/> معاينة
-                   </button>
-               </div>
-            </div>
+      <div className={`
+        relative p-6 rounded-[2rem] border-2 transition-all duration-300 group
+        ${isActive 
+          ? `${colorClasses.activeBorder} ${colorClasses.activeBg} shadow-lg drop-shadow-[0_2px_8px_rgba(101,90,193,0.15)]` 
+          : `${colorClasses.border} bg-white hover:border-[#655ac1]/40 hover:shadow-lg`}
+      `}>
+        {isActive && (
+          <div className="absolute top-4 left-4">
+            <div className="p-1 bg-white rounded-full shadow-sm"><CheckCircle2 size={20} className="text-[#655ac1] drop-shadow-[0_2px_8px_rgba(101,90,193,0.25)]" /></div>
+          </div>
+        )}
+        <div className="flex flex-col gap-4">
+           <div>
+             <h4 className="text-2xl font-black text-slate-800">{grade}</h4>
+             <p className="text-xs font-bold text-slate-400 mt-1">{isActive ? 'الخطة معتمدة' : 'لم يتم الاعتماد'}</p>
+           </div>
+           <div className="flex items-center gap-3">
+             <div className={`px-4 py-2 rounded-xl text-xs font-black bg-[#e5e1fe] text-[#655ac1]`}> 
+               {subjectCount} مادة
+             </div>
+             <button onClick={onView} className="flex-1 py-2 bg-slate-50 hover:bg-slate-100 rounded-xl text-xs font-bold text-slate-500 transition-colors flex items-center justify-center gap-2">
+               <Eye size={14} className="text-[#655ac1] drop-shadow-[0_2px_8px_rgba(101,90,193,0.25)]" /> معاينة
+             </button>
+           </div>
         </div>
+      </div>
     );
 };
 
 const DivisionActions: React.FC<{isActive: boolean, onAdopt: () => void, onRemove: () => void, color: 'emerald' | 'blue' | 'amber'}> = ({ isActive, onAdopt, onRemove, color }) => {
-    const bgColors = { emerald: 'bg-emerald-500', blue: 'bg-blue-500', amber: 'bg-amber-500' };
-    const hoverColors = { emerald: 'hover:bg-emerald-600', blue: 'hover:bg-blue-600', amber: 'hover:bg-amber-600' };
-    
+    // Always purple for adopt button
     if (isActive) {
-        return (
-            <button onClick={onRemove} className="px-4 py-2 bg-rose-50 text-rose-500 border border-rose-100 rounded-xl text-xs font-black hover:bg-rose-100 transition-all flex items-center gap-2">
-                <X size={14}/> إلغاء الاعتماد
-            </button>
-        );
+      return (
+        <button onClick={onRemove} className="px-4 py-2 bg-rose-50 text-rose-500 border border-rose-100 rounded-xl text-xs font-black hover:bg-rose-100 transition-all flex items-center gap-2">
+          <X size={14}/> إلغاء الاعتماد
+        </button>
+      );
     }
     return (
-        <button onClick={onAdopt} className={`px-5 py-2.5 text-white rounded-xl text-xs font-bold transition-all flex items-center gap-2 shadow-lg shadow-${color}-200 ${bgColors[color]} ${hoverColors[color]}`}>
-            <CheckCircle2 size={14}/> اعتماد للكل
-        </button>
+      <button onClick={onAdopt} className="px-5 py-2.5 text-white rounded-xl text-xs font-bold transition-all flex items-center gap-2 shadow-lg bg-[#655ac1] hover:bg-[#5046a0]">
+        <CheckCircle2 size={14} className="text-white drop-shadow-[0_2px_8px_rgba(101,90,193,0.25)]"/> اعتماد للكل
+      </button>
     );
 };
 

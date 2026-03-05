@@ -4,7 +4,7 @@ import {
   Search, X, Trash2, ChevronDown, Filter, Check, Layers, Briefcase, 
   Printer, Users, CheckCircle2, User, HelpCircle, AlertTriangle, LayoutTemplate,
   Eye, ArrowUp, ClipboardList, BookOpen, ChevronRight, Calculator, GraduationCap,
-  ListFilter, School
+  ListFilter, School, LayoutGrid
 } from 'lucide-react';
 import AssignmentReport from './AssignmentReport';
 
@@ -407,7 +407,7 @@ const ManualAssignment: React.FC<Props> = ({
             {/* Stat 1: Unassigned Periods (Refined) */}
             <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-md flex flex-col justify-center items-center transition-all">
                 <div className="flex items-center gap-2 mb-2.5">
-                    <div className="p-1.5 bg-slate-100 text-slate-600 rounded-lg"><Layers size={18} /></div>
+                    <div className="p-1.5 bg-slate-100 rounded-lg shadow-sm"><Layers size={18} className="text-[#655ac1]" /></div>
                     <span className="text-xs font-bold text-slate-500">حصص غير مسندة</span>
                 </div>
                 <div className="flex items-baseline gap-1">
@@ -419,7 +419,7 @@ const ManualAssignment: React.FC<Props> = ({
             {/* Stat 2: Unassigned Classes (Refined Icon + Color) */}
             <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-md flex flex-col justify-center items-center transition-all">
                 <div className="flex items-center gap-2 mb-2.5">
-                    <div className="p-1.5 bg-slate-100 text-slate-600 rounded-lg"><School size={18} /></div>
+                    <div className="p-1.5 bg-slate-100 rounded-lg shadow-sm"><LayoutGrid size={18} className="text-[#655ac1]" /></div>
                     <span className="text-xs font-bold text-slate-500">فصول غير مسندة</span>
                 </div>
                 <span className="text-3xl font-black leading-none text-[#655ac1]">{unassignedClassesCount}</span>
@@ -428,7 +428,7 @@ const ManualAssignment: React.FC<Props> = ({
             {/* Stat 3: Unassigned Subjects (Refined Color) */}
             <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-md flex flex-col justify-center items-center transition-all">
                 <div className="flex items-center gap-2 mb-2.5">
-                    <div className="p-1.5 bg-slate-100 text-slate-600 rounded-lg"><BookOpen size={18} /></div>
+                    <div className="p-1.5 bg-slate-100 rounded-lg shadow-sm"><BookOpen size={18} className="text-[#655ac1]" /></div>
                     <span className="text-xs font-bold text-slate-500">مواد غير مسندة</span>
                 </div>
                 <span className="text-3xl font-black leading-none text-[#655ac1]">{unassignedSubjectsCount}</span>
@@ -439,7 +439,7 @@ const ManualAssignment: React.FC<Props> = ({
                 onClick={() => setShowReport(true)}
                 className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm flex flex-col justify-center items-center gap-2 hover:border-[#655ac1] hover:text-[#655ac1] transition-all group"
             >
-                <Printer size={24} className="text-slate-400 group-hover:text-[#655ac1] transition-colors"/>
+                <Printer size={24} className="text-[#655ac1] transition-colors shadow-sm"/>
                 <span className="text-xs font-bold text-slate-600 group-hover:text-[#655ac1]">تقرير الإسناد</span>
             </button>
 

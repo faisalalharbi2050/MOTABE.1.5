@@ -1351,22 +1351,29 @@ const DailyWaiting: React.FC<DailyWaitingProps> = ({
       </div>
 
       {/* ══════ Stats Strip ══════ */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        {[
-          { label: 'الغائبون اليوم',    value: totalAbsent,   icon: <UserX size={18} />,       color: 'text-[#655ac1]',   iconBg: 'bg-slate-100', iconColor: 'text-slate-600' },
-          { label: 'عدد حصص الغائبون', value: totalPeriods,  icon: <BookOpen size={18} />,    color: 'text-amber-700',   iconBg: 'bg-slate-100', iconColor: 'text-slate-600' },
-          { label: 'الحصص المسندة',    value: totalAssigned, icon: <CheckCircle size={18} />, color: 'text-emerald-700', iconBg: 'bg-slate-100', iconColor: 'text-slate-600' },
-          { label: 'الحصص الغير مسندة', value: totalPending, icon: <Clock size={18} />,       color: 'text-rose-700',    iconBg: 'bg-slate-100', iconColor: 'text-slate-600' },
-        ].map(s => (
-          <div key={s.label} className="bg-white p-5 rounded-2xl border border-slate-100 shadow-md flex flex-col justify-center items-center transition-all">
-            <div className="flex items-center gap-2 mb-2.5">
-              <div className={`p-1.5 ${s.iconBg} ${s.iconColor} rounded-lg`}>{s.icon}</div>
-              <span className="text-xs font-bold text-slate-500">{s.label}</span>
-            </div>
-            <span className={`text-3xl font-black leading-none ${s.color}`}>{s.value}</span>
+      {/* تعريف المصفوفة خارج JSX */}
+      {/** بطاقة الإحصائية البنفسجية **/}
+      {(() => {
+        const statCards = [
+          { label: 'الغائبون اليوم',    value: totalAbsent,   icon: <UserX size={18} className="text-[#655ac1] drop-shadow" />,       color: 'text-[#655ac1]',   iconBg: 'bg-slate-100', iconColor: 'text-slate-600' },
+          { label: 'حصص الغائبون', value: totalPeriods,  icon: <BookOpen size={18} className="text-[#655ac1] drop-shadow" />,    color: 'text-amber-700',   iconBg: 'bg-slate-100', iconColor: 'text-slate-600' },
+          { label: 'الحصص المسندة',    value: totalAssigned, icon: <CheckCircle size={18} className="text-[#655ac1] drop-shadow" />, color: 'text-emerald-700', iconBg: 'bg-slate-100', iconColor: 'text-slate-600' },
+          { label: 'الحصص الغير مسندة', value: totalPending, icon: <Clock size={18} className="text-[#655ac1] drop-shadow" />,       color: 'text-rose-700',    iconBg: 'bg-slate-100', iconColor: 'text-slate-600' },
+        ];
+        return (
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            {statCards.map(s => (
+              <div key={s.label} className="bg-white p-5 rounded-2xl border border-slate-100 shadow-md flex flex-col justify-center items-center transition-all">
+                <div className="flex items-center gap-2 mb-2.5">
+                  <div className={`p-1.5 ${s.iconBg} ${s.iconColor} rounded-lg`}>{s.icon}</div>
+                  <span className="text-xs font-bold text-slate-500">{s.label}</span>
+                </div>
+                <span className={`text-3xl font-black leading-none ${s.color}`}>{s.value}</span>
+              </div>
+            ))}
           </div>
-        ))}
-      </div>
+        );
+      })()}
 
       {/* ══════ Divider ══════ */}
       <div className="h-px bg-slate-200" />
@@ -1487,8 +1494,8 @@ const DailyWaiting: React.FC<DailyWaitingProps> = ({
       <div className="bg-white rounded-[2rem] border border-slate-100 shadow-sm">
         <div className="flex items-center justify-between px-6 py-5">
           <div className="flex items-center gap-4">
-            <div className="p-3 bg-[#e5e1fe] text-[#655ac1] rounded-2xl">
-              <Users size={22} />
+            <div className="p-3 bg-[#e5e1fe] text-[#655ac1] rounded-2xl drop-shadow-[0_2px_8px_rgba(101,90,193,0.25)]">
+              <Users size={22} className="text-[#655ac1] drop-shadow-[0_2px_8px_rgba(101,90,193,0.25)]" />
             </div>
             <div>
               <h3 className="text-base font-black text-slate-800">انتظار اليوم</h3>
@@ -1644,11 +1651,8 @@ const DailyWaiting: React.FC<DailyWaitingProps> = ({
               } ${isFullyCovered ? 'border-r-4 border-emerald-400' : ''}`}
             >
               <div className="flex items-center gap-4">
-                <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 ${
-                  isFullyCovered ? 'bg-emerald-50 text-emerald-500' :
-                  absentTeacher.absenceType === 'full' ? 'bg-rose-50 text-rose-500' : 'bg-amber-50 text-amber-500'
-                }`}>
-                  {isFullyCovered ? <CheckCircle2 size={24} /> : <UserX size={24} />}
+                <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 bg-[#e5e1fe] text-[#655ac1] drop-shadow-[0_2px_8px_rgba(101,90,193,0.25)]`}>
+                  {isFullyCovered ? <CheckCircle2 size={24} className="text-[#655ac1] drop-shadow-[0_2px_8px_rgba(101,90,193,0.25)]" /> : <UserX size={24} className="text-[#655ac1] drop-shadow-[0_2px_8px_rgba(101,90,193,0.25)]" />}
                 </div>
                 <div>
                   <div className="flex items-center gap-2 flex-wrap">

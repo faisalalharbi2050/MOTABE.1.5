@@ -51,7 +51,7 @@ const AssignmentReport: React.FC<Props> = ({ schoolInfo, teachers, subjects, cla
               <p>مدرسة {schoolInfo.schoolName || '..........'}</p>
            </div>
            <div className="text-center">
-              <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-2"><School size={30} className="text-primary" /></div>
+              <div className="w-16 h-16 bg-[#e5e1fe] rounded-full flex items-center justify-center mx-auto mb-2"><School size={30} className="text-[#655ac1] drop-shadow-[0_2px_8px_rgba(101,90,193,0.25)]" /></div>
               <h1 className="text-xl font-black text-primary">تقرير إسناد المواد</h1>
               {schoolInfo.mergeTeachers && (
                   <div className="mt-1 flex items-center justify-center gap-1 text-[10px] text-emerald-600 font-black px-2 py-0.5 bg-emerald-50 rounded-lg">
