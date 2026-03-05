@@ -1,0 +1,3 @@
+﻿components/DailyWaiting.tsx(375,47): error TS2339: Property 'split' does not exist on type '[string, TimetableSlot]'.
+components/DailyWaiting.tsx(2316,30): error TS2304: Cannot find name 'hasWarnings'.
+components/DailyWaiting.tsx(2316,45): error TS2304: Cannot find name 'violations'.

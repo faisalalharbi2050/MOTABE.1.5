@@ -1,0 +1,9 @@
+﻿components/DailyWaiting.tsx(218,10): error TS2451: Cannot redeclare block-scoped variable 'showPrintModal'.
+components/DailyWaiting.tsx(218,26): error TS2451: Cannot redeclare block-scoped variable 'setShowPrintModal'.
+components/DailyWaiting.tsx(256,10): error TS2451: Cannot redeclare block-scoped variable 'showPrintModal'.
+components/DailyWaiting.tsx(256,26): error TS2451: Cannot redeclare block-scoped variable 'setShowPrintModal'.
+components/DailyWaiting.tsx(378,47): error TS2339: Property 'split' does not exist on type '[string, TimetableSlot]'.
+components/DailyWaiting.tsx(2319,30): error TS2304: Cannot find name 'hasWarnings'.
+components/DailyWaiting.tsx(2319,45): error TS2304: Cannot find name 'violations'.
+components/DailyWaiting.tsx(3507,11): error TS2322: Type '{ isOpen: true; onClose: () => void; session: DailyWaitingSession; schoolInfo: SchoolInfo; }' is not assignable to type 'IntrinsicAttributes & DailyWaitingPrintModalProps'.
+  Property 'session' does not exist on type 'IntrinsicAttributes & DailyWaitingPrintModalProps'.

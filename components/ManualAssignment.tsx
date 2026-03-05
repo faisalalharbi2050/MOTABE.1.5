@@ -405,33 +405,33 @@ const ManualAssignment: React.FC<Props> = ({
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
             
             {/* Stat 1: Unassigned Periods (Refined) */}
-            <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm flex flex-col justify-center items-center hover:shadow-md transition-all">
-                <div className="flex items-center gap-2 mb-1">
-                    <div className="p-1.5 bg-slate-100 text-slate-600 rounded-lg"><Layers size={16} /></div>
-                    <span className="text-[10px] font-bold text-slate-500">حصص غير مسندة</span>
+            <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-md flex flex-col justify-center items-center transition-all">
+                <div className="flex items-center gap-2 mb-2.5">
+                    <div className="p-1.5 bg-slate-100 text-slate-600 rounded-lg"><Layers size={18} /></div>
+                    <span className="text-xs font-bold text-slate-500">حصص غير مسندة</span>
                 </div>
                 <div className="flex items-baseline gap-1">
-                    <span className="text-2xl font-black text-indigo-600 leading-none">{totalPeriods - assignedPeriods}</span>
-                    <span className="text-2xl font-black text-slate-400 leading-none">/ {totalPeriods}</span>
+                    <span className="text-3xl font-black text-indigo-600 leading-none">{totalPeriods - assignedPeriods}</span>
+                    <span className="text-3xl font-black text-slate-400 leading-none">/ {totalPeriods}</span>
                 </div>
             </div>
 
             {/* Stat 2: Unassigned Classes (Refined Icon + Color) */}
-            <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm flex flex-col justify-center items-center hover:shadow-md transition-all">
-                <div className="flex items-center gap-2 mb-1">
-                    <div className="p-1.5 bg-slate-100 text-slate-600 rounded-lg"><School size={16} /></div>
-                    <span className="text-[10px] font-bold text-slate-500">فصول غير مسندة</span>
+            <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-md flex flex-col justify-center items-center transition-all">
+                <div className="flex items-center gap-2 mb-2.5">
+                    <div className="p-1.5 bg-slate-100 text-slate-600 rounded-lg"><School size={18} /></div>
+                    <span className="text-xs font-bold text-slate-500">فصول غير مسندة</span>
                 </div>
-                <span className={`text-2xl font-black leading-none text-[#655ac1]`}>{unassignedClassesCount}</span>
+                <span className="text-3xl font-black leading-none text-[#655ac1]">{unassignedClassesCount}</span>
             </div>
 
             {/* Stat 3: Unassigned Subjects (Refined Color) */}
-            <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm flex flex-col justify-center items-center hover:shadow-md transition-all">
-                <div className="flex items-center gap-2 mb-1">
-                    <div className="p-1.5 bg-slate-100 text-slate-600 rounded-lg"><BookOpen size={16} /></div>
-                    <span className="text-[10px] font-bold text-slate-500">مواد غير مسندة</span>
+            <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-md flex flex-col justify-center items-center transition-all">
+                <div className="flex items-center gap-2 mb-2.5">
+                    <div className="p-1.5 bg-slate-100 text-slate-600 rounded-lg"><BookOpen size={18} /></div>
+                    <span className="text-xs font-bold text-slate-500">مواد غير مسندة</span>
                 </div>
-                <span className={`text-2xl font-black leading-none text-[#655ac1]`}>{unassignedSubjectsCount}</span>
+                <span className="text-3xl font-black leading-none text-[#655ac1]">{unassignedSubjectsCount}</span>
             </div>
 
             {/* Action 4: Report Button */}

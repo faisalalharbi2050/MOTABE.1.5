@@ -271,15 +271,18 @@ const DailyWaiting: React.FC<DailyWaitingProps> = ({
 
   // ── Reports Modal ──
   const [showReportsModal, setShowReportsModal] = useState(false);
-  const [reportsTab, setReportsTab] = useState<'weekly' | 'monthly' | 'individual'>('weekly');
-  const [reportWeekDate, setReportWeekDate] = useState<string>(getTodayStr());
-  const [reportMonth, setReportMonth] = useState<string>(() => {
-    const now = new Date();
-    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+
+  // ── Reports Modal (new design) ──
+  const [rptFromDate, setRptFromDate] = useState<string>(() => {
+    const d = new Date();
+    d.setDate(d.getDate() - 6);
+    return d.toISOString().split('T')[0];
   });
-  const [reportCalType, setReportCalType] = useState<'gregorian' | 'hijri'>('gregorian');
-  const [reportTeacherId, setReportTeacherId] = useState('');
-  const [reportIndividualType, setReportIndividualType] = useState<'weekly' | 'monthly'>('weekly');
+  const [rptToDate, setRptToDate] = useState<string>(getTodayStr());
+  const [rptStaffMode, setRptStaffMode] = useState<'all' | 'specific'>('all');
+  const [rptSelectedIds, setRptSelectedIds] = useState<Set<string>>(new Set());
+  const [rptSearch, setRptSearch] = useState('');
+  const [rptDropdownOpen, setRptDropdownOpen] = useState(false);
 
   // ── Balance Modal ──
   const [showBalanceModal, setShowBalanceModal] = useState(false);
@@ -599,6 +602,131 @@ const DailyWaiting: React.FC<DailyWaitingProps> = ({
     </style></head><body>${el.innerHTML}</body></html>`);
     w.document.close();
     setTimeout(() => { w.print(); }, 350);
+  };
+
+  // ── Reports print helper (new design) ──
+  const handleWaitingReportPrint = () => {
+    const calType = (schoolInfo.semesters?.[0]?.calendarType || schoolInfo.calendarType || 'hijri') as 'hijri' | 'gregorian';
+    const todayDate = new Date();
+    const todayDayName = todayDate.toLocaleDateString('ar-SA', { weekday: 'long' });
+    const todayHijri = new Intl.DateTimeFormat('ar-SA-u-ca-islamic', { day: 'numeric', month: 'long', year: 'numeric' }).format(todayDate);
+    const todayGregorian = new Intl.DateTimeFormat('ar-SA', { day: 'numeric', month: 'long', year: 'numeric' }).format(todayDate);
+
+    const fromDateDisplay = rptFromDate
+      ? calType === 'hijri'
+        ? new Intl.DateTimeFormat('ar-SA-u-ca-islamic', { day: 'numeric', month: 'long', year: 'numeric' }).format(new Date(rptFromDate))
+        : new Intl.DateTimeFormat('ar-SA', { day: 'numeric', month: 'long', year: 'numeric' }).format(new Date(rptFromDate))
+      : '';
+    const toDateDisplay = rptToDate
+      ? calType === 'hijri'
+        ? new Intl.DateTimeFormat('ar-SA-u-ca-islamic', { day: 'numeric', month: 'long', year: 'numeric' }).format(new Date(rptToDate))
+        : new Intl.DateTimeFormat('ar-SA', { day: 'numeric', month: 'long', year: 'numeric' }).format(new Date(rptToDate))
+      : '';
+
+    const fromDayName = rptFromDate ? new Date(rptFromDate).toLocaleDateString('ar-SA', { weekday: 'long' }) : '';
+    const toDayName = rptToDate ? new Date(rptToDate).toLocaleDateString('ar-SA', { weekday: 'long' }) : '';
+
+    const currentSemester = schoolInfo.semesters?.find(s => s.isCurrent) || schoolInfo.semesters?.[0];
+    const semesterName = currentSemester?.name || '';
+    const educationAdmin = schoolInfo.educationAdministration || schoolInfo.region || '';
+
+    const tableRows = rptTableData.map((row, idx) => {
+      const sortedPeriods = [...new Set(row.periods)].sort((a, b) => a - b);
+      const periodsDisplay = sortedPeriods.join(' ، ');
+      return `
+        <tr style="background:${idx % 2 === 0 ? '#fff' : '#f8fafc'}">
+          <td style="padding:9px 12px;border-bottom:1px solid #f1f5f9;font-weight:800;color:#1e293b;">${row.name}</td>
+          <td style="padding:9px 12px;border-bottom:1px solid #f1f5f9;text-align:center;color:#655ac1;font-weight:800;">${row.quota || '—'}</td>
+          <td style="padding:9px 12px;border-bottom:1px solid #f1f5f9;text-align:center;font-weight:900;color:#655ac1;font-size:15px;">${row.totalAssigned}</td>
+          <td style="padding:9px 12px;border-bottom:1px solid #f1f5f9;text-align:center;font-size:12px;color:#334155;">${periodsDisplay || '—'}</td>
+        </tr>`;
+    }).join('');
+
+    const w = window.open('', '_blank', 'width=900,height=750');
+    if (!w) return;
+    w.document.write(`<!DOCTYPE html>
+<html dir="rtl" lang="ar">
+<head>
+  <meta charset="utf-8"/>
+  <title>تقرير الانتظار اليومي</title>
+  <style>
+    * { margin:0; padding:0; box-sizing:border-box; }
+    body { font-family:'Segoe UI',Tahoma,'Arial',sans-serif; direction:rtl; color:#1e293b; padding:28px; }
+    .page-header { display:flex; justify-content:space-between; align-items:flex-start; border-bottom:2px solid #334155; padding-bottom:12px; margin-bottom:18px; }
+    .header-right { font-size:11px; line-height:1.9; color:#334155; font-weight:700; }
+    .header-center { text-align:center; font-size:13px; font-weight:900; color:#334155; display:flex; flex-direction:column; align-items:center; gap:4px; }
+    .header-left { font-size:11px; line-height:1.9; color:#334155; font-weight:700; text-align:left; }
+    .report-title { text-align:center; font-size:18px; font-weight:900; color:#655ac1; margin:12px 0 6px; }
+    .date-range { text-align:center; font-size:11px; color:#64748b; font-weight:700; margin-bottom:18px; }
+    table { width:100%; border-collapse:collapse; font-size:13px; margin-bottom:30px; }
+    thead th { background:#655ac1; color:#fff; padding:10px 12px; font-weight:800; border-left:1px solid #7c6fcf; }
+    thead th:last-child { border-left:none; }
+    tbody td { vertical-align:middle; }
+    .totals-row td { background:#f1f5f9 !important; font-weight:900; color:#475569; padding:9px 12px; border-top:2px solid #e2e8f0; }
+    .footer { margin-top:50px; display:flex; justify-content:space-between; font-size:12px; color:#475569; }
+    .signature-box { text-align:center; width:180px; }
+    .signature-line { margin-top:35px; border-top:1px solid #94a3b8; }
+    .ministry-logo { width:60px; height:60px; border:2px solid #94a3b8; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:9px; font-weight:900; color:#475569; text-align:center; line-height:1.3; }
+    @media print { @page { size:A4 portrait; margin:12mm; } body{-webkit-print-color-adjust:exact;print-color-adjust:exact;} }
+  </style>
+</head>
+<body>
+  <div class="page-header">
+    <div class="header-right">
+      <div>إدارة التعليم بمنطقة ${educationAdmin}</div>
+      <div>${schoolInfo.schoolName}</div>
+      ${semesterName ? `<div>${semesterName}</div>` : ''}
+    </div>
+    <div class="header-center">
+      <div class="ministry-logo">وزارة<br/>التعليم</div>
+    </div>
+    <div class="header-left">
+      <div>يوم: ${todayDayName}</div>
+      <div>الموافق: ${todayHijri}</div>
+      <div>الموافق: ${todayGregorian}</div>
+    </div>
+  </div>
+
+  <div class="report-title">تقرير الانتظار اليومي</div>
+  <div class="date-range">
+    من يوم (${fromDayName}) الموافق (${fromDateDisplay}) إلى يوم (${toDayName}) الموافق (${toDateDisplay})
+  </div>
+
+  ${rptTableData.length === 0 ? `
+    <p style="text-align:center;color:#94a3b8;font-size:14px;padding:30px;font-weight:bold;">لا توجد بيانات في الفترة الزمنية المحددة</p>
+  ` : `
+  <table>
+    <thead>
+      <tr>
+        <th style="text-align:right;">المنتظر</th>
+        <th style="text-align:center;width:110px;">نصاب الانتظار</th>
+        <th style="text-align:center;width:120px;">الانتظار المسند</th>
+        <th style="text-align:center;">الحصص المسندة</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${tableRows}
+      <tr class="totals-row">
+        <td>الإجمالي</td>
+        <td style="text-align:center;">—</td>
+        <td style="text-align:center;color:#655ac1;font-size:15px;">${rptTableData.reduce((s, r) => s + r.totalAssigned, 0)}</td>
+        <td></td>
+      </tr>
+    </tbody>
+  </table>
+  `}
+
+  <div class="footer">
+    <div class="signature-box">
+      <div>${schoolInfo.principal || 'مدير المدرسة'}</div>
+      <div class="signature-line"></div>
+    </div>
+  </div>
+</body>
+</html>`);
+    w.document.close();
+    setTimeout(() => { w.print(); }, 350);
+    showToast('تم فتح تقرير الانتظار', 'success');
   };
 
   // ── Phase 5: Print helper ──
@@ -1082,40 +1210,52 @@ const DailyWaiting: React.FC<DailyWaitingProps> = ({
     };
   }, [teachers, weeklyQuota]);
 
-  // ── Report computed data ──
-  const weeklyReportData = useMemo(() => {
-    const weekDates = getWeekDates(reportWeekDate);
-    const teacherMap: Record<string, { name: string; days: Record<string, number[]>; total: number }> = {};
+  // ── New report modal computed data ──
+  const rptCalType = (schoolInfo.semesters?.[0]?.calendarType || schoolInfo.calendarType || 'hijri') as 'hijri' | 'gregorian';
+
+  const allWaitingStaff = useMemo(() => {
+    const list: { id: string; name: string }[] = [];
+    teachers.forEach(t => { if ((t.waitingQuota || 0) > 0) list.push({ id: t.id, name: t.name }); });
+    admins.forEach(a => {
+      if (!ADMIN_BLOCKED_ROLES.some(r => a.role?.includes(r))) list.push({ id: a.id, name: a.name });
+    });
+    return list;
+  }, [teachers, admins]);
+
+  const rptTableData = useMemo(() => {
+    const staffMap: Record<string, { name: string; quota: number; totalAssigned: number; periods: number[] }> = {};
     for (const session of sessions) {
-      if (!weekDates.includes(session.date)) continue;
+      if (rptFromDate && session.date < rptFromDate) continue;
+      if (rptToDate && session.date > rptToDate) continue;
       for (const asgn of session.assignments) {
-        const tid = asgn.substituteTeacherId;
-        if (!teacherMap[tid]) teacherMap[tid] = { name: asgn.substituteTeacherName, days: {}, total: 0 };
-        if (!teacherMap[tid].days[session.date]) teacherMap[tid].days[session.date] = [];
-        teacherMap[tid].days[session.date].push(asgn.periodNumber);
-        teacherMap[tid].total++;
+        const sid = asgn.substituteTeacherId;
+        if (rptStaffMode === 'specific' && rptSelectedIds.size > 0 && !rptSelectedIds.has(sid)) continue;
+        if (!staffMap[sid]) {
+          const teacher = teachers.find(t => t.id === sid);
+          const admin = admins.find(a => a.id === sid);
+          const quota = teacher?.waitingQuota || admin?.waitingQuota || 0;
+          staffMap[sid] = { name: asgn.substituteTeacherName, quota, totalAssigned: 0, periods: [] };
+        }
+        staffMap[sid].totalAssigned++;
+        staffMap[sid].periods.push(asgn.periodNumber);
       }
     }
-    return { weekDates, rows: Object.values(teacherMap).sort((a, b) => b.total - a.total) };
-  }, [sessions, reportWeekDate]);
+    return Object.values(staffMap).sort((a, b) => b.totalAssigned - a.totalAssigned);
+  }, [sessions, rptFromDate, rptToDate, rptStaffMode, rptSelectedIds, teachers, admins]);
 
-  const monthlyReportData = useMemo(() => {
-    const weeks = getMonthWeeks(reportMonth);
-    const teacherMap: Record<string, { name: string; weekCounts: number[]; total: number }> = {};
-    weeks.forEach((week, wi) => {
-      const wSet = new Set(week.dates);
-      for (const session of sessions) {
-        if (!wSet.has(session.date)) continue;
-        for (const asgn of session.assignments) {
-          const tid = asgn.substituteTeacherId;
-          if (!teacherMap[tid]) teacherMap[tid] = { name: asgn.substituteTeacherName, weekCounts: [0, 0, 0, 0], total: 0 };
-          teacherMap[tid].weekCounts[wi]++;
-          teacherMap[tid].total++;
-        }
-      }
-    });
-    return { weeks, rows: Object.values(teacherMap).sort((a, b) => b.total - a.total) };
-  }, [sessions, reportMonth]);
+  const rptWeekTotal = useMemo(() => {
+    const weekDates = new Set(getWeekDates(getTodayStr()));
+    return sessions.reduce((sum, s) => weekDates.has(s.date) ? sum + s.assignments.length : sum, 0);
+  }, [sessions]);
+
+  const rptMonthTotal = useMemo(() => {
+    const today = getTodayStr();
+    const [cy, cm] = today.split('-').map(Number);
+    return sessions.reduce((sum, s) => {
+      const [sy, sm] = s.date.split('-').map(Number);
+      return sy === cy && sm === cm ? sum + s.assignments.length : sum;
+    }, 0);
+  }, [sessions]);
 
   // ── Phase 2: Shortage detection ──
   const shortageWarnings = useMemo(() => {
@@ -3072,13 +3212,13 @@ const DailyWaiting: React.FC<DailyWaitingProps> = ({
       )}
 
       {/* ════════════════════════════════════════════
-          MODAL: تقارير الانتظار
+          MODAL: تقارير الانتظار (NEW DESIGN)
       ════════════════════════════════════════════ */}
       {showReportsModal && ReactDOM.createPortal(
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[9999] flex items-center justify-center p-4">
-          <div className="bg-slate-50 rounded-3xl shadow-2xl w-full max-w-4xl h-[85vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-200" dir="rtl">
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[9999] flex items-center justify-center p-4" dir="rtl">
+          <div className="bg-slate-50 rounded-3xl shadow-2xl w-full max-w-4xl h-[90vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-200">
 
-            {/* Header */}
+            {/* ── Header ── */}
             <div className="bg-white border-b border-slate-200 px-6 py-4 flex flex-col sm:flex-row sm:items-center justify-between shrink-0 gap-4">
               <div className="flex items-center gap-3">
                 <div className="w-12 h-12 bg-[#e5e1fe] rounded-2xl flex items-center justify-center text-[#655ac1] shadow-sm">
@@ -3086,437 +3226,225 @@ const DailyWaiting: React.FC<DailyWaitingProps> = ({
                 </div>
                 <div>
                   <h2 className="text-xl font-black text-slate-800">تقارير الانتظار</h2>
-                  <p className="text-sm font-medium text-slate-500 mt-0.5">تقارير حصص الانتظار للمعلمين</p>
+                  <p className="text-sm font-medium text-slate-500 mt-0.5">تقارير حصص الانتظار اليومي للمنتظرين</p>
                 </div>
               </div>
-              <div className="flex items-center gap-2 self-end sm:self-auto">
-                <button
-                  onClick={handleReportPrint}
-                  className="flex items-center gap-2 bg-[#655ac1] hover:bg-[#5046a0] text-white px-5 py-2 rounded-xl font-bold text-sm transition-all hover:scale-105 active:scale-95 shadow-md shadow-[#655ac1]/20"
-                >
-                  <Printer size={16} /> طباعة / تصدير PDF
-                </button>
-                <button
-                  onClick={() => setShowReportsModal(false)}
-                  className="p-2.5 rounded-xl hover:bg-slate-100 text-slate-400 transition-colors self-end sm:self-auto"
-                >
-                  <X size={22} />
-                </button>
+              <button
+                onClick={() => setShowReportsModal(false)}
+                className="p-2.5 rounded-xl hover:bg-slate-100 text-slate-400 transition-colors self-end sm:self-auto"
+              >
+                <X size={22} />
+              </button>
+            </div>
+
+            {/* ── Scrollable Content ── */}
+            <div className="flex-1 overflow-y-auto p-6 space-y-6 bg-slate-50/50">
+
+              {/* ── بطاقات إحصائية ── */}
+              <div className="bg-white rounded-[2rem] p-6 shadow-sm border border-slate-100">
+                <div className="mb-5">
+                  <h3 className="text-base font-black text-slate-800">ملخص الانتظار</h3>
+                  <p className="text-xs font-medium text-slate-500 mt-0.5">إجمالي حصص الانتظار المسندة في الأسبوع والشهر الحاليين</p>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="bg-slate-100 border-2 border-slate-300 rounded-2xl p-5 text-center">
+                    <p className="text-3xl font-black text-[#655ac1]">{rptWeekTotal}</p>
+                    <p className="text-sm font-bold text-slate-600 mt-1">انتظار الأسبوع</p>
+                    <p className="text-xs text-slate-400 font-medium mt-0.5">يتم تصفيره كل أسبوع</p>
+                  </div>
+                  <div className="bg-slate-100 border-2 border-slate-300 rounded-2xl p-5 text-center">
+                    <p className="text-3xl font-black text-[#655ac1]">{rptMonthTotal}</p>
+                    <p className="text-sm font-bold text-slate-600 mt-1">انتظار الشهر</p>
+                    <p className="text-xs text-slate-400 font-medium mt-0.5">يتم تصفيره كل شهر</p>
+                  </div>
+                </div>
               </div>
-            </div>
 
-            {/* Tabs */}
-            <div className="flex gap-1 px-6 pt-4 pb-0 shrink-0 bg-white border-b border-slate-100">
-              {([
-                { key: 'weekly',     label: '📅 تقرير أسبوعي' },
-                { key: 'monthly',    label: '📆 تقرير شهري' },
-                { key: 'individual', label: '👤 تقرير فردي' },
-              ] as const).map(tab => (
-                <button
-                  key={tab.key}
-                  onClick={() => setReportsTab(tab.key)}
-                  className={`px-5 py-2.5 rounded-t-xl font-bold text-sm transition-all border-b-2 ${
-                    reportsTab === tab.key
-                      ? 'bg-[#e5e1fe] text-[#655ac1] border-[#655ac1]'
-                      : 'text-slate-500 border-transparent hover:text-slate-700 hover:bg-slate-50'
-                  }`}
-                >
-                  {tab.label}
-                </button>
-              ))}
-            </div>
-
-            {/* Content */}
-            <div className="flex-1 overflow-y-auto p-6 bg-slate-50/50 space-y-5">
-
-              {/* ── Weekly Report ── */}
-              {reportsTab === 'weekly' && (() => {
-                const { weekDates, rows } = weeklyReportData;
-                const sundayDate = weekDates[0];
-                const thursdayDate = weekDates[4];
-                const weekLabel = `من الأحد ${new Intl.DateTimeFormat('ar-SA', { day: 'numeric', month: 'long' }).format(new Date(sundayDate))} إلى الخميس ${new Intl.DateTimeFormat('ar-SA', { day: 'numeric', month: 'long', year: 'numeric' }).format(new Date(thursdayDate))}`;
-                const ARABIC_WEEK_DAYS = ['الأحد', 'الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس'];
-
-                return (
-                  <div>
-                    {/* Controls */}
-                    <div className="flex flex-wrap items-center gap-3 mb-5 bg-white rounded-[2rem] p-6 shadow-sm border border-slate-100">
-                      <label className="flex items-center gap-2 text-sm font-bold text-slate-600">
-                        <Calendar size={15} className="text-[#655ac1]" />
-                        اختر أسبوعاً:
-                      </label>
-                      <input
-                        type="date"
-                        value={reportWeekDate}
-                        onChange={e => setReportWeekDate(e.target.value)}
-                        className="text-sm font-bold text-slate-700 border border-slate-200 rounded-xl px-3 py-2 outline-none focus:border-[#655ac1] transition-colors"
-                      />
-                      <span className="text-xs text-slate-400 font-medium">({weekLabel})</span>
-                    </div>
-
-                    {/* Print area */}
-                    <div id="waiting-report-print-area" className="bg-white rounded-[2rem] shadow-sm border border-slate-100 overflow-hidden">
-                      <div className="p-6">
-                        <h1 style={{ fontSize: 16, fontWeight: 900, color: '#655ac1', marginBottom: 4 }}>التقرير الأسبوعي لحصص الانتظار</h1>
-                        <p className="subtitle" style={{ fontSize: 11, color: '#64748b', marginBottom: 20 }}>{weekLabel}</p>
-
-                        {rows.length === 0 ? (
-                          <div className="text-center text-slate-400 py-16 font-bold">
-                            لا توجد بيانات لهذا الأسبوع
-                          </div>
-                        ) : (
-                          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
-                            <thead>
-                              <tr>
-                                <th style={{ background: '#655ac1', color: '#fff', padding: '10px 14px', textAlign: 'right', fontWeight: 800, borderLeft: '1px solid #7c6fcf' }}>اسم المعلم</th>
-                                {weekDates.map((date, i) => (
-                                  <th key={date} style={{ background: '#655ac1', color: '#fff', padding: '10px 14px', textAlign: 'center', fontWeight: 800, borderLeft: '1px solid #7c6fcf', minWidth: 90 }}>
-                                    <div style={{ fontWeight: 900 }}>{ARABIC_WEEK_DAYS[i]}</div>
-                                    <div style={{ fontSize: 10, opacity: 0.8, marginTop: 2 }}>{new Intl.DateTimeFormat('ar-SA', { day: 'numeric', month: 'numeric' }).format(new Date(date))}</div>
-                                  </th>
-                                ))}
-                                <th style={{ background: '#5046a0', color: '#fff', padding: '10px 14px', textAlign: 'center', fontWeight: 900 }}>الإجمالي</th>
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {rows.map((row, ri) => (
-                                <tr key={ri} style={{ borderBottom: '1px solid #f1f5f9', background: ri % 2 === 0 ? '#fff' : '#f8fafc' }}>
-                                  <td style={{ padding: '10px 14px', fontWeight: 800, color: '#1e293b' }}>{row.name}</td>
-                                  {weekDates.map(date => {
-                                    const periods = row.days[date] || [];
-                                    return (
-                                      <td key={date} style={{ padding: '10px 14px', textAlign: 'center', fontSize: 12 }}>
-                                        {periods.length === 0 ? (
-                                          <span style={{ color: '#cbd5e1' }}>—</span>
-                                        ) : (
-                                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, justifyContent: 'center' }}>
-                                            {periods.sort((a, b) => a - b).map(p => (
-                                              <span key={p} style={{ display: 'inline-block', background: '#e5e1fe', color: '#655ac1', borderRadius: 99, padding: '2px 8px', fontSize: 11, fontWeight: 800 }}>{p}</span>
-                                            ))}
-                                          </div>
-                                        )}
-                                      </td>
-                                    );
-                                  })}
-                                  <td style={{ padding: '10px 14px', textAlign: 'center', fontWeight: 900, color: '#655ac1', fontSize: 15 }}>{row.total}</td>
-                                </tr>
-                              ))}
-                              {/* Totals row */}
-                              <tr style={{ background: '#f1f5f9', borderTop: '2px solid #e2e8f0' }}>
-                                <td style={{ padding: '10px 14px', fontWeight: 900, color: '#475569' }}>الإجمالي اليومي</td>
-                                {weekDates.map(date => {
-                                  const dayTotal = rows.reduce((s, r) => s + (r.days[date]?.length || 0), 0);
-                                  return (
-                                    <td key={date} style={{ padding: '10px 14px', textAlign: 'center', fontWeight: 900, color: '#475569' }}>
-                                      {dayTotal > 0 ? dayTotal : '—'}
-                                    </td>
-                                  );
-                                })}
-                                <td style={{ padding: '10px 14px', textAlign: 'center', fontWeight: 900, color: '#655ac1', fontSize: 15 }}>
-                                  {rows.reduce((s, r) => s + r.total, 0)}
-                                </td>
-                              </tr>
-                            </tbody>
-                          </table>
-                        )}
-                      </div>
-                    </div>
+              {/* ── تحديد الفترة الزمنية ── */}
+              <div className="bg-white rounded-[2rem] p-6 shadow-sm border border-slate-100">
+                <p className="text-sm font-black text-slate-700 mb-4 flex items-center gap-2">
+                  <Calendar size={17} className="text-[#655ac1]" /> تحديد الفترة الزمنية
+                </p>
+                <div className="flex flex-wrap gap-4">
+                  <div className="flex-1 min-w-[150px]">
+                    <label className="text-xs font-bold text-slate-600 mb-1.5 block">من تاريخ</label>
+                    <input
+                      type="date"
+                      value={rptFromDate}
+                      onChange={e => setRptFromDate(e.target.value)}
+                      className="w-full px-3 py-2.5 border border-slate-200 rounded-xl text-sm outline-none focus:ring-1 focus:border-[#655ac1] bg-slate-50"
+                    />
+                    {rptFromDate && (
+                      <p className="text-xs text-[#655ac1] font-bold mt-1">
+                        {rptCalType === 'hijri'
+                          ? new Intl.DateTimeFormat('ar-SA-u-ca-islamic', { day: 'numeric', month: 'long', year: 'numeric' }).format(new Date(rptFromDate))
+                          : new Intl.DateTimeFormat('ar-SA', { day: 'numeric', month: 'long', year: 'numeric' }).format(new Date(rptFromDate))}
+                      </p>
+                    )}
                   </div>
-                );
-              })()}
+                  <div className="flex-1 min-w-[150px]">
+                    <label className="text-xs font-bold text-slate-600 mb-1.5 block">إلى تاريخ</label>
+                    <input
+                      type="date"
+                      value={rptToDate}
+                      onChange={e => setRptToDate(e.target.value)}
+                      className="w-full px-3 py-2.5 border border-slate-200 rounded-xl text-sm outline-none focus:ring-1 focus:border-[#655ac1] bg-slate-50"
+                    />
+                    {rptToDate && (
+                      <p className="text-xs text-[#655ac1] font-bold mt-1">
+                        {rptCalType === 'hijri'
+                          ? new Intl.DateTimeFormat('ar-SA-u-ca-islamic', { day: 'numeric', month: 'long', year: 'numeric' }).format(new Date(rptToDate))
+                          : new Intl.DateTimeFormat('ar-SA', { day: 'numeric', month: 'long', year: 'numeric' }).format(new Date(rptToDate))}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </div>
 
-              {/* ── Monthly Report ── */}
-              {reportsTab === 'monthly' && (() => {
-                const { weeks, rows } = monthlyReportData;
-                const monthTitle = formatMonthName(reportMonth, reportCalType);
+              {/* ── اختيار المنتظر ── */}
+              <div className="bg-white rounded-[2rem] p-6 shadow-sm border border-slate-100">
+                <p className="text-sm font-black text-slate-700 mb-4 flex items-center gap-2">
+                  <Users size={17} className="text-[#655ac1]" /> اختيار المنتظر
+                </p>
+                <div className="flex bg-slate-50 p-1.5 rounded-xl border border-slate-200 w-fit mb-4">
+                  <button
+                    onClick={() => { setRptStaffMode('all'); setRptSelectedIds(new Set()); }}
+                    className={`px-5 py-2 rounded-lg text-sm font-bold transition-all ${rptStaffMode === 'all' ? 'bg-white shadow-sm text-[#655ac1]' : 'text-slate-500 hover:text-slate-700'}`}
+                  >كل المنتظرين</button>
+                  <button
+                    onClick={() => setRptStaffMode('specific')}
+                    className={`px-5 py-2 rounded-lg text-sm font-bold transition-all ${rptStaffMode === 'specific' ? 'bg-white shadow-sm text-[#655ac1]' : 'text-slate-500 hover:text-slate-700'}`}
+                  >منتظر محدد</button>
+                </div>
 
-                return (
-                  <div>
-                    {/* Controls */}
-                    <div className="flex flex-wrap items-center gap-3 mb-5 bg-white rounded-[2rem] p-6 shadow-sm border border-slate-100">
-                      <label className="flex items-center gap-2 text-sm font-bold text-slate-600">
-                        <Calendar size={15} className="text-[#655ac1]" />
-                        الشهر:
-                      </label>
-                      <input
-                        type="month"
-                        value={reportMonth}
-                        onChange={e => setReportMonth(e.target.value)}
-                        className="text-sm font-bold text-slate-700 border border-slate-200 rounded-xl px-3 py-2 outline-none focus:border-[#655ac1] transition-colors"
-                      />
-                      <div className="flex items-center gap-1 mr-2">
-                        {(['gregorian', 'hijri'] as const).map(type => (
+                {rptStaffMode === 'specific' && (
+                  <div className="relative max-w-sm">
+                    <Search size={16} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400" />
+                    <input
+                      type="text"
+                      placeholder="ابحث عن منتظر..."
+                      value={rptSearch}
+                      onChange={e => setRptSearch(e.target.value)}
+                      onFocus={() => setRptDropdownOpen(true)}
+                      onBlur={() => setTimeout(() => setRptDropdownOpen(false), 200)}
+                      className="w-full pr-10 pl-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-700 outline-none focus:border-[#655ac1] focus:ring-1 focus:ring-[#655ac1]"
+                    />
+                    {rptDropdownOpen && (
+                      <div className="absolute top-[calc(100%+0.5rem)] left-0 right-0 bg-white rounded-xl shadow-xl border border-slate-100 max-h-56 overflow-y-auto z-[99]">
+                        {allWaitingStaff.filter(s => s.name.includes(rptSearch)).map(s => (
                           <button
-                            key={type}
-                            onClick={() => setReportCalType(type)}
-                            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${reportCalType === type ? 'bg-[#655ac1] text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
+                            key={s.id}
+                            onMouseDown={() => {
+                              setRptSelectedIds(prev => {
+                                const next = new Set(prev);
+                                next.has(s.id) ? next.delete(s.id) : next.add(s.id);
+                                return next;
+                              });
+                            }}
+                            className="w-full text-right px-4 py-2.5 hover:bg-slate-50 text-sm font-bold text-slate-700 border-b border-slate-50 last:border-0 flex items-center justify-between transition-colors"
                           >
-                            {type === 'gregorian' ? 'ميلادي' : 'هجري'}
+                            {s.name}
+                            {rptSelectedIds.has(s.id) && <Check size={16} className="text-[#655ac1]" />}
                           </button>
                         ))}
-                      </div>
-                    </div>
-
-                    {/* Print area */}
-                    <div id="waiting-report-print-area" className="bg-white rounded-[2rem] shadow-sm border border-slate-100 overflow-hidden">
-                      <div className="p-6">
-                        <h1 style={{ fontSize: 16, fontWeight: 900, color: '#655ac1', marginBottom: 4 }}>التقرير الشهري لحصص الانتظار</h1>
-                        <p className="subtitle" style={{ fontSize: 11, color: '#64748b', marginBottom: 20 }}>شهر: {monthTitle}</p>
-
-                        {rows.length === 0 ? (
-                          <div className="text-center text-slate-400 py-16 font-bold">
-                            لا توجد بيانات لهذا الشهر
-                          </div>
-                        ) : (
-                          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
-                            <thead>
-                              <tr>
-                                <th style={{ background: '#655ac1', color: '#fff', padding: '10px 14px', textAlign: 'right', fontWeight: 800, borderLeft: '1px solid #7c6fcf' }}>اسم المعلم</th>
-                                {weeks.map(w => (
-                                  <th key={w.label} style={{ background: '#655ac1', color: '#fff', padding: '10px 14px', textAlign: 'center', fontWeight: 800, borderLeft: '1px solid #7c6fcf', minWidth: 100 }}>
-                                    {w.label}
-                                  </th>
-                                ))}
-                                <th style={{ background: '#5046a0', color: '#fff', padding: '10px 14px', textAlign: 'center', fontWeight: 900 }}>الإجمالي</th>
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {rows.map((row, ri) => (
-                                <tr key={ri} style={{ borderBottom: '1px solid #f1f5f9', background: ri % 2 === 0 ? '#fff' : '#f8fafc' }}>
-                                  <td style={{ padding: '10px 14px', fontWeight: 800 }}>{row.name}</td>
-                                  {row.weekCounts.map((cnt, wi) => (
-                                    <td key={wi} style={{ padding: '10px 14px', textAlign: 'center' }}>
-                                      {cnt > 0 ? (
-                                        <span style={{ display: 'inline-block', background: '#e5e1fe', color: '#655ac1', borderRadius: 99, padding: '3px 10px', fontWeight: 800 }}>{cnt}</span>
-                                      ) : (
-                                        <span style={{ color: '#cbd5e1' }}>—</span>
-                                      )}
-                                    </td>
-                                  ))}
-                                  <td style={{ padding: '10px 14px', textAlign: 'center', fontWeight: 900, color: '#655ac1', fontSize: 15 }}>{row.total}</td>
-                                </tr>
-                              ))}
-                              {/* Totals row */}
-                              <tr style={{ background: '#f1f5f9', borderTop: '2px solid #e2e8f0' }}>
-                                <td style={{ padding: '10px 14px', fontWeight: 900, color: '#475569' }}>مجموع الأسبوع</td>
-                                {weeks.map((_, wi) => {
-                                  const wTotal = rows.reduce((s, r) => s + r.weekCounts[wi], 0);
-                                  return (
-                                    <td key={wi} style={{ padding: '10px 14px', textAlign: 'center', fontWeight: 900, color: '#475569' }}>
-                                      {wTotal > 0 ? wTotal : '—'}
-                                    </td>
-                                  );
-                                })}
-                                <td style={{ padding: '10px 14px', textAlign: 'center', fontWeight: 900, color: '#655ac1', fontSize: 15 }}>
-                                  {rows.reduce((s, r) => s + r.total, 0)}
-                                </td>
-                              </tr>
-                            </tbody>
-                          </table>
+                        {allWaitingStaff.filter(s => s.name.includes(rptSearch)).length === 0 && (
+                          <div className="p-4 text-center text-sm text-slate-500">لا توجد نتائج</div>
                         )}
                       </div>
-                    </div>
-                  </div>
-                );
-              })()}
-
-              {/* ── Individual Report ── */}
-              {reportsTab === 'individual' && (() => {
-                const selectedTeacher = teachers.find(t => t.id === reportTeacherId);
-
-                // Filter report data to this teacher
-                const indWeekDates = getWeekDates(reportWeekDate);
-                const indWeeks = getMonthWeeks(reportMonth);
-                const ARABIC_WEEK_DAYS = ['الأحد', 'الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس'];
-
-                const indWeeklyDays: Record<string, number[]> = {};
-                let indWeeklyTotal = 0;
-                if (reportTeacherId) {
-                  for (const session of sessions) {
-                    if (!indWeekDates.includes(session.date)) continue;
-                    for (const asgn of session.assignments) {
-                      if (asgn.substituteTeacherId !== reportTeacherId) continue;
-                      if (!indWeeklyDays[session.date]) indWeeklyDays[session.date] = [];
-                      indWeeklyDays[session.date].push(asgn.periodNumber);
-                      indWeeklyTotal++;
-                    }
-                  }
-                }
-
-                const indMonthlyWeekCounts: number[] = [0, 0, 0, 0];
-                let indMonthlyTotal = 0;
-                if (reportTeacherId) {
-                  indWeeks.forEach((week, wi) => {
-                    const wSet = new Set(week.dates);
-                    for (const session of sessions) {
-                      if (!wSet.has(session.date)) continue;
-                      for (const asgn of session.assignments) {
-                        if (asgn.substituteTeacherId !== reportTeacherId) continue;
-                        indMonthlyWeekCounts[wi]++;
-                        indMonthlyTotal++;
-                      }
-                    }
-                  });
-                }
-
-                return (
-                  <div>
-                    {/* Controls */}
-                    <div className="flex flex-wrap items-center gap-3 mb-5 bg-white rounded-[2rem] p-6 shadow-sm border border-slate-100">
-                      <label className="flex items-center gap-2 text-sm font-bold text-slate-600">
-                        <Users size={15} className="text-[#655ac1]" />
-                        المعلم:
-                      </label>
-                      <select
-                        value={reportTeacherId}
-                        onChange={e => setReportTeacherId(e.target.value)}
-                        className="text-sm font-bold text-slate-700 border border-slate-200 rounded-xl px-3 py-2 outline-none focus:border-[#655ac1] transition-colors min-w-[200px]"
-                      >
-                        <option value="">— اختر معلماً —</option>
-                        {teachers.filter(t => (t.waitingQuota || 0) > 0).map(t => (
-                          <option key={t.id} value={t.id}>{t.name}</option>
-                        ))}
-                      </select>
-
-                      <div className="w-px h-6 bg-slate-200 mx-1" />
-
-                      <label className="text-sm font-bold text-slate-600">نوع التقرير:</label>
-                      <div className="flex items-center gap-1">
-                        {(['weekly', 'monthly'] as const).map(type => (
-                          <button
-                            key={type}
-                            onClick={() => setReportIndividualType(type)}
-                            className={`px-4 py-1.5 rounded-lg text-sm font-bold transition-all ${reportIndividualType === type ? 'bg-[#655ac1] text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
-                          >
-                            {type === 'weekly' ? '📅 أسبوعي' : '📆 شهري'}
-                          </button>
-                        ))}
-                      </div>
-
-                      {reportIndividualType === 'weekly' ? (
-                        <input
-                          type="date"
-                          value={reportWeekDate}
-                          onChange={e => setReportWeekDate(e.target.value)}
-                          className="text-sm font-bold text-slate-700 border border-slate-200 rounded-xl px-3 py-2 outline-none focus:border-[#655ac1] transition-colors"
-                        />
-                      ) : (
-                        <input
-                          type="month"
-                          value={reportMonth}
-                          onChange={e => setReportMonth(e.target.value)}
-                          className="text-sm font-bold text-slate-700 border border-slate-200 rounded-xl px-3 py-2 outline-none focus:border-[#655ac1] transition-colors"
-                        />
-                      )}
-                    </div>
-
-                    {!reportTeacherId ? (
-                      <div className="text-center text-slate-400 py-20 font-bold text-lg bg-white rounded-[2rem] shadow-sm border border-slate-100">
-                        اختر معلماً لعرض التقرير
-                      </div>
-                    ) : (
-                      <div id="waiting-report-print-area" className="bg-white rounded-[2rem] shadow-sm border border-slate-100 overflow-hidden">
-                        <div className="p-6">
-                          {/* Teacher info header */}
-                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '3px solid #655ac1', paddingBottom: 14, marginBottom: 20 }}>
-                            <div>
-                              <h1 style={{ fontSize: 16, fontWeight: 900, color: '#655ac1', marginBottom: 3 }}>
-                                تقرير حصص الانتظار — {selectedTeacher?.name}
-                              </h1>
-                              <p style={{ fontSize: 11, color: '#64748b' }}>
-                                {reportIndividualType === 'weekly'
-                                  ? `أسبوع: من الأحد ${new Intl.DateTimeFormat('ar-SA', { day: 'numeric', month: 'long' }).format(new Date(indWeekDates[0]))} إلى الخميس ${new Intl.DateTimeFormat('ar-SA', { day: 'numeric', month: 'long', year: 'numeric' }).format(new Date(indWeekDates[4]))}`
-                                  : `شهر: ${formatMonthName(reportMonth, reportCalType)}`
-                                }
-                              </p>
-                            </div>
-                            <div style={{ textAlign: 'center', background: '#e5e1fe', borderRadius: 16, padding: '12px 20px' }}>
-                              <div style={{ fontSize: 28, fontWeight: 900, color: '#655ac1' }}>
-                                {reportIndividualType === 'weekly' ? indWeeklyTotal : indMonthlyTotal}
-                              </div>
-                              <div style={{ fontSize: 10, color: '#7c6fcf', fontWeight: 800, marginTop: 2 }}>إجمالي الحصص</div>
-                            </div>
-                          </div>
-
-                          {reportIndividualType === 'weekly' ? (
-                            /* Weekly individual table */
-                            indWeeklyTotal === 0 ? (
-                              <div className="text-center text-slate-400 py-10 font-bold">لا توجد حصص انتظار لهذا الأسبوع</div>
-                            ) : (
-                              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
-                                <thead>
-                                  <tr>
-                                    {indWeekDates.map((date, i) => (
-                                      <th key={date} style={{ background: '#655ac1', color: '#fff', padding: '10px 14px', textAlign: 'center', fontWeight: 800, borderLeft: '1px solid #7c6fcf' }}>
-                                        <div>{ARABIC_WEEK_DAYS[i]}</div>
-                                        <div style={{ fontSize: 10, opacity: 0.8, marginTop: 2 }}>{new Intl.DateTimeFormat('ar-SA', { day: 'numeric', month: 'numeric' }).format(new Date(date))}</div>
-                                      </th>
-                                    ))}
-                                    <th style={{ background: '#5046a0', color: '#fff', padding: '10px 14px', textAlign: 'center', fontWeight: 900 }}>الإجمالي</th>
-                                  </tr>
-                                </thead>
-                                <tbody>
-                                  <tr>
-                                    {indWeekDates.map(date => {
-                                      const periods = indWeeklyDays[date] || [];
-                                      return (
-                                        <td key={date} style={{ padding: '14px', textAlign: 'center', borderBottom: '1px solid #f1f5f9' }}>
-                                          {periods.length === 0 ? (
-                                            <span style={{ color: '#cbd5e1' }}>—</span>
-                                          ) : (
-                                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, justifyContent: 'center' }}>
-                                              {periods.sort((a, b) => a - b).map(p => (
-                                                <span key={p} style={{ display: 'inline-block', background: '#e5e1fe', color: '#655ac1', borderRadius: 99, padding: '3px 10px', fontSize: 12, fontWeight: 800 }}>{p}</span>
-                                              ))}
-                                            </div>
-                                          )}
-                                        </td>
-                                      );
-                                    })}
-                                    <td style={{ padding: '14px', textAlign: 'center', fontWeight: 900, color: '#655ac1', fontSize: 18 }}>{indWeeklyTotal}</td>
-                                  </tr>
-                                </tbody>
-                              </table>
-                            )
-                          ) : (
-                            /* Monthly individual table */
-                            indMonthlyTotal === 0 ? (
-                              <div className="text-center text-slate-400 py-10 font-bold">لا توجد حصص انتظار لهذا الشهر</div>
-                            ) : (
-                              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
-                                <thead>
-                                  <tr>
-                                    {indWeeks.map(w => (
-                                      <th key={w.label} style={{ background: '#655ac1', color: '#fff', padding: '10px 14px', textAlign: 'center', fontWeight: 800, borderLeft: '1px solid #7c6fcf' }}>
-                                        {w.label}
-                                      </th>
-                                    ))}
-                                    <th style={{ background: '#5046a0', color: '#fff', padding: '10px 14px', textAlign: 'center', fontWeight: 900 }}>الإجمالي</th>
-                                  </tr>
-                                </thead>
-                                <tbody>
-                                  <tr>
-                                    {indMonthlyWeekCounts.map((cnt, wi) => (
-                                      <td key={wi} style={{ padding: '14px', textAlign: 'center', borderBottom: '1px solid #f1f5f9' }}>
-                                        {cnt > 0 ? (
-                                          <span style={{ display: 'inline-block', background: '#e5e1fe', color: '#655ac1', borderRadius: 99, padding: '3px 14px', fontWeight: 800, fontSize: 15 }}>{cnt}</span>
-                                        ) : (
-                                          <span style={{ color: '#cbd5e1' }}>—</span>
-                                        )}
-                                      </td>
-                                    ))}
-                                    <td style={{ padding: '14px', textAlign: 'center', fontWeight: 900, color: '#655ac1', fontSize: 18 }}>{indMonthlyTotal}</td>
-                                  </tr>
-                                </tbody>
-                              </table>
-                            )
-                          )}
-                        </div>
+                    )}
+                    {rptSelectedIds.size > 0 && (
+                      <div className="flex flex-wrap gap-2 mt-3">
+                        {Array.from(rptSelectedIds).map(id => {
+                          const s = allWaitingStaff.find(x => x.id === id);
+                          return s ? (
+                            <span key={id} className="flex items-center gap-1.5 text-xs font-bold text-[#655ac1] bg-[#e5e1fe]/60 px-3 py-1.5 rounded-lg">
+                              {s.name}
+                              <button onClick={() => setRptSelectedIds(prev => { const n = new Set(prev); n.delete(id); return n; })} className="hover:bg-[#655ac1]/20 p-0.5 rounded-full"><X size={11}/></button>
+                            </span>
+                          ) : null;
+                        })}
                       </div>
                     )}
                   </div>
-                );
-              })()}
+                )}
+              </div>
+
+              {/* ── جدول بيانات المنتظرين ── */}
+              <div className="bg-white rounded-[2rem] shadow-sm border border-slate-100 overflow-hidden">
+                <div className="p-6 border-b border-slate-100">
+                  <h3 className="text-base font-black text-slate-800">بيانات الانتظار</h3>
+                  <p className="text-xs font-medium text-slate-500 mt-0.5">
+                    {rptFromDate && rptToDate ? `من ${new Date(rptFromDate).toLocaleDateString('ar-SA', { day: 'numeric', month: 'long' })} إلى ${new Date(rptToDate).toLocaleDateString('ar-SA', { day: 'numeric', month: 'long', year: 'numeric' })}` : 'كل البيانات'}
+                  </p>
+                </div>
+                {rptTableData.length === 0 ? (
+                  <div className="text-center text-slate-400 py-16 font-bold">
+                    <FileText size={40} className="mx-auto mb-3 opacity-30" />
+                    لا توجد بيانات في الفترة الزمنية المحددة
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full border-collapse text-sm">
+                      <thead>
+                        <tr>
+                          <th className="bg-[#655ac1] text-white font-black px-4 py-3 text-right" style={{ borderLeft: '1px solid #7c6fcf' }}>المنتظر</th>
+                          <th className="bg-[#655ac1] text-white font-black px-4 py-3 text-center" style={{ borderLeft: '1px solid #7c6fcf', width: 120 }}>نصاب الانتظار</th>
+                          <th className="bg-[#655ac1] text-white font-black px-4 py-3 text-center" style={{ borderLeft: '1px solid #7c6fcf', width: 130 }}>الانتظار المسند</th>
+                          <th className="bg-[#5046a0] text-white font-black px-4 py-3 text-center">الحصص المسندة</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {rptTableData.map((row, idx) => {
+                          const sortedPeriods = [...new Set(row.periods)].sort((a, b) => a - b);
+                          return (
+                            <tr key={idx} className={idx % 2 === 0 ? 'bg-white' : 'bg-slate-50'}>
+                              <td className="px-4 py-3 font-bold text-slate-800">{row.name}</td>
+                              <td className="px-4 py-3 text-center">
+                                <span className="inline-block bg-[#e5e1fe] text-[#655ac1] font-black px-3 py-1 rounded-full text-xs">
+                                  {row.quota || '—'}
+                                </span>
+                              </td>
+                              <td className="px-4 py-3 text-center">
+                                <span className="inline-block bg-[#655ac1] text-white font-black px-3 py-1 rounded-full text-sm">
+                                  {row.totalAssigned}
+                                </span>
+                              </td>
+                              <td className="px-4 py-3 text-center">
+                                <div className="flex flex-wrap gap-1.5 justify-center">
+                                  {sortedPeriods.map(p => (
+                                    <span key={p} className="inline-block bg-slate-100 border border-slate-300 text-slate-700 font-black px-2.5 py-0.5 rounded-full text-xs">{p}</span>
+                                  ))}
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                        <tr className="bg-slate-100 border-t-2 border-slate-200">
+                          <td className="px-4 py-3 font-black text-slate-600">الإجمالي</td>
+                          <td className="px-4 py-3 text-center text-slate-400">—</td>
+                          <td className="px-4 py-3 text-center">
+                            <span className="inline-block bg-[#655ac1] text-white font-black px-3 py-1 rounded-full">
+                              {rptTableData.reduce((s, r) => s + r.totalAssigned, 0)}
+                            </span>
+                          </td>
+                          <td></td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+
+              {/* ── زر الطباعة ── */}
+              <div className="bg-white rounded-[2rem] p-6 shadow-sm border border-slate-100">
+                <button
+                  onClick={handleWaitingReportPrint}
+                  className="flex items-center gap-2 bg-[#655ac1] hover:bg-[#5046a0] text-white px-6 py-2.5 rounded-xl text-sm font-bold shadow-md shadow-[#655ac1]/20 transition-all hover:scale-105 active:scale-95"
+                >
+                  <Printer size={16} />
+                  طباعة تقرير الانتظار
+                </button>
+              </div>
 
             </div>
           </div>

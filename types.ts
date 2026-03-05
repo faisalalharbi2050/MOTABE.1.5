@@ -98,6 +98,7 @@ export interface SchoolInfo {
   semesters?: SemesterInfo[];
   currentSemesterId?: string;
   academicYear?: string;
+  calendarType?: 'hijri' | 'gregorian';
   isWizardCompleted?: boolean;
   
   // Custom/Institute Mode configuration
