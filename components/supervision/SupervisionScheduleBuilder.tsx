@@ -372,13 +372,6 @@ const SupervisionScheduleBuilder: React.FC<Props> = ({
                 <th className="p-4 font-black text-slate-700 w-32 border-l border-slate-200/60">اليوم</th>
                 <th className="p-4 font-black text-slate-700 w-64 border-l border-slate-200/60">المشرف</th>
                 <th className="p-4 font-black text-slate-700 w-64 border-l border-slate-200/60">موقع الإشراف</th>
-                {/* Dynamically checking if ANY day has >5 staff to add extra columns */}
-                {activeDays.some(day => getDayAssignment(day).staffAssignments.length > 5) && (
-                   <>
-                     <th className="p-4 font-black text-slate-700 w-64 border-l border-slate-200/60 bg-indigo-50/30">المشرف</th>
-                     <th className="p-4 font-black text-slate-700 w-64 border-l border-slate-200/60 bg-indigo-50/30">موقع الإشراف</th>
-                   </>
-                )}
                 <th className="p-4 font-black text-slate-700 w-56">المشرف المتابع</th>
               </tr>
             </thead>
@@ -388,22 +381,18 @@ const SupervisionScheduleBuilder: React.FC<Props> = ({
                 const staffCount = da.staffAssignments.length;
                 const showAdd = showAddPanel === day;
                 const isFollowUpOpen = showFollowUpPicker === day;
-                const hasExtraCols = activeDays.some(d => getDayAssignment(d).staffAssignments.length > 5);
                 
-                // Split staff into two chunks if there are extra columns and staff > 5
-                const midPoint = Math.ceil(staffCount / 2);
-                const firstColStaff = hasExtraCols && staffCount > 5 ? da.staffAssignments.slice(0, midPoint) : da.staffAssignments;
-                const secondColStaff = hasExtraCols && staffCount > 5 ? da.staffAssignments.slice(midPoint) : [];
+                // All staff in a single column
+                const allStaff = da.staffAssignments;
                 
-                // Rows needed for this day is the max length of the two chunks, or 1 if empty
-                const rowsPerDay = Math.max(1, firstColStaff.length);
+                // Rows needed for this day, or 1 if empty
+                const rowsPerDay = Math.max(1, allStaff.length);
 
                 return (
                   <React.Fragment key={day}>
                     {/* Render rows for the day */}
                     {Array.from({ length: rowsPerDay }).map((_, rowIndex) => {
-                       const staff1 = firstColStaff[rowIndex];
-                       const staff2 = secondColStaff[rowIndex];
+                       const staff1 = allStaff[rowIndex];
                        
                        const isFirstRow = rowIndex === 0;
                        
@@ -513,40 +502,7 @@ const SupervisionScheduleBuilder: React.FC<Props> = ({
                               ) : null}
                            </td>
                            
-                           {/* Extra Columns handling (Supervisor 2 & Location 2) */}
-                           {hasExtraCols && (
-                             <>
-                               <td className="p-3 border-l border-slate-200/60 align-middle bg-indigo-50/10">
-                                  {staff2 ? (
-                                    <div className="flex items-center justify-between group">
-                                       <div className="flex flex-col">
-                                         <span className="font-bold text-slate-800 text-sm truncate max-w-[130px]">{staff2.staffName}</span>
-                                       </div>
-                                       <button onClick={() => removeStaffFromDay(day, staff2.staffId)} className="p-1.5 text-rose-400 hover:text-rose-600 hover:bg-rose-50 rounded-md transition-all shadow-sm border border-transparent hover:border-rose-100" title="حذف المشرف">
-                                         <Trash2 size={14} />
-                                       </button>
-                                    </div>
-                                  ) : null}
-                               </td>
-                               <td className="p-3 border-l border-slate-200/60 align-middle bg-indigo-50/10">
-                                  {staff2 ? (
-                                    <div className="flex items-center gap-2 group relative">
-                                      <select 
-                                        value={staff2.locationIds[0] || ''}
-                                        onChange={(e) => setLocation(day, staff2.staffId, e.target.value)}
-                                        className="w-full bg-slate-50 hover:bg-white border border-slate-200 hover:border-[#655ac1]/50 text-slate-700 text-xs font-bold rounded-xl px-3 py-2.5 focus:ring-2 focus:ring-[#655ac1]/20 focus:border-[#655ac1] outline-none transition-all appearance-none cursor-pointer"
-                                      >
-                                        <option value="" disabled>اختر موقع...</option>
-                                        {activeLocations.map(loc => (
-                                          <option key={loc.id} value={loc.id}>{loc.name}</option>
-                                        ))}
-                                      </select>
-                                      <ChevronDown size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
-                                    </div>
-                                  ) : null}
-                               </td>
-                             </>
-                           )}
+
 
                            {/* Follow Up Cell (Rowspan if first row) */}
                            {isFirstRow && (
@@ -604,9 +560,9 @@ const SupervisionScheduleBuilder: React.FC<Props> = ({
                     })}
                     
                     {/* Only show 'Add More' row after the staff if we manually assigned some but want to add more, though the dropdown is powerful enough. Included for ease. */}
-                    {staffCount > 0 && Math.max(1, firstColStaff.length) > 0 && (
+                    {staffCount > 0 && (
                        <tr className="border-b-2 border-slate-200">
-                         <td colSpan={hasExtraCols ? 5 : 3} className="p-2 border-l border-slate-200/60 bg-slate-50/30 text-center relative">
+                         <td colSpan={3} className="p-2 border-l border-slate-200/60 bg-slate-50/30 text-center relative">
                             <button onClick={() => { setShowAddPanel(day); setSelectedStaffIds([]); setAddSearch(''); }} className="inline-flex items-center gap-1 text-xs font-bold text-[#655ac1] hover:text-[#8779fb] bg-[#e5e1fe]/50 hover:bg-[#e5e1fe] px-3 py-1.5 rounded-lg transition-colors">
                                <Plus size={12} /> إضافة المزيد من المشرفين ليوم {DAY_NAMES[day]}
                             </button>
